@@ -104,6 +104,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
 	TObjectPtr<USkeletalMeshComponent> RightHandMesh;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
+	TObjectPtr<UTextRenderComponent> AltimeterText;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float DefaultLocomotionSpeedCmPerSec = 400.f;
 

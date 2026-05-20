@@ -55,10 +55,35 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 	if (IsLocallyControlled())
 	{
 		PollXRInput();
-		ApplySmoothLocomotion(CachedMoveInput, DeltaTime);
-		ApplyVerticalVelocity(VerticalVelocityCmPerSec * DeltaTime);
-		VerticalVelocityCmPerSec = FMath::FInterpTo(VerticalVelocityCmPerSec, 0.f, DeltaTime, 4.f);
+		
+		if (bIsClimbing)
+		{
+			UpdateClimbingMovement(DeltaTime);
+		}
+		else if (bGliderActive)
+		{
+			UpdateGlidingMovement(DeltaTime);
+		}
+		else
+		{
+			ApplySmoothLocomotion(CachedMoveInput, DeltaTime);
+			ApplyVerticalVelocity(VerticalVelocityCmPerSec * DeltaTime);
+			VerticalVelocityCmPerSec = FMath::FInterpTo(VerticalVelocityCmPerSec, 0.f, DeltaTime, 4.f);
+		}
+		
 		UpdateAltitudeTracking();
+
+		if (AltimeterText)
+		{
+			if (UWorld* World = GetWorld())
+			{
+				if (UMistspireAltitudeSubsystem* Alt = World->GetSubsystem<UMistspireAltitudeSubsystem>())
+				{
+					float Meters = Alt->GetCurrentAltitudeCm() / 100.f;
+					AltimeterText->SetText(FText::Format(NSLOCTEXT("Mistspire", "AltFormat", "{0}m"), FText::AsNumber(FMath::RoundToInt(Meters))));
+				}
+			}
+		}
 	}
 }
 
@@ -198,12 +223,22 @@ void AMistspireVRPawn::UpdateGlidingMovement(float DeltaTime)
 	// 1. Gravity
 	GliderVelocity += FVector(0, 0, -600.f) * DeltaTime;
 
-	// 2. Drag
+	// 2. Environment (Wind)
+	if (UWorld* World = GetWorld())
+	{
+		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
+		{
+			FVector Wind = Env->GetWindAtAltitude(GetActorLocation().Z);
+			GliderVelocity += Wind * DeltaTime;
+		}
+	}
+
+	// 3. Drag
 	float Speed = GliderVelocity.Size();
 	FVector Drag = -GliderVelocity.GetSafeNormal() * (Speed * 0.05f);
 	GliderVelocity += Drag * DeltaTime;
 
-	// 3. Lift & Steering
+	// 4. Lift & Steering
 	FVector GazeDirection = VRCamera->GetForwardVector();
 	
 	// Dive/Lift based on pitch
@@ -213,7 +248,7 @@ void AMistspireVRPawn::UpdateGlidingMovement(float DeltaTime)
 	// Rotate velocity toward gaze
 	GliderVelocity = FMath::VInterpTo(GliderVelocity, GazeDirection * Speed, DeltaTime, 2.0f);
 
-	// 4. Apply movement
+	// 5. Apply movement
 	FHitResult Hit;
 	AddActorWorldOffset(GliderVelocity * DeltaTime, true, &Hit);
 
