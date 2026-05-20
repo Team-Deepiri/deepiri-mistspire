@@ -6,6 +6,8 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/TextRenderComponent.h"
+#include "Components/AudioComponent.h"
 #include "MotionControllerComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
@@ -32,12 +34,25 @@ AMistspireVRPawn::AMistspireVRPawn()
 	LeftHandMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("LeftHandMesh"));
 	LeftHandMesh->SetupAttachment(LeftHandController);
 
+	AltimeterText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("AltimeterText"));
+	AltimeterText->SetupAttachment(LeftHandMesh);
+	AltimeterText->SetRelativeLocation(FVector(0.f, 0.f, 12.f));
+	AltimeterText->SetRelativeRotation(FRotator(0.f, 90.f, 0.f));
+	AltimeterText->SetHorizontalAlignment(EHTA_Center);
+	AltimeterText->SetWorldSize(4.f);
+
 	RightHandController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("RightHandController"));
 	RightHandController->SetupAttachment(Capsule);
 	RightHandController->MotionSource = FXRMotionControllerBase::RightHandSourceId;
 
 	RightHandMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("RightHandMesh"));
 	RightHandMesh->SetupAttachment(RightHandController);
+
+	WindAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("WindAudio"));
+	WindAudio->SetupAttachment(VRCamera);
+
+	ExertionAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("ExertionAudio"));
+	ExertionAudio->SetupAttachment(VRCamera);
 
 	LocomotionSpeedCmPerSec = DefaultLocomotionSpeedCmPerSec;
 }
@@ -72,6 +87,7 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		}
 		
 		UpdateAltitudeTracking();
+		UpdateImmersiveAudio(DeltaTime);
 
 		if (AltimeterText)
 		{
@@ -204,13 +220,19 @@ void AMistspireVRPawn::UpdateClimbingMovement(float DeltaTime)
 	if (ActiveHands > 0)
 	{
 		FVector AverageDelta = TotalDelta / (float)ActiveHands;
-		// Convert local delta to world delta based on pawn rotation
 		FVector WorldDelta = GetActorRotation().RotateVector(AverageDelta);
 		
 		FHitResult Hit;
 		AddActorWorldOffset(WorldDelta, true, &Hit);
 
-		// Synchronize movement to server
+		// Haptic Feedback for climbing
+		if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+		{
+			float GripForce = WorldDelta.Size() / (DeltaTime * 100.f);
+			if (bLeftHandGripped) XR->TriggerHapticVibration(true, FMath::Min(GripForce * 0.1f, 0.4f), 0.05f);
+			if (bRightHandGripped) XR->TriggerHapticVibration(false, FMath::Min(GripForce * 0.1f, 0.4f), 0.05f);
+		}
+
 		if (GetLocalRole() < ROLE_Authority)
 		{
 			Server_ApplySmoothLocomotion(WorldDelta);
@@ -224,11 +246,12 @@ void AMistspireVRPawn::UpdateGlidingMovement(float DeltaTime)
 	GliderVelocity += FVector(0, 0, -600.f) * DeltaTime;
 
 	// 2. Environment (Wind)
+	FVector Wind = FVector::ZeroVector;
 	if (UWorld* World = GetWorld())
 	{
 		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
 		{
-			FVector Wind = Env->GetWindAtAltitude(GetActorLocation().Z);
+			Wind = Env->GetWindAtAltitude(GetActorLocation().Z);
 			GliderVelocity += Wind * DeltaTime;
 		}
 	}
@@ -240,22 +263,60 @@ void AMistspireVRPawn::UpdateGlidingMovement(float DeltaTime)
 
 	// 4. Lift & Steering
 	FVector GazeDirection = VRCamera->GetForwardVector();
-	
-	// Dive/Lift based on pitch
-	float Pitch = GazeDirection.Z; // -1 to 1
+	float Pitch = GazeDirection.Z;
 	GliderVelocity += GazeDirection * (Pitch < 0 ? -Pitch * 500.f : -Pitch * 200.f) * DeltaTime;
-
-	// Rotate velocity toward gaze
 	GliderVelocity = FMath::VInterpTo(GliderVelocity, GazeDirection * Speed, DeltaTime, 2.0f);
+
+	// Haptic Feedback for wind turbulence
+	if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+	{
+		float Turbulence = Wind.Size() * 0.001f;
+		XR->TriggerHapticVibration(true, FMath::Min(Turbulence, 0.2f), 0.1f, 30.f);
+		XR->TriggerHapticVibration(false, FMath::Min(Turbulence, 0.2f), 0.1f, 30.f);
+	}
 
 	// 5. Apply movement
 	FHitResult Hit;
 	AddActorWorldOffset(GliderVelocity * DeltaTime, true, &Hit);
 
-	// Synchronize movement to server
 	if (GetLocalRole() < ROLE_Authority)
 	{
 		Server_ApplySmoothLocomotion(GliderVelocity * DeltaTime);
+	}
+}
+
+void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
+{
+	if (!WindAudio || !ExertionAudio) return;
+
+	// Wind Audio based on relative velocity and environment wind
+	float RelativeSpeed = GliderVelocity.Size();
+	if (UWorld* World = GetWorld())
+	{
+		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
+		{
+			RelativeSpeed += Env->GetWindAtAltitude(GetActorLocation().Z).Size();
+		}
+	}
+
+	float WindVolume = FMath::Clamp(RelativeSpeed / 2000.f, 0.1f, 1.0f);
+	float WindPitch = FMath::Clamp(0.8f + (RelativeSpeed / 4000.f), 0.8f, 1.5f);
+	
+	WindAudio->SetVolumeMultiplier(WindVolume);
+	WindAudio->SetPitchMultiplier(WindPitch);
+	if (!WindAudio->IsPlaying()) WindAudio->Play();
+
+	// Exertion Audio when climbing or low on stamina (if we had stamina)
+	if (bIsClimbing)
+	{
+		if (!ExertionAudio->IsPlaying()) ExertionAudio->Play();
+		float ExertionTarget = FMath::Clamp(VerticalVelocityCmPerSec / 500.f, 0.5f, 1.0f);
+		ExertionAudio->SetVolumeMultiplier(FMath::FInterpTo(ExertionAudio->VolumeMultiplier, ExertionTarget, DeltaTime, 2.f));
+	}
+	else
+	{
+		ExertionAudio->SetVolumeMultiplier(FMath::FInterpTo(ExertionAudio->VolumeMultiplier, 0.f, DeltaTime, 1.f));
+		if (ExertionAudio->VolumeMultiplier < 0.01f) ExertionAudio->Stop();
 	}
 }
 

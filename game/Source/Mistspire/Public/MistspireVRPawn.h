@@ -8,6 +8,8 @@ class UCameraComponent;
 class UCapsuleComponent;
 class UMotionControllerComponent;
 class USkeletalMeshComponent;
+class UTextRenderComponent;
+class UAudioComponent;
 
 UCLASS()
 class MISTSPIRE_API AMistspireVRPawn : public APawn
@@ -50,6 +52,8 @@ public:
 	void Server_StopClimb();
 
 	void UpdateClimbingMovement(float DeltaTime);
+	void UpdateGlidingMovement(float DeltaTime);
+	void UpdateImmersiveAudio(float DeltaTime);
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void SetHandGrip(bool bIsLeft, bool bGripped);
@@ -106,6 +110,12 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
 	TObjectPtr<UTextRenderComponent> AltimeterText;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Audio")
+	TObjectPtr<UAudioComponent> WindAudio;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Audio")
+	TObjectPtr<UAudioComponent> ExertionAudio;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float DefaultLocomotionSpeedCmPerSec = 400.f;
