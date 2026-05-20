@@ -115,7 +115,17 @@ protected:
 	TObjectPtr<USkeletalMeshComponent> VisualRightHand;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
-	TObjectPtr<UTextRenderComponent> AltimeterText;
+	TObjectPtr<USkeletalMeshComponent> FullBodyMesh;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Interaction")
+	TObjectPtr<USceneComponent> LeftHolster;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Interaction")
+	TObjectPtr<USceneComponent> RightHolster;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
+	TObjectPtr<UCableComponent> GrappleCable;
+
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Audio")
 	TObjectPtr<UAudioComponent> WindAudio;

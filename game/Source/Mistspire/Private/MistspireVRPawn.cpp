@@ -62,6 +62,16 @@ AMistspireVRPawn::AMistspireVRPawn()
 	VisualRightHand = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("VisualRightHand"));
 	VisualRightHand->SetupAttachment(Capsule);
 
+	FullBodyMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FullBodyMesh"));
+	FullBodyMesh->SetupAttachment(Capsule);
+	FullBodyMesh->SetOwnerNoSee(true); // Player shouldn't see their own head/neck inside camera
+
+	LeftHolster = CreateDefaultSubobject<USceneComponent>(TEXT("LeftHolster"));
+	LeftHolster->SetupAttachment(Capsule);
+
+	RightHolster = CreateDefaultSubobject<USceneComponent>(TEXT("RightHolster"));
+	RightHolster->SetupAttachment(Capsule);
+
 	GrappleCable = CreateDefaultSubobject<UCableComponent>(TEXT("GrappleCable"));
 	GrappleCable->SetupAttachment(VisualRightHand);
 	GrappleCable->SetHiddenInGame(true);
@@ -167,6 +177,35 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 
 		UpdateHandPhysics(VisualLeftHand, LeftHandController);
 		UpdateHandPhysics(VisualRightHand, RightHandController);
+
+		// VRIK Presence & Holster Tracking
+		if (FullBodyMesh && VRCamera)
+		{
+			// Position body mesh under camera but keep at ground level
+			FVector CameraLoc = VRCamera->GetRelativeLocation();
+			FVector BodyLoc = FVector(CameraLoc.X, CameraLoc.Y, -Capsule->GetScaledCapsuleHalfHeight());
+			FullBodyMesh->SetRelativeLocation(BodyLoc);
+
+			// Rotate body with head yaw
+			FRotator HeadRot = VRCamera->GetRelativeRotation();
+			FRotator BodyRot(0.f, HeadRot.Yaw, 0.f);
+			FullBodyMesh->SetRelativeRotation(BodyRot);
+
+			// Position holsters at waist level
+			FVector WaistOffset = BodyLoc + FVector(0.f, 0.f, 100.f); // ~1m up from ground
+			if (LeftHolster)
+			{
+				FVector LPos = WaistOffset + BodyRot.RotateVector(FVector(0.f, -25.f, 0.f));
+				LeftHolster->SetRelativeLocation(LPos);
+				LeftHolster->SetRelativeRotation(BodyRot);
+			}
+			if (RightHolster)
+			{
+				FVector RPos = WaistOffset + BodyRot.RotateVector(FVector(0.f, 25.f, 0.f));
+				RightHolster->SetRelativeLocation(RPos);
+				RightHolster->SetRelativeRotation(BodyRot);
+			}
+		}
 
 		// Adrenaline Heartbeat Haptics
 		static float HeartbeatTimer = 0.f;
