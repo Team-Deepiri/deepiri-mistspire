@@ -192,6 +192,37 @@ void AMistspireVRPawn::UpdateClimbingMovement(float DeltaTime)
 	}
 }
 
+void AMistspireVRPawn::UpdateGlidingMovement(float DeltaTime)
+{
+	// 1. Gravity
+	GliderVelocity += FVector(0, 0, -600.f) * DeltaTime;
+
+	// 2. Drag
+	float Speed = GliderVelocity.Size();
+	FVector Drag = -GliderVelocity.GetSafeNormal() * (Speed * 0.05f);
+	GliderVelocity += Drag * DeltaTime;
+
+	// 3. Lift & Steering
+	FVector GazeDirection = VRCamera->GetForwardVector();
+	
+	// Dive/Lift based on pitch
+	float Pitch = GazeDirection.Z; // -1 to 1
+	GliderVelocity += GazeDirection * (Pitch < 0 ? -Pitch * 500.f : -Pitch * 200.f) * DeltaTime;
+
+	// Rotate velocity toward gaze
+	GliderVelocity = FMath::VInterpTo(GliderVelocity, GazeDirection * Speed, DeltaTime, 2.0f);
+
+	// 4. Apply movement
+	FHitResult Hit;
+	AddActorWorldOffset(GliderVelocity * DeltaTime, true, &Hit);
+
+	// Synchronize movement to server
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_ApplySmoothLocomotion(GliderVelocity * DeltaTime);
+	}
+}
+
 void AMistspireVRPawn::ApplyVerticalVelocity(float DeltaCm)
 {
 	if (!FMath::IsNearlyZero(DeltaCm))
@@ -270,6 +301,16 @@ void AMistspireVRPawn::ToggleGlider(bool bEnable)
 {
 	bGliderActive = bEnable;
 	LocomotionSpeedCmPerSec = bGliderActive ? DefaultLocomotionSpeedCmPerSec * 1.5f : DefaultLocomotionSpeedCmPerSec;
+	
+	if (bGliderActive)
+	{
+		GliderVelocity = GetVelocity();
+		if (GliderVelocity.IsNearlyZero())
+		{
+			GliderVelocity = GetActorForwardVector() * LocomotionSpeedCmPerSec;
+		}
+	}
+
 	if (GetLocalRole() < ROLE_Authority)
 	{
 		Server_ToggleGlider(bEnable);

@@ -135,4 +135,5 @@ private:
 	float VerticalVelocityCmPerSec = 0.f;
 	bool bMenuPressedLast = false;
 	bool bJumpPressedLast = false;
+	FVector GliderVelocity = FVector::ZeroVector;
 };
