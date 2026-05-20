@@ -11,10 +11,12 @@ USTRUCT(BlueprintType)
 struct FMistspireXRInputState
 {
 	GENERATED_BODY()
-	UPROPERTY(BlueprintReadOnly) bool bGrabPressed = false;
+	UPROPERTY(BlueprintReadOnly) bool bGrabLeft = false;
+	UPROPERTY(BlueprintReadOnly) bool bGrabRight = false;
+	UPROPERTY(BlueprintReadOnly) bool bClimbLeft = false;
+	UPROPERTY(BlueprintReadOnly) bool bClimbRight = false;
 	UPROPERTY(BlueprintReadOnly) bool bMenuPressed = false;
 	UPROPERTY(BlueprintReadOnly) bool bJumpPressed = false;
-	UPROPERTY(BlueprintReadOnly) bool bClimbPressed = false;
 	UPROPERTY(BlueprintReadOnly) float MoveX = 0.f, MoveY = 0.f, Turn = 0.f;
 };
 

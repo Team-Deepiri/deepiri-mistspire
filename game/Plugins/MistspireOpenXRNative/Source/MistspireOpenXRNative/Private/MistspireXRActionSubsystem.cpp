@@ -36,21 +36,37 @@ bool UMistspireXRActionSubsystem::BuildActionLayout()
 	if (bActionsReady) return true;
 	XrInstance I = nullptr; XrSession S = nullptr;
 	if (!FMistspireOpenXRAccess::GetNativeHandles(I, S)) return false;
+
+	XrPath LeftHandPath, RightHandPath;
+	xrStringToPath(I, "/user/hand/left", &LeftHandPath);
+	xrStringToPath(I, "/user/hand/right", &RightHandPath);
+	XrPath HandPaths[] = { LeftHandPath, RightHandPath };
+
 	XrActionSetCreateInfo SCI{XR_TYPE_ACTION_SET_CREATE_INFO};
 	CopyOpenXRString(SCI.actionSetName, XR_MAX_ACTION_SET_NAME_SIZE, "mistspire_gameplay");
 	CopyOpenXRString(SCI.localizedActionSetName, XR_MAX_LOCALIZED_ACTION_SET_NAME_SIZE, "Mistspire Gameplay");
 	if (XR_FAILED(xrCreateActionSet(I, &SCI, &ActionSet))) return false;
-	auto Mk = [&](XrActionType T, const char* N, const char* L, XrAction& O) {
+
+	auto Mk = [&](XrActionType T, const char* N, const char* L, XrAction& O, bool bPerHand) {
 		XrActionCreateInfo CI{XR_TYPE_ACTION_CREATE_INFO}; CI.actionType = T;
 		CopyOpenXRString(CI.actionName, XR_MAX_ACTION_NAME_SIZE, N);
 		CopyOpenXRString(CI.localizedActionName, XR_MAX_LOCALIZED_ACTION_NAME_SIZE, L);
+		if (bPerHand) {
+			CI.countSubactionPaths = 2;
+			CI.subactionPaths = HandPaths;
+		}
 		return XR_SUCCEEDED(xrCreateAction(ActionSet, &CI, &O));
 	};
-	if (!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "grab", "Grab", GrabAction) || !Mk(XR_ACTION_TYPE_FLOAT_INPUT, "move", "Move", MoveAction) ||
-		!Mk(XR_ACTION_TYPE_FLOAT_INPUT, "strafe", "Strafe", StrafeAction) ||
-		!Mk(XR_ACTION_TYPE_FLOAT_INPUT, "turn", "Turn", TurnAction) || !Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "jump", "Jump", JumpAction) ||
-		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "climb", "Climb", ClimbAction) || !Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "menu", "Menu", MenuAction))
+
+	if (!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "grab", "Grab", GrabAction, true) ||
+		!Mk(XR_ACTION_TYPE_FLOAT_INPUT, "move", "Move", MoveAction, false) ||
+		!Mk(XR_ACTION_TYPE_FLOAT_INPUT, "strafe", "Strafe", StrafeAction, false) ||
+		!Mk(XR_ACTION_TYPE_FLOAT_INPUT, "turn", "Turn", TurnAction, false) ||
+		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "jump", "Jump", JumpAction, false) ||
+		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "climb", "Climb", ClimbAction, true) ||
+		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "menu", "Menu", MenuAction, false))
 		return false;
+
 	bActionsReady = AttachActionSetToSession();
 	return bActionsReady;
 }
@@ -69,24 +85,35 @@ void UMistspireXRActionSubsystem::PollInputActions()
 	if (!bActionsReady && !BuildActionLayout()) return;
 	XrInstance I = nullptr; XrSession S = nullptr;
 	if (!FMistspireOpenXRAccess::GetNativeHandles(I, S)) return;
+
+	XrPath LeftHandPath, RightHandPath;
+	xrStringToPath(I, "/user/hand/left", &LeftHandPath);
+	xrStringToPath(I, "/user/hand/right", &RightHandPath);
+
 	XrActiveActionSet AS{ActionSet, XR_NULL_PATH};
 	XrActionsSyncInfo SI{XR_TYPE_ACTIONS_SYNC_INFO}; SI.countActiveActionSets = 1; SI.activeActionSets = &AS;
 	if (XR_FAILED(xrSyncActions(S, &SI))) return;
-	auto RB = [&](XrAction A, bool& V) {
-		XrActionStateGetInfo GI{XR_TYPE_ACTION_STATE_GET_INFO}; GI.action = A;
+
+	auto RB = [&](XrAction A, XrPath P, bool& V) {
+		XrActionStateGetInfo GI{XR_TYPE_ACTION_STATE_GET_INFO}; GI.action = A; GI.subactionPath = P;
 		XrActionStateBoolean ST{XR_TYPE_ACTION_STATE_BOOLEAN};
 		if (XR_SUCCEEDED(xrGetActionStateBoolean(S, &GI, &ST)) && ST.isActive) V = ST.currentState != 0;
 	};
-	auto RF = [&](XrAction A, float& V) {
-		XrActionStateGetInfo GI{XR_TYPE_ACTION_STATE_GET_INFO}; GI.action = A;
+	auto RF = [&](XrAction A, XrPath P, float& V) {
+		XrActionStateGetInfo GI{XR_TYPE_ACTION_STATE_GET_INFO}; GI.action = A; GI.subactionPath = P;
 		XrActionStateFloat ST{XR_TYPE_ACTION_STATE_FLOAT};
 		if (XR_SUCCEEDED(xrGetActionStateFloat(S, &GI, &ST)) && ST.isActive) V = ST.currentState;
 	};
-	RB(GrabAction, InputState.bGrabPressed);
-	RB(MenuAction, InputState.bMenuPressed);
-	RB(JumpAction, InputState.bJumpPressed);
-	RB(ClimbAction, InputState.bClimbPressed);
-	RF(MoveAction, InputState.MoveY);
-	RF(StrafeAction, InputState.MoveX);
-	RF(TurnAction, InputState.Turn);
+
+	RB(GrabAction, LeftHandPath, InputState.bGrabLeft);
+	RB(GrabAction, RightHandPath, InputState.bGrabRight);
+	RB(ClimbAction, LeftHandPath, InputState.bClimbLeft);
+	RB(ClimbAction, RightHandPath, InputState.bClimbRight);
+	
+	RB(MenuAction, XR_NULL_PATH, InputState.bMenuPressed);
+	RB(JumpAction, XR_NULL_PATH, InputState.bJumpPressed);
+	
+	RF(MoveAction, XR_NULL_PATH, InputState.MoveY);
+	RF(StrafeAction, XR_NULL_PATH, InputState.MoveX);
+	RF(TurnAction, XR_NULL_PATH, InputState.Turn);
 }
