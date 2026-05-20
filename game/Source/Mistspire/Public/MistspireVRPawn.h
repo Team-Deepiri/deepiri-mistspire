@@ -109,6 +109,12 @@ protected:
 	TObjectPtr<USkeletalMeshComponent> RightHandMesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
+	TObjectPtr<USkeletalMeshComponent> VisualLeftHand;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
+	TObjectPtr<USkeletalMeshComponent> VisualRightHand;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
 	TObjectPtr<UTextRenderComponent> AltimeterText;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Audio")

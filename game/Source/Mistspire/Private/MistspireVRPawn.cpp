@@ -33,9 +33,13 @@ AMistspireVRPawn::AMistspireVRPawn()
 
 	LeftHandMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("LeftHandMesh"));
 	LeftHandMesh->SetupAttachment(LeftHandController);
+	LeftHandMesh->SetHiddenInGame(true);
+
+	VisualLeftHand = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("VisualLeftHand"));
+	VisualLeftHand->SetupAttachment(Capsule);
 
 	AltimeterText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("AltimeterText"));
-	AltimeterText->SetupAttachment(LeftHandMesh);
+	AltimeterText->SetupAttachment(VisualLeftHand);
 	AltimeterText->SetRelativeLocation(FVector(0.f, 0.f, 12.f));
 	AltimeterText->SetRelativeRotation(FRotator(0.f, 90.f, 0.f));
 	AltimeterText->SetHorizontalAlignment(EHTA_Center);
@@ -47,6 +51,10 @@ AMistspireVRPawn::AMistspireVRPawn()
 
 	RightHandMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("RightHandMesh"));
 	RightHandMesh->SetupAttachment(RightHandController);
+	RightHandMesh->SetHiddenInGame(true);
+
+	VisualRightHand = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("VisualRightHand"));
+	VisualRightHand->SetupAttachment(Capsule);
 
 	WindAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("WindAudio"));
 	WindAudio->SetupAttachment(VRCamera);
@@ -88,6 +96,31 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		
 		UpdateAltitudeTracking();
 		UpdateImmersiveAudio(DeltaTime);
+
+		// Physical Hand Collisions
+		auto UpdateHandPhysics = [&](USkeletalMeshComponent* VisualHand, UMotionControllerComponent* Controller)
+		{
+			if (!VisualHand || !Controller) return;
+			
+			FVector TargetLoc = Controller->GetComponentLocation();
+			FRotator TargetRot = Controller->GetComponentRotation();
+			
+			FHitResult Hit;
+			VisualHand->SetWorldLocationAndRotation(TargetLoc, TargetRot, true, &Hit);
+			
+			// If we hit something, triggered haptics to feel the "bump"
+			if (Hit.bBlockingHit)
+			{
+				if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+				{
+					bool bIsLeft = (VisualHand == VisualLeftHand);
+					XR->TriggerHapticVibration(bIsLeft, 0.3f, 0.05f, 100.f);
+				}
+			}
+		};
+
+		UpdateHandPhysics(VisualLeftHand, LeftHandController);
+		UpdateHandPhysics(VisualRightHand, RightHandController);
 
 		if (AltimeterText)
 		{
