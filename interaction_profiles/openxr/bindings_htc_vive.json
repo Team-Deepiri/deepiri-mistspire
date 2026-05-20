@@ -1,0 +1,56 @@
+{
+  "file_format_version": "1.0.0",
+  "action_sets": [
+    {
+      "name": "mistspire_gameplay",
+      "usage": "single"
+    }
+  ],
+  "interaction_profile": "/interaction_profiles/htc/vive_controller",
+  "bindings": {
+    "/interaction_profiles/htc/vive_controller": {
+      "sources": [
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/left/input/grip",
+          "action": "grab"
+        },
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/right/input/grip",
+          "action": "grab"
+        },
+        {
+          "inputs": { "position": true },
+          "path": "/user/hand/left/input/trackpad",
+          "action": "move"
+        },
+        {
+          "inputs": { "position": true },
+          "path": "/user/hand/right/input/trackpad",
+          "action": "turn"
+        },
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/right/input/trigger",
+          "action": "jump"
+        },
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/left/input/trigger",
+          "action": "climb"
+        },
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/left/input/menu",
+          "action": "menu"
+        },
+        {
+          "inputs": { "position": true, "orientation": true },
+          "path": "/user/hand/left/input/grip/pose",
+          "action": "hand_pose"
+        }
+      ]
+    }
+  }
+}
