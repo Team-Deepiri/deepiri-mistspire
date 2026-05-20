@@ -1,0 +1,41 @@
+{
+  "file_format_version": "1.0.0",
+  "action_sets": [
+    {
+      "name": "mistspire_gameplay",
+      "usage": "single"
+    }
+  ],
+  "interaction_profile": "/interaction_profiles/khr/simple_controller",
+  "bindings": {
+    "/interaction_profiles/khr/simple_controller": {
+      "sources": [
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/left/input/select",
+          "action": "grab"
+        },
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/right/input/select",
+          "action": "grab"
+        },
+        {
+          "inputs": { "position": true },
+          "path": "/user/hand/left/input/aim",
+          "action": "move"
+        },
+        {
+          "inputs": { "position": true },
+          "path": "/user/hand/right/input/aim",
+          "action": "turn"
+        },
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/right/input/menu",
+          "action": "menu"
+        }
+      ]
+    }
+  }
+}
