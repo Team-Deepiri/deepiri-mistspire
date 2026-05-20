@@ -77,26 +77,24 @@ void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 void AMistspireVRPawn::PollXRInput()
 {
 	UWorld* World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
+	if (!World) return;
 
 	UMistspireXRActionSubsystem* XR = World->GetSubsystem<UMistspireXRActionSubsystem>();
-	if (!XR)
-	{
-		return;
-	}
+	if (!XR) return;
 
 	const FMistspireXRInputState& State = XR->GetInputState();
 	CachedMoveInput = FVector2D(State.MoveX, State.MoveY);
 	CachedTurnInput = State.Turn;
 
-	if (State.bClimbPressed && !bIsClimbing)
+	// Per-hand Grip/Climb logic
+	SetHandGrip(true, State.bGrabLeft || State.bClimbLeft);
+	SetHandGrip(false, State.bGrabRight || State.bClimbRight);
+
+	if ((bLeftHandGripped || bRightHandGripped) && !bIsClimbing)
 	{
 		StartClimb();
 	}
-	else if (!State.bClimbPressed && bIsClimbing)
+	else if (!bLeftHandGripped && !bRightHandGripped && bIsClimbing)
 	{
 		StopClimb();
 	}
@@ -139,6 +137,59 @@ bool AMistspireVRPawn::Server_ApplySmoothLocomotion_Validate(FVector Delta) { re
 void AMistspireVRPawn::Server_ApplySmoothLocomotion_Implementation(FVector Delta)
 {
 	AddActorWorldOffset(Delta, true);
+}
+
+void AMistspireVRPawn::SetHandGrip(bool bIsLeft, bool bGripped)
+{
+	if (bIsLeft)
+	{
+		if (bGripped && !bLeftHandGripped)
+		{
+			LeftHandAnchor = LeftHandController->GetRelativeLocation();
+		}
+		bLeftHandGripped = bGripped;
+	}
+	else
+	{
+		if (bGripped && !bRightHandGripped)
+		{
+			RightHandAnchor = RightHandController->GetRelativeLocation();
+		}
+		bRightHandGripped = bGripped;
+	}
+}
+
+void AMistspireVRPawn::UpdateClimbingMovement(float DeltaTime)
+{
+	FVector TotalDelta = FVector::ZeroVector;
+	int32 ActiveHands = 0;
+
+	if (bLeftHandGripped)
+	{
+		TotalDelta += (LeftHandAnchor - LeftHandController->GetRelativeLocation());
+		ActiveHands++;
+	}
+	if (bRightHandGripped)
+	{
+		TotalDelta += (RightHandAnchor - RightHandController->GetRelativeLocation());
+		ActiveHands++;
+	}
+
+	if (ActiveHands > 0)
+	{
+		FVector AverageDelta = TotalDelta / (float)ActiveHands;
+		// Convert local delta to world delta based on pawn rotation
+		FVector WorldDelta = GetActorRotation().RotateVector(AverageDelta);
+		
+		FHitResult Hit;
+		AddActorWorldOffset(WorldDelta, true, &Hit);
+
+		// Synchronize movement to server
+		if (GetLocalRole() < ROLE_Authority)
+		{
+			Server_ApplySmoothLocomotion(WorldDelta);
+		}
+	}
 }
 
 void AMistspireVRPawn::ApplyVerticalVelocity(float DeltaCm)
