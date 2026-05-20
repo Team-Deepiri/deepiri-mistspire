@@ -33,10 +33,16 @@ public:
 	UFUNCTION(BlueprintCallable) void PollInputActions();
 	UFUNCTION(BlueprintPure) const FMistspireXRInputState& GetInputState() const { return InputState; }
 	UFUNCTION(BlueprintCallable) bool BuildActionLayout();
+
+	/** Triggers haptic vibration on the specified hand. Amplitude 0-1, Frequency in Hz. */
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|XR")
+	void TriggerHapticVibration(bool bIsLeftHand, float Amplitude, float DurationSeconds, float Frequency = 60.f);
+
 private:
 	XrActionSet ActionSet = nullptr;
 	XrAction GrabAction = nullptr, MoveAction = nullptr, StrafeAction = nullptr, TurnAction = nullptr;
 	XrAction JumpAction = nullptr, ClimbAction = nullptr, MenuAction = nullptr;
+	XrAction HapticAction = nullptr;
 	FMistspireXRInputState InputState;
 	bool bActionsReady = false;
 	static void CopyOpenXRString(char* Dest, size_t DestSize, const char* Src);

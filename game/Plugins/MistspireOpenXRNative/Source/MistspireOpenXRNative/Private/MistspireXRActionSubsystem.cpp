@@ -64,11 +64,32 @@ bool UMistspireXRActionSubsystem::BuildActionLayout()
 		!Mk(XR_ACTION_TYPE_FLOAT_INPUT, "turn", "Turn", TurnAction, false) ||
 		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "jump", "Jump", JumpAction, false) ||
 		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "climb", "Climb", ClimbAction, true) ||
-		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "menu", "Menu", MenuAction, false))
+		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "menu", "Menu", MenuAction, false) ||
+		!Mk(XR_ACTION_TYPE_VIBRATION_OUTPUT, "haptic", "Haptic", HapticAction, true))
 		return false;
 
 	bActionsReady = AttachActionSetToSession();
 	return bActionsReady;
+}
+
+void UMistspireXRActionSubsystem::TriggerHapticVibration(bool bIsLeftHand, float Amplitude, float DurationSeconds, float Frequency)
+{
+	XrInstance I = nullptr; XrSession S = nullptr;
+	if (!FMistspireOpenXRAccess::GetNativeHandles(I, S) || !HapticAction) return;
+
+	XrPath HandPath;
+	xrStringToPath(I, bIsLeftHand ? "/user/hand/left" : "/user/hand/right", &HandPath);
+
+	XrHapticVibration Vibration{XR_TYPE_HAPTIC_VIBRATION};
+	Vibration.amplitude = FMath::Clamp(Amplitude, 0.f, 1.f);
+	Vibration.duration = static_cast<XrDuration>(DurationSeconds * 1e9); // Seconds to nanoseconds
+	Vibration.frequency = Frequency;
+
+	XrHapticActionInfo HI{XR_TYPE_HAPTIC_ACTION_INFO};
+	HI.action = HapticAction;
+	HI.subactionPath = HandPath;
+
+	xrApplyHapticFeedback(S, &HI, reinterpret_cast<const XrHapticBaseHeader*>(&Vibration));
 }
 
 bool UMistspireXRActionSubsystem::AttachActionSetToSession()
