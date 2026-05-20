@@ -2,6 +2,7 @@
 #include "MistspireAltitudeSubsystem.h"
 #include "MistspireSummitRegistry.h"
 #include "MistspireXRActionSubsystem.h"
+#include "MistspireEnvironmentSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -352,6 +353,18 @@ void AMistspireVRPawn::UpdateAltitudeTracking()
 	{
 		static const FName SummitIds[] = {
 			TEXT("summit_valley_gate"),
+			TEXT("summit_mesa_crown"),
+			TEXT("summit_cloud_garden"),
+			TEXT("summit_obelisk_prime"),
+			TEXT("summit_orbital_needle"),
+		};
+		for (FName Id : SummitIds)
+		{
+			Registry->TryReachSummit(Id, GetActorLocation());
+		}
+	}
+}
+"),
 			TEXT("summit_mesa_crown"),
 			TEXT("summit_cloud_garden"),
 			TEXT("summit_obelisk_prime"),
