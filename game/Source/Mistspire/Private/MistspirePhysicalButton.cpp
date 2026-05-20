@@ -19,9 +19,19 @@ AMistspirePhysicalButton::AMistspirePhysicalButton()
 	PhysicsConstraint->SetupAttachment(BaseMesh);
 }
 
+#include "MistspireInteractionSubsystem.h"
+
 void AMistspirePhysicalButton::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UMistspireInteractionSubsystem* Sub = World->GetSubsystem<UMistspireInteractionSubsystem>())
+		{
+			Sub->RegisterInteractiveActor(this);
+		}
+	}
 
 	InitialLocalLocation = ButtonMesh->GetRelativeLocation();
 
