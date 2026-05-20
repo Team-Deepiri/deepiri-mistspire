@@ -8,6 +8,9 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/AudioComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/PostProcessComponent.h"
+#include "CableComponent.h"
 #include "MotionControllerComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
@@ -26,6 +29,9 @@ AMistspireVRPawn::AMistspireVRPawn()
 	VRCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("VRCamera"));
 	VRCamera->SetupAttachment(Capsule);
 	VRCamera->bUsePawnControlRotation = false;
+
+	ComfortVignette = CreateDefaultSubobject<UPostProcessComponent>(TEXT("ComfortVignette"));
+	ComfortVignette->SetupAttachment(VRCamera);
 
 	LeftHandController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("LeftHandController"));
 	LeftHandController->SetupAttachment(Capsule);
@@ -55,6 +61,15 @@ AMistspireVRPawn::AMistspireVRPawn()
 
 	VisualRightHand = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("VisualRightHand"));
 	VisualRightHand->SetupAttachment(Capsule);
+
+	GrappleCable = CreateDefaultSubobject<UCableComponent>(TEXT("GrappleCable"));
+	GrappleCable->SetupAttachment(VisualRightHand);
+	GrappleCable->SetHiddenInGame(true);
+	GrappleCable->CableLength = 0.f;
+
+	GliderMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GliderMesh"));
+	GliderMesh->SetupAttachment(Capsule);
+	GliderMesh->SetHiddenInGame(true);
 
 	WindAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("WindAudio"));
 	WindAudio->SetupAttachment(VRCamera);
@@ -96,6 +111,37 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		
 		UpdateAltitudeTracking();
 		UpdateImmersiveAudio(DeltaTime);
+
+		// Comfort Vignette based on rotation and speed
+		if (ComfortVignette)
+		{
+			float TurnFactor = FMath::Abs(CachedTurnInput);
+			float SpeedFactor = GliderVelocity.Size() / 4000.f;
+			float Intensity = FMath::Max(TurnFactor, SpeedFactor * 0.5f);
+			ComfortVignette->BlendWeight = FMath::FInterpTo(ComfortVignette->BlendWeight, Intensity, DeltaTime, 5.f);
+		}
+
+		// Grapple Physics Pull
+		if (bGrappleActive)
+		{
+			FVector ToAnchor = GrappleAnchorPoint - GetActorLocation();
+			float Dist = ToAnchor.Size();
+			if (Dist > 100.f)
+			{
+				FVector PullForce = ToAnchor.GetSafeNormal() * 1200.f * DeltaTime;
+				AddActorWorldOffset(PullForce, true);
+				
+				if (GetLocalRole() < ROLE_Authority)
+				{
+					Server_ApplySmoothLocomotion(PullForce);
+				}
+			}
+			else
+			{
+				bGrappleActive = false;
+				GrappleCable->SetHiddenInGame(true);
+			}
+		}
 
 		// Physical Hand Collisions
 		auto UpdateHandPhysics = [&](USkeletalMeshComponent* VisualHand, UMotionControllerComponent* Controller)
@@ -169,6 +215,8 @@ void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 	DOREPLIFETIME(AMistspireVRPawn, bIsClimbing);
 	DOREPLIFETIME(AMistspireVRPawn, bGliderActive);
+	DOREPLIFETIME(AMistspireVRPawn, bGrappleActive);
+	DOREPLIFETIME(AMistspireVRPawn, GrappleAnchorPoint);
 }
 
 void AMistspireVRPawn::PollXRInput()
@@ -439,11 +487,15 @@ void AMistspireVRPawn::Server_StopClimb_Implementation() { bIsClimbing = false; 
 
 void AMistspireVRPawn::FireGrapple(FVector WorldTarget)
 {
-	const FVector ToTarget = WorldTarget - GetActorLocation();
-	const float Pull = FMath::Min(ToTarget.Size(), 800.f);
-	const FVector Delta = ToTarget.GetSafeNormal() * Pull;
-	AddActorWorldOffset(Delta, true);
+	bGrappleActive = true;
+	GrappleAnchorPoint = WorldTarget;
 	
+	if (GrappleCable)
+	{
+		GrappleCable->SetHiddenInGame(false);
+		GrappleCable->SetWorldLocation(WorldTarget);
+	}
+
 	if (GetLocalRole() < ROLE_Authority)
 	{
 		Server_FireGrapple(WorldTarget);
@@ -461,6 +513,11 @@ void AMistspireVRPawn::ToggleGlider(bool bEnable)
 	bGliderActive = bEnable;
 	LocomotionSpeedCmPerSec = bGliderActive ? DefaultLocomotionSpeedCmPerSec * 1.5f : DefaultLocomotionSpeedCmPerSec;
 	
+	if (GliderMesh)
+	{
+		GliderMesh->SetHiddenInGame(!bEnable);
+	}
+
 	if (bGliderActive)
 	{
 		GliderVelocity = GetVelocity();

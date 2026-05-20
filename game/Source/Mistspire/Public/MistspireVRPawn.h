@@ -144,6 +144,12 @@ protected:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Traversal")
 	bool bGliderActive = false;
 
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Traversal")
+	bool bGrappleActive = false;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Traversal")
+	FVector GrappleAnchorPoint;
+
 private:
 	void PollXRInput();
 	void UpdateAltitudeTracking();
@@ -151,6 +157,11 @@ private:
 
 	FVector2D CachedMoveInput;
 	float CachedTurnInput = 0.f;
+	float VerticalVelocityCmPerSec = 0.f;
+	bool bMenuPressedLast = false;
+	bool bJumpPressedLast = false;
+	FVector GliderVelocity = FVector::ZeroVector;
+};
 	float VerticalVelocityCmPerSec = 0.f;
 	bool bMenuPressedLast = false;
 	bool bJumpPressedLast = false;
