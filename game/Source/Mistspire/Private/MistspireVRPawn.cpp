@@ -122,6 +122,28 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		UpdateHandPhysics(VisualLeftHand, LeftHandController);
 		UpdateHandPhysics(VisualRightHand, RightHandController);
 
+		// Adrenaline Heartbeat Haptics
+		static float HeartbeatTimer = 0.f;
+		HeartbeatTimer += DeltaTime;
+		
+		float SpeedFactor = GliderVelocity.Size() / 3000.f;
+		float AltitudeFactor = GetActorLocation().Z / 500000.f;
+		float Adrenaline = FMath::Clamp(SpeedFactor + AltitudeFactor, 0.f, 1.f);
+		
+		if (Adrenaline > 0.3f)
+		{
+			float PulseRate = FMath::Lerp(1.5f, 0.5f, Adrenaline); // Pulse every 1.5s to 0.5s
+			if (HeartbeatTimer >= PulseRate)
+			{
+				HeartbeatTimer = 0.f;
+				if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+				{
+					XR->TriggerHapticVibration(true, 0.15f * Adrenaline, 0.08f, 40.f);
+					XR->TriggerHapticVibration(false, 0.15f * Adrenaline, 0.08f, 40.f);
+				}
+			}
+		}
+
 		if (AltimeterText)
 		{
 			if (UWorld* World = GetWorld())
@@ -298,6 +320,13 @@ void AMistspireVRPawn::UpdateGlidingMovement(float DeltaTime)
 	FVector GazeDirection = VRCamera->GetForwardVector();
 	float Pitch = GazeDirection.Z;
 	GliderVelocity += GazeDirection * (Pitch < 0 ? -Pitch * 500.f : -Pitch * 200.f) * DeltaTime;
+	
+	// Body Lean Steering (offset from capsule center)
+	FVector CameraLocalPos = VRCamera->GetRelativeLocation();
+	float LeanSteer = FMath::Clamp(CameraLocalPos.Y / 30.f, -1.f, 1.f);
+	FQuat LeanRotation(FVector::UpVector, LeanSteer * 1.5f * DeltaTime);
+	GliderVelocity = LeanRotation.RotateVector(GliderVelocity);
+
 	GliderVelocity = FMath::VInterpTo(GliderVelocity, GazeDirection * Speed, DeltaTime, 2.0f);
 
 	// Haptic Feedback for wind turbulence
