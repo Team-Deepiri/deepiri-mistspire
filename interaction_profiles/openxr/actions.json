@@ -1,0 +1,56 @@
+{
+  "file_format_version": "1.0.0",
+  "action_sets": [
+    {
+      "name": "mistspire_gameplay",
+      "localized_name": "Mistspire Gameplay",
+      "priority": 0,
+      "actions": [
+        {
+          "name": "grab",
+          "type": "boolean",
+          "localized_name": "Grab",
+          "usage": "grab"
+        },
+        {
+          "name": "move",
+          "type": "float",
+          "localized_name": "Move Forward",
+          "usage": "joystick"
+        },
+        {
+          "name": "strafe",
+          "type": "float",
+          "localized_name": "Strafe",
+          "usage": "joystick"
+        },
+        {
+          "name": "turn",
+          "type": "float",
+          "localized_name": "Turn",
+          "usage": "joystick"
+        },
+        {
+          "name": "jump",
+          "type": "boolean",
+          "localized_name": "Jump"
+        },
+        {
+          "name": "climb",
+          "type": "boolean",
+          "localized_name": "Climb"
+        },
+        {
+          "name": "menu",
+          "type": "boolean",
+          "localized_name": "Menu"
+        },
+        {
+          "name": "hand_pose",
+          "type": "pose",
+          "localized_name": "Hand Pose"
+        }
+      ]
+    }
+  ]
+}
