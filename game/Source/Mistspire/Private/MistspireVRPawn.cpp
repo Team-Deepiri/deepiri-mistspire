@@ -4,19 +4,39 @@
 #include "MistspireXRActionSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "MotionControllerComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "Net/UnrealNetwork.h"
 
 AMistspireVRPawn::AMistspireVRPawn()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	bReplicates = true;
+	AActor::SetReplicateMovement(true);
 
 	Capsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("Capsule"));
 	Capsule->InitCapsuleSize(34.f, 88.f);
+	Capsule->SetIsReplicated(true);
 	SetRootComponent(Capsule);
 
 	VRCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("VRCamera"));
 	VRCamera->SetupAttachment(Capsule);
 	VRCamera->bUsePawnControlRotation = false;
+
+	LeftHandController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("LeftHandController"));
+	LeftHandController->SetupAttachment(Capsule);
+	LeftHandController->MotionSource = FXRMotionControllerBase::LeftHandSourceId;
+
+	LeftHandMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("LeftHandMesh"));
+	LeftHandMesh->SetupAttachment(LeftHandController);
+
+	RightHandController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("RightHandController"));
+	RightHandController->SetupAttachment(Capsule);
+	RightHandController->MotionSource = FXRMotionControllerBase::RightHandSourceId;
+
+	RightHandMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("RightHandMesh"));
+	RightHandMesh->SetupAttachment(RightHandController);
 
 	LocomotionSpeedCmPerSec = DefaultLocomotionSpeedCmPerSec;
 }
@@ -30,16 +50,28 @@ void AMistspireVRPawn::BeginPlay()
 void AMistspireVRPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	PollXRInput();
-	ApplySmoothLocomotion(CachedMoveInput, DeltaTime);
-	ApplyVerticalVelocity(VerticalVelocityCmPerSec * DeltaTime);
-	VerticalVelocityCmPerSec = FMath::FInterpTo(VerticalVelocityCmPerSec, 0.f, DeltaTime, 4.f);
-	UpdateAltitudeTracking();
+	
+	if (IsLocallyControlled())
+	{
+		PollXRInput();
+		ApplySmoothLocomotion(CachedMoveInput, DeltaTime);
+		ApplyVerticalVelocity(VerticalVelocityCmPerSec * DeltaTime);
+		VerticalVelocityCmPerSec = FMath::FInterpTo(VerticalVelocityCmPerSec, 0.f, DeltaTime, 4.f);
+		UpdateAltitudeTracking();
+	}
 }
 
 void AMistspireVRPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+}
+
+void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutReplicatedProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutReplicatedProps);
+
+	DOREPLIFETIME(AMistspireVRPawn, bIsClimbing);
+	DOREPLIFETIME(AMistspireVRPawn, bGliderActive);
 }
 
 void AMistspireVRPawn::PollXRInput()
@@ -84,7 +116,7 @@ void AMistspireVRPawn::PollXRInput()
 
 void AMistspireVRPawn::ApplySmoothLocomotion(FVector2D MoveInput, float DeltaTime)
 {
-	if (MoveInput.IsNearlyZero())
+	if (MoveInput.IsNearlyZero() && FMath::IsNearlyZero(CachedTurnInput))
 	{
 		return;
 	}
@@ -96,6 +128,17 @@ void AMistspireVRPawn::ApplySmoothLocomotion(FVector2D MoveInput, float DeltaTim
 
 	FHitResult Hit;
 	AddActorWorldOffset(Delta, true, &Hit);
+	
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_ApplySmoothLocomotion(Delta);
+	}
+}
+
+bool AMistspireVRPawn::Server_ApplySmoothLocomotion_Validate(FVector Delta) { return true; }
+void AMistspireVRPawn::Server_ApplySmoothLocomotion_Implementation(FVector Delta)
+{
+	AddActorWorldOffset(Delta, true);
 }
 
 void AMistspireVRPawn::ApplyVerticalVelocity(float DeltaCm)
@@ -107,6 +150,16 @@ void AMistspireVRPawn::ApplyVerticalVelocity(float DeltaCm)
 }
 
 void AMistspireVRPawn::ApplyTeleport(const FVector& TargetLocation)
+{
+	SetActorLocation(TargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_ApplyTeleport(TargetLocation);
+	}
+}
+
+bool AMistspireVRPawn::Server_ApplyTeleport_Validate(const FVector& TargetLocation) { return true; }
+void AMistspireVRPawn::Server_ApplyTeleport_Implementation(const FVector& TargetLocation)
 {
 	SetActorLocation(TargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
 }
@@ -121,30 +174,73 @@ void AMistspireVRPawn::StartClimb()
 {
 	bIsClimbing = true;
 	LocomotionSpeedCmPerSec = DefaultLocomotionSpeedCmPerSec * 0.55f;
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_StartClimb();
+	}
 }
+
+bool AMistspireVRPawn::Server_StartClimb_Validate() { return true; }
+void AMistspireVRPawn::Server_StartClimb_Implementation() { bIsClimbing = true; }
 
 void AMistspireVRPawn::StopClimb()
 {
 	bIsClimbing = false;
 	LocomotionSpeedCmPerSec = bGliderActive ? DefaultLocomotionSpeedCmPerSec * 1.5f : DefaultLocomotionSpeedCmPerSec;
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_StopClimb();
+	}
 }
+
+bool AMistspireVRPawn::Server_StopClimb_Validate() { return true; }
+void AMistspireVRPawn::Server_StopClimb_Implementation() { bIsClimbing = false; }
 
 void AMistspireVRPawn::FireGrapple(FVector WorldTarget)
 {
 	const FVector ToTarget = WorldTarget - GetActorLocation();
 	const float Pull = FMath::Min(ToTarget.Size(), 800.f);
-	AddActorWorldOffset(ToTarget.GetSafeNormal() * Pull, true);
+	const FVector Delta = ToTarget.GetSafeNormal() * Pull;
+	AddActorWorldOffset(Delta, true);
+	
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_FireGrapple(WorldTarget);
+	}
+}
+
+bool AMistspireVRPawn::Server_FireGrapple_Validate(FVector WorldTarget) { return true; }
+void AMistspireVRPawn::Server_FireGrapple_Implementation(FVector WorldTarget)
+{
+	FireGrapple(WorldTarget);
 }
 
 void AMistspireVRPawn::ToggleGlider(bool bEnable)
 {
 	bGliderActive = bEnable;
 	LocomotionSpeedCmPerSec = bGliderActive ? DefaultLocomotionSpeedCmPerSec * 1.5f : DefaultLocomotionSpeedCmPerSec;
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_ToggleGlider(bEnable);
+	}
 }
+
+bool AMistspireVRPawn::Server_ToggleGlider_Validate(bool bEnable) { return true; }
+void AMistspireVRPawn::Server_ToggleGlider_Implementation(bool bEnable) { bGliderActive = bEnable; }
 
 void AMistspireVRPawn::TryJump()
 {
 	VerticalVelocityCmPerSec = JumpImpulseCmPerSec;
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_TryJump();
+	}
+}
+
+bool AMistspireVRPawn::Server_TryJump_Validate() { return true; }
+void AMistspireVRPawn::Server_TryJump_Implementation()
+{
+	TryJump();
 }
 
 void AMistspireVRPawn::UpdateAltitudeTracking()
