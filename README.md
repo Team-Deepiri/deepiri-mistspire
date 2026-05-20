@@ -1,6 +1,6 @@
 # deepiri-mistspire
 
-**Mistspire** — *mist* + *spire*. A PCVR vertical exploration game: traverse a massive World Partition map and reach the **highest altitude** you can find.
+**Mistspire** A PCVR vertical exploration game: traverse a massive World Partition map and reach the **highest altitude** you can find.
 
 ```
   valley ──► red mesas ──► cloud forests ──► sky islands ──► orbital spire
