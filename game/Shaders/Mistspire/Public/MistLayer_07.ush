@@ -1,0 +1,4 @@
+// Layer 7 header
+#ifndef MIST_LAYER_7
+#define MIST_LAYER_7 1
+#endif
