@@ -49,6 +49,24 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_StopClimb();
 
+	void UpdateClimbingMovement(float DeltaTime);
+
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
+	void SetHandGrip(bool bIsLeft, bool bGripped);
+
+protected:
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Traversal")
+	FVector LeftHandAnchor;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Traversal")
+	FVector RightHandAnchor;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Traversal")
+	bool bLeftHandGripped = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Traversal")
+	bool bRightHandGripped = false;
+
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void FireGrapple(FVector WorldTarget);
 
