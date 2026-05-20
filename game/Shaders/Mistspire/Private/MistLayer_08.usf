@@ -1,0 +1,3 @@
+// Mistspire atmospheric layer 8
+// Blend mist density by height
+float MistDensity_8(float3 WorldPos) { return saturate(WorldPos.z * 0.0001f); }
