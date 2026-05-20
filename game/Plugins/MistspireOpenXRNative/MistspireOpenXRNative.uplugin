@@ -1,0 +1,14 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"FriendlyName": "Mistspire OpenXR Native",
+	"Description": "OpenXR bridge for Mistspire",
+	"Category": "Virtual Reality",
+	"CreatedBy": "Team Deepiri",
+	"CanContainContent": false,
+	"Modules": [{ "Name": "MistspireOpenXRNative", "Type": "Runtime", "LoadingPhase": "Default" }],
+	"Plugins": [
+		{ "Name": "OpenXR", "Enabled": true },
+		{ "Name": "OpenXRCore", "Enabled": true }
+	]
+}
