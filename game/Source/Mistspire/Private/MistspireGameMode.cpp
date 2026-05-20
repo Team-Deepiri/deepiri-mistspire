@@ -1,6 +1,7 @@
 #include "MistspireGameMode.h"
 #include "MistspireGameState.h"
 #include "MistspireVRPawn.h"
+#include "MistspirePlayerState.h"
 #include "MistspireSummitRegistry.h"
 #include "MistspireAltitudeSubsystem.h"
 #include "MistspireAltitudeDebugSubsystem.h"
@@ -9,6 +10,7 @@ AMistspireGameMode::AMistspireGameMode()
 {
 	DefaultPawnClass = AMistspireVRPawn::StaticClass();
 	GameStateClass = AMistspireGameState::StaticClass();
+	PlayerStateClass = AMistspirePlayerState::StaticClass();
 }
 
 void AMistspireGameMode::StartPlay()
