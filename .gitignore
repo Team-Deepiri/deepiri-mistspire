@@ -1,0 +1,11 @@
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+*.sln
+.vs/
+.DS_Store
+.env
+.env.*
+native/xr-sandbox/build/
