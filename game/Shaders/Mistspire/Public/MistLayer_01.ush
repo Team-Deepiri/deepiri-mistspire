@@ -1,0 +1,4 @@
+// Layer 1 header
+#ifndef MIST_LAYER_1
+#define MIST_LAYER_1 1
+#endif
