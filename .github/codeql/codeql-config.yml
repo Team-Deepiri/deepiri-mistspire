@@ -1,0 +1,17 @@
+# Exclude generated/build/runtime artifact paths.
+paths-ignore:
+  - '**/node_modules/**'
+  - '**/dist/**'
+  - '**/build/**'
+  - '**/coverage/**'
+  - '**/logs/**'
+  - '**/*.min.js'
+  - 'game/Binaries/**'
+  - 'game/Intermediate/**'
+  - 'game/Saved/**'
+  - 'game/Plugins/**/Binaries/**'
+  - 'game/Plugins/**/Intermediate/**'
+  - 'native/xr-sandbox/build/**'
+  - 'native/xr-sandbox/bin/**'
+  - 'scripts/**'
+  - 'tests/manual/**'
