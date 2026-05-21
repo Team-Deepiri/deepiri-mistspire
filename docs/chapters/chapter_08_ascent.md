@@ -1,7 +1,7 @@
-# Ascent chapter 8
+# Chapter 08: The Glass Divide
 
-Stratum notes for Mistspire vertical slice segment 8.
-
-- Target altitude band: 2000–2250 m
-- PCG layer: `DL_PCG_Biome_Mist`
-- Checkpoint: `CP_08`
+- **Altitude Range:** 2800m - 3200m
+- **Dominant Biome:** Ember/Crystal
+- **Atmosphere:** Brilliant, sharp light. The air is thinning and cool, yet smells of ozone.
+- **Key Landmark/Checkpoint:** The Quartz Gateway
+- **Climbing Challenge:** Sharp edges and reflective glare.

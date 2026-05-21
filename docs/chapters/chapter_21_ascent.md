@@ -1,7 +1,7 @@
-# Ascent chapter 21
+# Chapter 21: The Celestial Scar
 
-Stratum notes for Mistspire vertical slice segment 21.
-
-- Target altitude band: 5250–5500 m
-- PCG layer: `DL_PCG_Biome_Crystal`
-- Checkpoint: `CP_21`
+- **Altitude Range:** 8000m - 8400m
+- **Dominant Biome:** Void
+- **Atmosphere:** Sudden bursts of cosmic energy. The horizon curves visibly.
+- **Key Landmark/Checkpoint:** The Star-Forge
+- **Climbing Challenge:** Disorienting cosmic vistas.

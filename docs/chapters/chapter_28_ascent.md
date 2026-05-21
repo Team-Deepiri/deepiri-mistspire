@@ -1,7 +1,7 @@
-# Ascent chapter 28
+# Chapter 28: Infinity's Gate
 
-Stratum notes for Mistspire vertical slice segment 28.
-
-- Target altitude band: 7000–7250 m
-- PCG layer: `DL_PCG_Biome_Void`
-- Checkpoint: `CP_28`
+- **Altitude Range:** 10800m - 11200m
+- **Dominant Biome:** Void
+- **Atmosphere:** Golden light from an unknown source begins to bathe the peaks.
+- **Key Landmark/Checkpoint:** The Infinity Gate
+- **Climbing Challenge:** Complex puzzles in low gravity.

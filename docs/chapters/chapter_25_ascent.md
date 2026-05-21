@@ -1,7 +1,7 @@
-# Ascent chapter 25
+# Chapter 25: The Final Maw
 
-Stratum notes for Mistspire vertical slice segment 25.
-
-- Target altitude band: 6250–6500 m
-- PCG layer: `DL_PCG_Biome_Arid`
-- Checkpoint: `CP_25`
+- **Altitude Range:** 9600m - 10000m
+- **Dominant Biome:** Void
+- **Atmosphere:** The atmosphere is a memory. Every movement is deliberate and slow.
+- **Key Landmark/Checkpoint:** The Final Hand
+- **Climbing Challenge:** The sheer physical toll of the ascent.

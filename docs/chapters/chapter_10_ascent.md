@@ -1,7 +1,7 @@
-# Ascent chapter 10
+# Chapter 10: Fractured Light
 
-Stratum notes for Mistspire vertical slice segment 10.
-
-- Target altitude band: 2500–2750 m
-- PCG layer: `DL_PCG_Biome_Void`
-- Checkpoint: `CP_10`
+- **Altitude Range:** 3600m - 4000m
+- **Dominant Biome:** Crystal
+- **Atmosphere:** Dazzlingly bright. Every breath feels like ice. Light fractures into rainbows.
+- **Key Landmark/Checkpoint:** Crystal Eye
+- **Climbing Challenge:** Blinding reflections and brittle holds.

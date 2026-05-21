@@ -1,7 +1,7 @@
-# Ascent chapter 13
+# Chapter 13: The Thinning Edge
 
-Stratum notes for Mistspire vertical slice segment 13.
-
-- Target altitude band: 3250–3500 m
-- PCG layer: `DL_PCG_Biome_Arid`
-- Checkpoint: `CP_13`
+- **Altitude Range:** 4800m - 5200m
+- **Dominant Biome:** Crystal/Void
+- **Atmosphere:** The atmosphere is nearly gone. Sound is muffled. The sky is indigo.
+- **Key Landmark/Checkpoint:** The Last Oasis
+- **Climbing Challenge:** Unstable gravity and thin holds.

@@ -1,7 +1,7 @@
-# Ascent chapter 17
+# Chapter 17: The Hollow Stair
 
-Stratum notes for Mistspire vertical slice segment 17.
-
-- Target altitude band: 4250–4500 m
-- PCG layer: `DL_PCG_Biome_Ember`
-- Checkpoint: `CP_17`
+- **Altitude Range:** 6400m - 6800m
+- **Dominant Biome:** Void
+- **Atmosphere:** Ethereal and lonely. The world below is lost in a sea of clouds.
+- **Key Landmark/Checkpoint:** The Void Eye
+- **Climbing Challenge:** Navigating by starlight alone.

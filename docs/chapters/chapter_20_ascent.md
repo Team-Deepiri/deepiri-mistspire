@@ -1,7 +1,7 @@
-# Ascent chapter 20
+# Chapter 20: Void's Embrace
 
-Stratum notes for Mistspire vertical slice segment 20.
-
-- Target altitude band: 5000–5250 m
-- PCG layer: `DL_PCG_Biome_Mist`
-- Checkpoint: `CP_20`
+- **Altitude Range:** 7600m - 8000m
+- **Dominant Biome:** Void
+- **Atmosphere:** A heavy, spiritual weight. The environment feels ancient and untouched.
+- **Key Landmark/Checkpoint:** The Eternal Watcher
+- **Climbing Challenge:** Ancient traps and moving segments.

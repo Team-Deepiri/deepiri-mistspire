@@ -1,7 +1,7 @@
-# Ascent chapter 16
+# Chapter 16: Obsidian Reach
 
-Stratum notes for Mistspire vertical slice segment 16.
-
-- Target altitude band: 4000–4250 m
-- PCG layer: `DL_PCG_Biome_Void`
-- Checkpoint: `CP_16`
+- **Altitude Range:** 6000m - 6400m
+- **Dominant Biome:** Void
+- **Atmosphere:** The sky is black, filled with cold stars. No sound but your own breath.
+- **Key Landmark/Checkpoint:** The Shadow Spine
+- **Climbing Challenge:** Leaps across bottomless voids.

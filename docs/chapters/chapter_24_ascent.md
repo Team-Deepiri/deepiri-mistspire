@@ -1,7 +1,7 @@
-# Ascent chapter 24
+# Chapter 24: Aether Shards
 
-Stratum notes for Mistspire vertical slice segment 24.
-
-- Target altitude band: 6000–6250 m
-- PCG layer: `DL_PCG_Biome_Forest`
-- Checkpoint: `CP_24`
+- **Altitude Range:** 9200m - 9600m
+- **Dominant Biome:** Void
+- **Atmosphere:** Reality seems to ripple. The light is silver and flickering.
+- **Key Landmark/Checkpoint:** The Aether-Flux
+- **Climbing Challenge:** Teleporting platforms and reality shifts.

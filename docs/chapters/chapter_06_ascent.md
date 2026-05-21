@@ -1,7 +1,7 @@
-# Ascent chapter 6
+# Chapter 06: The Smoldering Shelf
 
-Stratum notes for Mistspire vertical slice segment 6.
-
-- Target altitude band: 1500–1750 m
-- PCG layer: `DL_PCG_Biome_Forest`
-- Checkpoint: `CP_06`
+- **Altitude Range:** 2000m - 2400m
+- **Dominant Biome:** Ember
+- **Atmosphere:** Hot and arid. The sky is a deep crimson near the horizon.
+- **Key Landmark/Checkpoint:** Cinder Ledge
+- **Climbing Challenge:** Unpredictable geysers of hot air.

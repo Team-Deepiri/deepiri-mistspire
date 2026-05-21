@@ -1,7 +1,7 @@
-# Ascent chapter 30
+# Chapter 30: The Mistspire Zenith
 
-Stratum notes for Mistspire vertical slice segment 30.
-
-- Target altitude band: 7500–7750 m
-- PCG layer: `DL_PCG_Biome_Forest`
-- Checkpoint: `CP_30`
+- **Altitude Range:** 11600m - 12000m
+- **Dominant Biome:** Void
+- **Atmosphere:** The air is pure energy. The view encompasses the entire world.
+- **Key Landmark/Checkpoint:** The Mistspire Peak
+- **Climbing Challenge:** Transcending the physical limits.

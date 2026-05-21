@@ -1,7 +1,7 @@
-# Ascent chapter 3
+# Chapter 03: Dust and Dew
 
-Stratum notes for Mistspire vertical slice segment 3.
-
-- Target altitude band: 750–1000 m
-- PCG layer: `DL_PCG_Biome_Crystal`
-- Checkpoint: `CP_03`
+- **Altitude Range:** 800m - 1200m
+- **Dominant Biome:** Arid/Forest
+- **Atmosphere:** Dry, sun-scorched air mixing with the humid scent of distant greenery.
+- **Key Landmark/Checkpoint:** The Dry Basin
+- **Climbing Challenge:** Dense foliage and unstable roots.

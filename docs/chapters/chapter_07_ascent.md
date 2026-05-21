@@ -1,7 +1,7 @@
-# Ascent chapter 7
+# Chapter 07: Charred Canopy
 
-Stratum notes for Mistspire vertical slice segment 7.
-
-- Target altitude band: 1750–2000 m
-- PCG layer: `DL_PCG_Biome_Arid`
-- Checkpoint: `CP_07`
+- **Altitude Range:** 2400m - 2800m
+- **Dominant Biome:** Ember
+- **Atmosphere:** Thick with ash and the smell of sulfur. The air is oppressive and hot.
+- **Key Landmark/Checkpoint:** The Burnt Rib
+- **Climbing Challenge:** Crumbling charcoal-like rock.

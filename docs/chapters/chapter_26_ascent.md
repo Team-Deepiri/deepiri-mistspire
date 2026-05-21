@@ -1,7 +1,7 @@
-# Ascent chapter 26
+# Chapter 26: Desolation's Peak
 
-Stratum notes for Mistspire vertical slice segment 26.
-
-- Target altitude band: 6500–6750 m
-- PCG layer: `DL_PCG_Biome_Mist`
-- Checkpoint: `CP_26`
+- **Altitude Range:** 10000m - 10400m
+- **Dominant Biome:** Void
+- **Atmosphere:** A crushing sense of isolation. The Spire is all there is.
+- **Key Landmark/Checkpoint:** The Desolation Point
+- **Climbing Challenge:** Psychological weight of the isolation.

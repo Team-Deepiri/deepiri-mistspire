@@ -1,7 +1,7 @@
-# Ascent chapter 1
+# Chapter 01: The Low Breath
 
-Stratum notes for Mistspire vertical slice segment 1.
-
-- Target altitude band: 250–500 m
-- PCG layer: `DL_PCG_Biome_Arid`
-- Checkpoint: `CP_01`
+- **Altitude Range:** 0m - 400m
+- **Dominant Biome:** Mist
+- **Atmosphere:** Thick, damp fog that clings to the skin. Sunlight is a dim, milky glow.
+- **Key Landmark/Checkpoint:** The Mossy Hook
+- **Climbing Challenge:** Slippery surfaces and low visibility.

@@ -1,7 +1,7 @@
-# Ascent chapter 23
+# Chapter 23: The Frozen Silence
 
-Stratum notes for Mistspire vertical slice segment 23.
-
-- Target altitude band: 5750–6000 m
-- PCG layer: `DL_PCG_Biome_Ember`
-- Checkpoint: `CP_23`
+- **Altitude Range:** 8800m - 9200m
+- **Dominant Biome:** Void
+- **Atmosphere:** Numbing cold. The stars are brilliant and unblinking.
+- **Key Landmark/Checkpoint:** The Frost-Bite
+- **Climbing Challenge:** Brittle ice and frozen grips.

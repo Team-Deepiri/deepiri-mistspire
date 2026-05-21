@@ -1,7 +1,7 @@
-# Ascent chapter 15
+# Chapter 15: The Silent Span
 
-Stratum notes for Mistspire vertical slice segment 15.
-
-- Target altitude band: 3750–4000 m
-- PCG layer: `DL_PCG_Biome_Crystal`
-- Checkpoint: `CP_15`
+- **Altitude Range:** 5600m - 6000m
+- **Dominant Biome:** Void
+- **Atmosphere:** A deep, hollow emptiness. Light seems to be swallowed by the dark rock.
+- **Key Landmark/Checkpoint:** The Null Pillar
+- **Climbing Challenge:** Immense drops and sheer faces.

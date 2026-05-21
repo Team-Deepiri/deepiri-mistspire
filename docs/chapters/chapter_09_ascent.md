@@ -1,7 +1,7 @@
-# Ascent chapter 9
+# Chapter 09: Prism Peaks
 
-Stratum notes for Mistspire vertical slice segment 9.
-
-- Target altitude band: 2250–2500 m
-- PCG layer: `DL_PCG_Biome_Crystal`
-- Checkpoint: `CP_09`
+- **Altitude Range:** 3200m - 3600m
+- **Dominant Biome:** Crystal
+- **Atmosphere:** Prismatic colors dance across every surface. The air is crisp and invigorating.
+- **Key Landmark/Checkpoint:** The Refractor Spire
+- **Climbing Challenge:** Vertical glass-like surfaces.

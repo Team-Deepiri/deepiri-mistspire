@@ -1,7 +1,7 @@
-# Ascent chapter 18
+# Chapter 18: Ghost Winds
 
-Stratum notes for Mistspire vertical slice segment 18.
-
-- Target altitude band: 4500–4750 m
-- PCG layer: `DL_PCG_Biome_Forest`
-- Checkpoint: `CP_18`
+- **Altitude Range:** 6800m - 7200m
+- **Dominant Biome:** Void
+- **Atmosphere:** The wind is a haunting whistle. The light is pale and otherworldly.
+- **Key Landmark/Checkpoint:** The Ghost Arch
+- **Climbing Challenge:** Heavy winds that threaten to pull you off.

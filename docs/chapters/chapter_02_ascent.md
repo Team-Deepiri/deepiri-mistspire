@@ -1,7 +1,7 @@
-# Ascent chapter 2
+# Chapter 02: The Whispering Veil
 
-Stratum notes for Mistspire vertical slice segment 2.
-
-- Target altitude band: 500–750 m
-- PCG layer: `DL_PCG_Biome_Mist`
-- Checkpoint: `CP_02`
+- **Altitude Range:** 400m - 800m
+- **Dominant Biome:** Mist/Arid
+- **Atmosphere:** Hazy air with swirling dust motes. The sun begins to pierce through the thinning mist.
+- **Key Landmark/Checkpoint:** The Sunken Arch
+- **Climbing Challenge:** Loose sand and crumbling ledges.

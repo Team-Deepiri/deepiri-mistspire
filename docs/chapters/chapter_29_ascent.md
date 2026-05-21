@@ -1,7 +1,7 @@
-# Ascent chapter 29
+# Chapter 29: The Last Breath
 
-Stratum notes for Mistspire vertical slice segment 29.
-
-- Target altitude band: 7250–7500 m
-- PCG layer: `DL_PCG_Biome_Ember`
-- Checkpoint: `CP_29`
+- **Altitude Range:** 11200m - 11600m
+- **Dominant Biome:** Void
+- **Atmosphere:** Thin, shimmering air. The summit is finally within reach.
+- **Key Landmark/Checkpoint:** The Zenith Step
+- **Climbing Challenge:** The final, grueling push.

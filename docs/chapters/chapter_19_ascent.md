@@ -1,7 +1,7 @@
-# Ascent chapter 19
+# Chapter 19: The Shadow Ribs
 
-Stratum notes for Mistspire vertical slice segment 19.
-
-- Target altitude band: 4750–5000 m
-- PCG layer: `DL_PCG_Biome_Arid`
-- Checkpoint: `CP_19`
+- **Altitude Range:** 7200m - 7600m
+- **Dominant Biome:** Void
+- **Atmosphere:** Jagged shadows and sharp highlights. The air is almost non-existent.
+- **Key Landmark/Checkpoint:** The Silver Rib
+- **Climbing Challenge:** Zero-G pockets and floating debris.

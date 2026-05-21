@@ -1,7 +1,7 @@
-# Ascent chapter 11
+# Chapter 11: The Glimmering Gorge
 
-Stratum notes for Mistspire vertical slice segment 11.
-
-- Target altitude band: 2750–3000 m
-- PCG layer: `DL_PCG_Biome_Ember`
-- Checkpoint: `CP_11`
+- **Altitude Range:** 4000m - 4400m
+- **Dominant Biome:** Crystal
+- **Atmosphere:** High-altitude clarity. The sky is turning a darker shade of blue.
+- **Key Landmark/Checkpoint:** The Prism Bridge
+- **Climbing Challenge:** Deep chasms and narrow crystal bridges.

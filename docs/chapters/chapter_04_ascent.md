@@ -1,7 +1,7 @@
-# Ascent chapter 4
+# Chapter 04: The Resin Path
 
-Stratum notes for Mistspire vertical slice segment 4.
-
-- Target altitude band: 1000–1250 m
-- PCG layer: `DL_PCG_Biome_Void`
-- Checkpoint: `CP_04`
+- **Altitude Range:** 1200m - 1600m
+- **Dominant Biome:** Forest/Ember
+- **Atmosphere:** The air is heavy with the scent of pine and woodsmoke. Golden light filters through leaves.
+- **Key Landmark/Checkpoint:** The Resin Falls
+- **Climbing Challenge:** Sticky sap and narrow branches.
