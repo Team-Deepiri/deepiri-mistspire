@@ -120,14 +120,16 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		}
 		
 		UpdateAltitudeTracking();
+		UpdateStamina(DeltaTime);
 		UpdateImmersiveAudio(DeltaTime);
 
-		// Comfort Vignette based on rotation and speed
+		// Comfort Vignette based on rotation, speed, and exhaustion
 		if (ComfortVignette)
 		{
 			float TurnFactor = FMath::Abs(CachedTurnInput);
 			float SpeedFactor = GliderVelocity.Size() / 4000.f;
-			float Intensity = FMath::Max(TurnFactor, SpeedFactor * 0.5f);
+			float ExhaustionFactor = bIsExhausted ? 0.4f : (1.0f - (CurrentStamina / MaxStamina)) * 0.3f;
+			float Intensity = FMath::Max(FMath::Max(TurnFactor, SpeedFactor * 0.5f), ExhaustionFactor);
 			ComfortVignette->BlendWeight = FMath::FInterpTo(ComfortVignette->BlendWeight, Intensity, DeltaTime, 5.f);
 		}
 
@@ -207,24 +209,26 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			}
 		}
 
-		// Adrenaline Heartbeat Haptics
+		// Adrenaline & Heartbeat Haptics (Scale with Exhaustion)
 		static float HeartbeatTimer = 0.f;
 		HeartbeatTimer += DeltaTime;
 		
 		float SpeedFactor = GliderVelocity.Size() / 3000.f;
 		float AltitudeFactor = GetActorLocation().Z / 500000.f;
-		float Adrenaline = FMath::Clamp(SpeedFactor + AltitudeFactor, 0.f, 1.f);
+		float ExhaustionFactor = (1.0f - (CurrentStamina / MaxStamina));
+		float Adrenaline = FMath::Clamp(SpeedFactor + AltitudeFactor + ExhaustionFactor, 0.f, 1.2f);
 		
 		if (Adrenaline > 0.3f)
 		{
-			float PulseRate = FMath::Lerp(1.5f, 0.5f, Adrenaline); // Pulse every 1.5s to 0.5s
+			float PulseRate = FMath::Lerp(1.5f, 0.3f, FMath::Min(Adrenaline, 1.0f)); 
 			if (HeartbeatTimer >= PulseRate)
 			{
 				HeartbeatTimer = 0.f;
 				if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
 				{
-					XR->TriggerHapticVibration(true, 0.15f * Adrenaline, 0.08f, 40.f);
-					XR->TriggerHapticVibration(false, 0.15f * Adrenaline, 0.08f, 40.f);
+					float Strength = 0.15f * Adrenaline;
+					XR->TriggerHapticVibration(true, Strength, 0.08f, 40.f);
+					XR->TriggerHapticVibration(false, Strength, 0.08f, 40.f);
 				}
 			}
 		}
@@ -256,6 +260,7 @@ void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AMistspireVRPawn, bGliderActive);
 	DOREPLIFETIME(AMistspireVRPawn, bGrappleActive);
 	DOREPLIFETIME(AMistspireVRPawn, GrappleAnchorPoint);
+	DOREPLIFETIME(AMistspireVRPawn, CurrentStamina);
 }
 
 void AMistspireVRPawn::PollXRInput()
@@ -371,8 +376,12 @@ void AMistspireVRPawn::UpdateClimbingMovement(float DeltaTime)
 		if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
 		{
 			float GripForce = WorldDelta.Size() / (DeltaTime * 100.f);
-			if (bLeftHandGripped) XR->TriggerHapticVibration(true, FMath::Min(GripForce * 0.1f, 0.4f), 0.05f);
-			if (bRightHandGripped) XR->TriggerHapticVibration(false, FMath::Min(GripForce * 0.1f, 0.4f), 0.05f);
+			
+			// Constant "Surface Grain" feel while moving hands
+			float GrainStrength = FMath::Clamp(GripForce * 0.05f, 0.02f, 0.15f);
+			
+			if (bLeftHandGripped) XR->TriggerHapticVibration(true, FMath::Min(GripForce * 0.1f + GrainStrength, 0.5f), 0.05f, 160.f);
+			if (bRightHandGripped) XR->TriggerHapticVibration(false, FMath::Min(GripForce * 0.1f + GrainStrength, 0.5f), 0.05f, 160.f);
 		}
 
 		if (GetLocalRole() < ROLE_Authority)
@@ -455,17 +464,55 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 	WindAudio->SetPitchMultiplier(WindPitch);
 	if (!WindAudio->IsPlaying()) WindAudio->Play();
 
-	// Exertion Audio when climbing or low on stamina (if we had stamina)
-	if (bIsClimbing)
+	// Exertion Audio when climbing or low on stamina
+	float StaminaFactor = (1.0f - (CurrentStamina / MaxStamina));
+	if (bIsClimbing || bIsExhausted || StaminaFactor > 0.5f)
 	{
 		if (!ExertionAudio->IsPlaying()) ExertionAudio->Play();
-		float ExertionTarget = FMath::Clamp(VerticalVelocityCmPerSec / 500.f, 0.5f, 1.0f);
+		
+		float ExertionTarget = FMath::Clamp((VerticalVelocityCmPerSec / 500.f) + StaminaFactor, 0.3f, 1.2f);
 		ExertionAudio->SetVolumeMultiplier(FMath::FInterpTo(ExertionAudio->VolumeMultiplier, ExertionTarget, DeltaTime, 2.f));
+		ExertionAudio->SetPitchMultiplier(FMath::Lerp(0.9f, 1.3f, StaminaFactor));
 	}
 	else
 	{
 		ExertionAudio->SetVolumeMultiplier(FMath::FInterpTo(ExertionAudio->VolumeMultiplier, 0.f, DeltaTime, 1.f));
 		if (ExertionAudio->VolumeMultiplier < 0.01f) ExertionAudio->Stop();
+	}
+}
+
+void AMistspireVRPawn::UpdateStamina(float DeltaTime)
+{
+	if (bIsClimbing)
+	{
+		CurrentStamina -= StaminaDrainRateClimbing * DeltaTime;
+	}
+	else if (bGliderActive)
+	{
+		// Gliding is physically taxing at high speeds
+		float SpeedFactor = GliderVelocity.Size() / 2000.f;
+		CurrentStamina -= StaminaDrainRateGliding * SpeedFactor * DeltaTime;
+	}
+	else
+	{
+		CurrentStamina += StaminaRecoveryRate * DeltaTime;
+	}
+
+	CurrentStamina = FMath::Clamp(CurrentStamina, 0.f, MaxStamina);
+	bIsExhausted = (CurrentStamina < 10.f);
+
+	// If truly out of stamina while climbing, simulate a "slip"
+	if (CurrentStamina <= 0.f && bIsClimbing)
+	{
+		StopClimb();
+		// Add a downward impulse
+		VerticalVelocityCmPerSec = -300.f;
+		
+		if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+		{
+			XR->TriggerHapticVibration(true, 1.0f, 0.2f, 200.f);
+			XR->TriggerHapticVibration(false, 1.0f, 0.2f, 200.f);
+		}
 	}
 }
 

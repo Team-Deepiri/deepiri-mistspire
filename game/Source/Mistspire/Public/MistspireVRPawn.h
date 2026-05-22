@@ -10,6 +10,8 @@ class UMotionControllerComponent;
 class USkeletalMeshComponent;
 class UTextRenderComponent;
 class UAudioComponent;
+class UPostProcessComponent;
+class UCableComponent;
 
 UCLASS()
 class MISTSPIRE_API AMistspireVRPawn : public APawn
@@ -126,12 +128,20 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
 	TObjectPtr<UCableComponent> GrappleCable;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
+	TObjectPtr<UStaticMeshComponent> GliderMesh;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
+	TObjectPtr<UPostProcessComponent> ComfortVignette;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Audio")
 	TObjectPtr<UAudioComponent> WindAudio;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Audio")
 	TObjectPtr<UAudioComponent> ExertionAudio;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|UI")
+	TObjectPtr<UTextRenderComponent> AltimeterText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float DefaultLocomotionSpeedCmPerSec = 400.f;
@@ -160,18 +170,33 @@ protected:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Traversal")
 	FVector GrappleAnchorPoint;
 
+	// Stamina & Immersion Stats
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Survival")
+	float CurrentStamina = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Survival")
+	float MaxStamina = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Survival")
+	float StaminaDrainRateClimbing = 15.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Survival")
+	float StaminaDrainRateGliding = 5.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Survival")
+	float StaminaRecoveryRate = 12.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Survival")
+	bool bIsExhausted = false;
+
 private:
 	void PollXRInput();
 	void UpdateAltitudeTracking();
 	void ApplyVerticalVelocity(float DeltaCm);
+	void UpdateStamina(float DeltaTime);
 
 	FVector2D CachedMoveInput;
 	float CachedTurnInput = 0.f;
-	float VerticalVelocityCmPerSec = 0.f;
-	bool bMenuPressedLast = false;
-	bool bJumpPressedLast = false;
-	FVector GliderVelocity = FVector::ZeroVector;
-};
 	float VerticalVelocityCmPerSec = 0.f;
 	bool bMenuPressedLast = false;
 	bool bJumpPressedLast = false;

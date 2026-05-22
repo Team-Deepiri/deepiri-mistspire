@@ -15,7 +15,20 @@ FVector UMistspireEnvironmentSubsystem::GetWindAtAltitude(float AltitudeCm) cons
 	float Angle = (DirTime * 0.2f) + (AltitudeCm * 0.00005f);
 	
 	FVector WindDir(FMath::Cos(Angle), FMath::Sin(Angle), 0.1f * FMath::Sin(DirTime * 0.5f));
-	return WindDir * BaseStrength;
+	FVector BaseWind = WindDir * BaseStrength;
+
+	// Dynamic Gusts
+	float GustFrequency = 0.1f + (AltitudeCm * 0.000001f); // More frequent gusts at height
+	float GustSeed = DirTime * GustFrequency;
+	float GustStrength = FMath::PerlinNoise1D(GustSeed);
+	
+	if (GustStrength > 0.6f)
+	{
+		float ExtraPush = (GustStrength - 0.6f) * 1500.f;
+		BaseWind += WindDir * ExtraPush;
+	}
+
+	return BaseWind;
 }
 
 float UMistspireEnvironmentSubsystem::GetMistDensityAtAltitude(float AltitudeCm) const
