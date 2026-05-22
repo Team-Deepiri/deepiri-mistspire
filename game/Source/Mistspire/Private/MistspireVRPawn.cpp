@@ -212,18 +212,43 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			}
 		}
 
-		// Adrenaline & Heartbeat Haptics (Scale with Exhaustion)
+		// Weather-Specific Haptics (Static Electricity, Storm Turbulence)
+		if (UWorld* World = GetWorld())
+		{
+			if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
+			{
+				EMistspireWeatherType Weather = Env->GetCurrentWeather();
+				if (Weather == EMistspireWeatherType::ElectricTurmoil)
+				{
+					// Random static "pops" in the hands
+					if (FMath::FRand() < 0.05f)
+					{
+						if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+						{
+							XR->TriggerHapticVibration(FMath::RandBool(), 0.1f, 0.02f, 300.f);
+						}
+					}
+				}
+			}
+		}
+
+		// Adrenaline & Heartbeat Haptics (Scale with Exhaustion, Hypoxia, and Panic)
 		static float HeartbeatTimer = 0.f;
 		HeartbeatTimer += DeltaTime;
 		
 		float SpeedFactor = GliderVelocity.Size() / 3000.f;
 		float AltitudeFactor = GetActorLocation().Z / 500000.f;
 		float ExhaustionFactor = (1.0f - (CurrentStamina / MaxStamina));
-		float Adrenaline = FMath::Clamp(SpeedFactor + AltitudeFactor + ExhaustionFactor, 0.f, 1.2f);
+		float HypoxiaFactor = (1.0f - (CurrentOxygen / MaxOxygen));
+		
+		// Panic Factor: High vertical velocity without glider/climb
+		float PanicFactor = (!bIsClimbing && !bGliderActive && VerticalVelocityCmPerSec < -500.f) ? FMath::Clamp(-VerticalVelocityCmPerSec / 2000.f, 0.f, 1.0f) : 0.f;
+
+		float Adrenaline = FMath::Clamp(SpeedFactor + AltitudeFactor + ExhaustionFactor + HypoxiaFactor + PanicFactor, 0.f, 1.5f);
 		
 		if (Adrenaline > 0.3f)
 		{
-			float PulseRate = FMath::Lerp(1.5f, 0.3f, FMath::Min(Adrenaline, 1.0f)); 
+			float PulseRate = FMath::Lerp(1.5f, 0.25f, FMath::Min(Adrenaline, 1.0f)); 
 			if (HeartbeatTimer >= PulseRate)
 			{
 				HeartbeatTimer = 0.f;
