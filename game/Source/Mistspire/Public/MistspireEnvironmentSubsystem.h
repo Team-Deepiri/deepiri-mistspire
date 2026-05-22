@@ -21,6 +21,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Mistspire|Environment")
 	float GetMistDensityAtAltitude(float AltitudeCm) const;
 
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Environment")
+	float GetAtmosphericPressure(float AltitudeCm) const;
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Environment")
+	float GetTemperatureCelsius(float AltitudeCm) const;
+
 private:
 	float TimeAccumulator = 0.f;
 };

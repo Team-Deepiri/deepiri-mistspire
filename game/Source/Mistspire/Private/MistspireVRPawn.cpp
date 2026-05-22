@@ -121,15 +121,18 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		
 		UpdateAltitudeTracking();
 		UpdateStamina(DeltaTime);
+		UpdateOxygen(DeltaTime);
+		UpdateAtmosphericEffects(DeltaTime);
 		UpdateImmersiveAudio(DeltaTime);
 
-		// Comfort Vignette based on rotation, speed, and exhaustion
+		// Comfort Vignette based on rotation, speed, exhaustion, and hypoxia
 		if (ComfortVignette)
 		{
 			float TurnFactor = FMath::Abs(CachedTurnInput);
 			float SpeedFactor = GliderVelocity.Size() / 4000.f;
 			float ExhaustionFactor = bIsExhausted ? 0.4f : (1.0f - (CurrentStamina / MaxStamina)) * 0.3f;
-			float Intensity = FMath::Max(FMath::Max(TurnFactor, SpeedFactor * 0.5f), ExhaustionFactor);
+			float HypoxiaFactor = (1.0f - (CurrentOxygen / MaxOxygen)) * 0.8f;
+			float Intensity = FMath::Max(FMath::Max(FMath::Max(TurnFactor, SpeedFactor * 0.5f), ExhaustionFactor), HypoxiaFactor);
 			ComfortVignette->BlendWeight = FMath::FInterpTo(ComfortVignette->BlendWeight, Intensity, DeltaTime, 5.f);
 		}
 
@@ -261,6 +264,7 @@ void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AMistspireVRPawn, bGrappleActive);
 	DOREPLIFETIME(AMistspireVRPawn, GrappleAnchorPoint);
 	DOREPLIFETIME(AMistspireVRPawn, CurrentStamina);
+	DOREPLIFETIME(AMistspireVRPawn, CurrentOxygen);
 }
 
 void AMistspireVRPawn::PollXRInput()
@@ -483,15 +487,17 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 
 void AMistspireVRPawn::UpdateStamina(float DeltaTime)
 {
+	float PressureFactor = 1.0f / CurrentAtmosphericPressure; // Harder to move in high pressure? No, harder to breathe in low pressure.
+	float EffortMultiplier = FMath::Clamp(PressureFactor, 1.0f, 2.5f);
+
 	if (bIsClimbing)
 	{
-		CurrentStamina -= StaminaDrainRateClimbing * DeltaTime;
+		CurrentStamina -= StaminaDrainRateClimbing * EffortMultiplier * DeltaTime;
 	}
 	else if (bGliderActive)
 	{
-		// Gliding is physically taxing at high speeds
 		float SpeedFactor = GliderVelocity.Size() / 2000.f;
-		CurrentStamina -= StaminaDrainRateGliding * SpeedFactor * DeltaTime;
+		CurrentStamina -= StaminaDrainRateGliding * SpeedFactor * EffortMultiplier * DeltaTime;
 	}
 	else
 	{
@@ -501,17 +507,73 @@ void AMistspireVRPawn::UpdateStamina(float DeltaTime)
 	CurrentStamina = FMath::Clamp(CurrentStamina, 0.f, MaxStamina);
 	bIsExhausted = (CurrentStamina < 10.f);
 
-	// If truly out of stamina while climbing, simulate a "slip"
 	if (CurrentStamina <= 0.f && bIsClimbing)
 	{
 		StopClimb();
-		// Add a downward impulse
 		VerticalVelocityCmPerSec = -300.f;
 		
 		if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
 		{
 			XR->TriggerHapticVibration(true, 1.0f, 0.2f, 200.f);
 			XR->TriggerHapticVibration(false, 1.0f, 0.2f, 200.f);
+		}
+	}
+}
+
+void AMistspireVRPawn::UpdateOxygen(float DeltaTime)
+{
+	// Oxygen drains when pressure is low (< 0.5 ATM, approx 5000m)
+	if (CurrentAtmosphericPressure < 0.5f)
+	{
+		float HypoxiaSeverity = (0.5f - CurrentAtmosphericPressure) * 2.0f; // 0 at 0.5 ATM, 1 at 0 ATM
+		float Drain = OxygenDrainRateBase * HypoxiaSeverity * 5.0f;
+		
+		// If climbing, drain even faster
+		if (bIsClimbing) Drain *= 2.0f;
+		
+		CurrentOxygen -= Drain * DeltaTime;
+	}
+	else
+	{
+		// Recover oxygen in thick air
+		CurrentOxygen += OxygenRecoveryRate * DeltaTime;
+	}
+
+	CurrentOxygen = FMath::Clamp(CurrentOxygen, 0.f, MaxOxygen);
+
+	// Hypoxia Effects: Screen Shake & Disorientation
+	if (CurrentOxygen < 30.f)
+	{
+		float HypoxiaIntensity = 1.0f - (CurrentOxygen / 30.f);
+		FVector Shake = FVector(FMath::FRandRange(-1.f, 1.f), FMath::FRandRange(-1.f, 1.f), FMath::FRandRange(-1.f, 1.f)) * HypoxiaIntensity * 2.f;
+		VRCamera->AddRelativeLocation(Shake);
+		
+		if (CurrentOxygen <= 0.f)
+		{
+			// Unconscious / Fall
+			if (bIsClimbing) StopClimb();
+			VerticalVelocityCmPerSec -= 500.f * DeltaTime;
+		}
+	}
+}
+
+void AMistspireVRPawn::UpdateAtmosphericEffects(float DeltaTime)
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
+		{
+			float Altitude = GetActorLocation().Z;
+			CurrentAtmosphericPressure = Env->GetAtmosphericPressure(Altitude);
+			
+			// Apply temperature-based visual effects (frost on visor?)
+			float Temp = Env->GetTemperatureCelsius(Altitude);
+			if (Temp < 0.f && ComfortVignette)
+			{
+				// Simulate frost by increasing vignette opacity/tint
+				float FrostIntensity = FMath::Clamp(-Temp / 50.f, 0.f, 0.5f);
+				// (Vignette logic would go here if we had a specific frost param)
+			}
 		}
 	}
 }

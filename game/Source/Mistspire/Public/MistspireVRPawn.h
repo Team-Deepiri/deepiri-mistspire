@@ -186,14 +186,32 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Survival")
 	float StaminaRecoveryRate = 12.f;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Survival")
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Survival")
 	bool bIsExhausted = false;
+
+	// High Altitude Survival
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Survival")
+	float CurrentOxygen = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Survival")
+	float MaxOxygen = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Survival")
+	float OxygenDrainRateBase = 0.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Survival")
+	float OxygenRecoveryRate = 20.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Survival")
+	float CurrentAtmosphericPressure = 1.0f;
 
 private:
 	void PollXRInput();
 	void UpdateAltitudeTracking();
 	void ApplyVerticalVelocity(float DeltaCm);
 	void UpdateStamina(float DeltaTime);
+	void UpdateOxygen(float DeltaTime);
+	void UpdateAtmosphericEffects(float DeltaTime);
 
 	FVector2D CachedMoveInput;
 	float CachedTurnInput = 0.f;

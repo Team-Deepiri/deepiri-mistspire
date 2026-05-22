@@ -37,3 +37,20 @@ float UMistspireEnvironmentSubsystem::GetMistDensityAtAltitude(float AltitudeCm)
 	float Density = FMath::Clamp(1.0f - (AltitudeCm / 150000.f), 0.05f, 1.0f);
 	return Density;
 }
+
+float UMistspireEnvironmentSubsystem::GetAtmosphericPressure(float AltitudeCm) const
+{
+	// Logarithmic pressure drop (Standard Atmosphere approx)
+	// Base is 1.0 (Sea Level), dropping to ~0.2 at 12km (Zenith)
+	float Pressure = FMath::Exp(-AltitudeCm / 800000.f); 
+	return FMath::Clamp(Pressure, 0.05f, 1.0f);
+}
+
+float UMistspireEnvironmentSubsystem::GetTemperatureCelsius(float AltitudeCm) const
+{
+	// Lapse rate: -6.5C per km
+	float BaseTemp = 25.0f; // Valley is warm
+	float LapseRate = 0.0065f; // per cm
+	float Temp = BaseTemp - (AltitudeCm * LapseRate);
+	return Temp;
+}
