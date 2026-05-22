@@ -735,6 +735,12 @@ void AMistspireVRPawn::UpdateAltitudeTracking()
 	if (UMistspireAltitudeSubsystem* Alt = World->GetSubsystem<UMistspireAltitudeSubsystem>())
 	{
 		Alt->UpdateAltitudeFromWorldLocation(GetActorLocation());
+
+		// Social Altitude Sync (Multiplayer Leaderboard)
+		if (AMistspirePlayerState* PS = GetPlayerState<AMistspirePlayerState>())
+		{
+			PS->UpdateAltitude(Alt->GetCurrentAltitudeCm());
+		}
 	}
 
 	if (UMistspireSummitRegistry* Registry = World->GetSubsystem<UMistspireSummitRegistry>())
@@ -748,19 +754,13 @@ void AMistspireVRPawn::UpdateAltitudeTracking()
 		};
 		for (FName Id : SummitIds)
 		{
-			Registry->TryReachSummit(Id, GetActorLocation());
-		}
-	}
-}
-"),
-			TEXT("summit_mesa_crown"),
-			TEXT("summit_cloud_garden"),
-			TEXT("summit_obelisk_prime"),
-			TEXT("summit_orbital_needle"),
-		};
-		for (FName Id : SummitIds)
-		{
-			Registry->TryReachSummit(Id, GetActorLocation());
+			if (Registry->TryReachSummit(Id, GetActorLocation()))
+			{
+				if (AMistspirePlayerState* PS = GetPlayerState<AMistspirePlayerState>())
+				{
+					PS->AddSummit(Id);
+				}
+			}
 		}
 	}
 }

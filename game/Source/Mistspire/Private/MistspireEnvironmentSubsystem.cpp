@@ -11,17 +11,33 @@ TStatId UMistspireEnvironmentSubsystem::GetStatId() const { RETURN_QUICK_DECLARE
 
 void UMistspireEnvironmentSubsystem::UpdateWeather(float DeltaTime)
 {
-	WeatherTransitionTimer -= DeltaTime;
-	if (WeatherTransitionTimer <= 0.f)
+	if (!GetWorld()->IsNetMode(NM_Client))
 	{
-		// 30 to 120 seconds between weather shifts
-		WeatherTransitionTimer = FMath::FRandRange(30.f, 120.f);
-		
-		float Roll = FMath::FRand();
-		if (Roll < 0.6f) CurrentWeather = EMistspireWeatherType::Clear;
-		else if (Roll < 0.8f) CurrentWeather = EMistspireWeatherType::MistStorm;
-		else if (Roll < 0.95f) CurrentWeather = EMistspireWeatherType::ElectricTurmoil;
-		else CurrentWeather = EMistspireWeatherType::ZenithGlow;
+		WeatherTransitionTimer -= DeltaTime;
+		if (WeatherTransitionTimer <= 0.f)
+		{
+			WeatherTransitionTimer = FMath::FRandRange(30.f, 120.f);
+			
+			float Roll = FMath::FRand();
+			if (Roll < 0.6f) CurrentWeather = EMistspireWeatherType::Clear;
+			else if (Roll < 0.8f) CurrentWeather = EMistspireWeatherType::MistStorm;
+			else if (Roll < 0.95f) CurrentWeather = EMistspireWeatherType::ElectricTurmoil;
+			else CurrentWeather = EMistspireWeatherType::ZenithGlow;
+
+			// Sync to GameState
+			if (AMistspireGameState* GS = GetWorld()->GetGameState<AMistspireGameState>())
+			{
+				GS->CurrentWeatherIndex = (uint8)CurrentWeather;
+			}
+		}
+	}
+	else
+	{
+		// Clients follow the GameState
+		if (AMistspireGameState* GS = GetWorld()->GetGameState<AMistspireGameState>())
+		{
+			CurrentWeather = (EMistspireWeatherType)GS->CurrentWeatherIndex;
+		}
 	}
 }
 

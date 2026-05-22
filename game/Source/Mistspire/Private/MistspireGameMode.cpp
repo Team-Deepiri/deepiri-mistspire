@@ -11,6 +11,10 @@ AMistspireGameMode::AMistspireGameMode()
 	DefaultPawnClass = AMistspireVRPawn::StaticClass();
 	GameStateClass = AMistspireGameState::StaticClass();
 	PlayerStateClass = AMistspirePlayerState::StaticClass();
+
+	// Support for 30+ player massively vertical multiplayer
+	bPauseable = false;
+	bStartPlayersAsSpectators = false;
 }
 
 void AMistspireGameMode::StartPlay()

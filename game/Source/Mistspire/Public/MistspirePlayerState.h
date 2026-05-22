@@ -18,6 +18,9 @@ public:
 	float MaxAltitudeCm = 0.f;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Score")
+	float CurrentAltitudeCm = 0.f;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Score")
 	TArray<FName> ReachedSummits;
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Score")
@@ -25,4 +28,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Score")
 	void AddSummit(FName SummitId);
+
+protected:
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_SyncAltitudeToGameState(float Current, float Max);
 };
