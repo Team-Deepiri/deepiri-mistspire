@@ -2,6 +2,8 @@
 #include "MistspireAltitudeSubsystem.h"
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireProgressSubsystem.h"
+#include "MistspireWorldAtlasSubsystem.h"
+#include "MistspireInteriorSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
@@ -132,3 +134,66 @@ static FAutoConsoleCommand CmdMistspireLoadProgress(
 	TEXT("mistspire.LoadProgress"),
 	TEXT("Load saved progress into the current world."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireLoadProgress));
+
+static void MistspireTeleportDistrict(const TArray<FString>& Args)
+{
+	if (!GWorld || Args.Num() < 1)
+	{
+		return;
+	}
+	const int32 Index = FMath::Clamp(FCString::Atoi(*Args[0]), 0, 11);
+	if (UMistspireWorldAtlasSubsystem* Atlas = GWorld->GetSubsystem<UMistspireWorldAtlasSubsystem>())
+	{
+		const TArray<FMistspireDistrictEntry>& Districts = Atlas->GetDistricts();
+		if (Districts.IsValidIndex(Index))
+		{
+			if (APawn* Pawn = GWorld->GetFirstPlayerController()->GetPawn())
+			{
+				const FVector Target = Districts[Index].BoundsCenter + FVector(0, 0, 25000.f);
+				Pawn->SetActorLocation(Target, false, nullptr, ETeleportType::TeleportPhysics);
+			}
+		}
+	}
+}
+
+static void MistspireExitInterior(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(GWorld->GetFirstPlayerController()->GetPawn()))
+	{
+		if (UMistspireInteriorSubsystem* Interior = GWorld->GetSubsystem<UMistspireInteriorSubsystem>())
+		{
+			Interior->ExitBuilding(Pawn);
+		}
+	}
+}
+
+static void MistspireRespawnWorldMarkers(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	if (UMistspireWorldAtlasSubsystem* Atlas = GWorld->GetSubsystem<UMistspireWorldAtlasSubsystem>())
+	{
+		Atlas->SpawnAuthoredWorldMarkers();
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireTeleportDistrict(
+	TEXT("mistspire.TeleportDistrict"),
+	TEXT("Teleport to district index 0-11. Usage: mistspire.TeleportDistrict 0"),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireTeleportDistrict));
+
+static FAutoConsoleCommand CmdMistspireExitInterior(
+	TEXT("mistspire.ExitInterior"),
+	TEXT("Force exit current building interior."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireExitInterior));
+
+static FAutoConsoleCommand CmdMistspireRespawnWorldMarkers(
+	TEXT("mistspire.RespawnWorldMarkers"),
+	TEXT("Respawn building doors and POI markers from atlas."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireRespawnWorldMarkers));

@@ -1,4 +1,5 @@
 #include "MistspireEnvironmentSubsystem.h"
+#include "MistspireInteriorSubsystem.h"
 #include "MistspireGameState.h"
 
 void UMistspireEnvironmentSubsystem::Tick(float DeltaTime)
@@ -50,6 +51,17 @@ void UMistspireEnvironmentSubsystem::UpdateWeather(float DeltaTime)
 
 FVector UMistspireEnvironmentSubsystem::GetWindAtAltitude(float AltitudeCm) const
 {
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UMistspireInteriorSubsystem* Interior = World->GetSubsystem<UMistspireInteriorSubsystem>())
+		{
+			if (Interior->IsInsideInterior())
+			{
+				return FVector::ZeroVector;
+			}
+		}
+	}
+
 	// Wind strength increases with altitude
 	float BaseStrength = (AltitudeCm / 100000.f) * 300.f; 
 	
@@ -86,6 +98,17 @@ FVector UMistspireEnvironmentSubsystem::GetWindAtAltitude(float AltitudeCm) cons
 
 float UMistspireEnvironmentSubsystem::GetMistDensityAtAltitude(float AltitudeCm) const
 {
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UMistspireInteriorSubsystem* Interior = World->GetSubsystem<UMistspireInteriorSubsystem>())
+		{
+			if (Interior->IsInsideInterior())
+			{
+				return 0.08f;
+			}
+		}
+	}
+
 	float Density = FMath::Clamp(1.0f - (AltitudeCm / 150000.f), 0.05f, 1.0f);
 	switch (CurrentWeather)
 	{

@@ -13,6 +13,8 @@ Highest **personal altitude** (cm). Optional **summit** achievements at authored
 | v1 slice (`Main_WP`) | 4 × 4 km | 0 – 8 km |
 | Production | 20 – 50 km² | 0 – 12+ km |
 
+**C++ atlas (v2):** `UMistspireWorldAtlasSubsystem` seeds 12 horizontal **districts**, 16 **enterable buildings** (pocket interiors), and POI markers. See [BUILDINGS_AND_INTERIORS.md](BUILDINGS_AND_INTERIORS.md).
+
 ## World Partition
 
 - Cell size: **128–256 m**

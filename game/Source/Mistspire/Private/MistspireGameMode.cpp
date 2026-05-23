@@ -9,6 +9,7 @@
 #include "MistspireCompanionSubsystem.h"
 #include "MistspireGhostClimberSubsystem.h"
 #include "MistspireAmbienceSubsystem.h"
+#include "MistspireWorldAtlasSubsystem.h"
 
 AMistspireGameMode::AMistspireGameMode()
 {
@@ -25,6 +26,7 @@ void AMistspireGameMode::StartPlay()
 {
 	Super::StartPlay();
 	SeedDefaultSummits();
+	SeedWorldAtlas();
 
 	if (UWorld* World = GetWorld())
 	{
@@ -70,4 +72,19 @@ void AMistspireGameMode::SeedDefaultSummits()
 	Registry->RegisterSummit(TEXT("summit_spire_cathedral"), FVector(-300000.f, 400000.f, 550000.f), 550000.f);
 	Registry->RegisterSummit(TEXT("summit_rift_observatory"), FVector(400000.f, -200000.f, 700000.f), 700000.f);
 	Registry->RegisterSummit(TEXT("summit_ember_crown"), FVector(-150000.f, -350000.f, 350000.f), 350000.f);
+}
+
+void AMistspireGameMode::SeedWorldAtlas()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	if (UMistspireWorldAtlasSubsystem* Atlas = World->GetSubsystem<UMistspireWorldAtlasSubsystem>())
+	{
+		Atlas->SeedProductionWorld();
+		Atlas->SpawnAuthoredWorldMarkers();
+	}
 }

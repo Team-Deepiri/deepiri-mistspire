@@ -9,6 +9,8 @@
 #include "MistspirePlayerState.h"
 #include "MistspireProgressSubsystem.h"
 #include "MistspireAmbienceSubsystem.h"
+#include "MistspireWorldAtlasSubsystem.h"
+#include "MistspireInteriorSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -201,6 +203,11 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			{
 				Zone->UpdateZoneFromAltitude(Alt->GetCurrentAltitudeCm());
 			}
+		}
+
+		if (UMistspireWorldAtlasSubsystem* Atlas = World->GetSubsystem<UMistspireWorldAtlasSubsystem>())
+		{
+			Atlas->UpdateDistrictFromPlayerLocation(GetActorLocation());
 		}
 
 		// Comfort Vignette based on rotation, speed, exhaustion, and hypoxia

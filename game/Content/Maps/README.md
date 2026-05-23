@@ -28,7 +28,8 @@ Binary `.umap` assets are not committed in v1. Create the map in UE Editor after
    - Duplicate markers per [docs/WORLD_DESIGN.md](../../../docs/WORLD_DESIGN.md)
 8. **Player start:** place `PlayerStart` in valley; set **Game Mode** `MistspireGameMode` in World Settings.
 9. **HLOD:** Generate HLOD for distant cells (World Partition → HLOD).
-10. **VR test:** VR Preview with OpenXR runtime active.
+10. **Building pockets:** author interior rooms at pocket coords — see [docs/BUILDINGS_AND_INTERIORS.md](../../../docs/BUILDINGS_AND_INTERIORS.md). Doors spawn at runtime from the world atlas.
+11. **VR test:** VR Preview with OpenXR runtime active.
 
 ## Expand to full production grid
 

@@ -41,3 +41,9 @@
 ## Immersion stack
 
 See [docs/IMMERSION.md](docs/IMMERSION.md) — zones, narrative, beacon, companion orb, ghosts, pickups, persistence.
+
+## World scale & interiors
+
+- `UMistspireWorldAtlasSubsystem` — districts, buildings, POIs
+- `UMistspireInteriorSubsystem` — enter/exit buildings (VR teleport)
+- [docs/BUILDINGS_AND_INTERIORS.md](docs/BUILDINGS_AND_INTERIORS.md)

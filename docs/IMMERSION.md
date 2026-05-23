@@ -55,6 +55,19 @@ mistspire.TeleportUp 5000
 mistspire.AltitudeStats
 ```
 
+## Huge world & buildings
+
+- **12 districts** (Valley Haven → Zenith Dock) with flavor text on entry
+- **16 enterable buildings** — walk through door volumes; pocket interiors at X ≈ 50 km+
+- **POI discovery** — viewpoints, lore plaques, landmarks
+- Auto-spawned doors/POIs on play; see [BUILDINGS_AND_INTERIORS.md](BUILDINGS_AND_INTERIORS.md)
+
+```
+mistspire.TeleportDistrict 0
+mistspire.ExitInterior
+mistspire.RespawnWorldMarkers
+```
+
 ## Level authoring
 
 Place in `Main_WP`:
@@ -63,5 +76,7 @@ Place in `Main_WP`:
 - `AMistspireRestShelter` — camps
 - `AMistspireOxygenCanister` / `AMistspireWindCrystal` — pickups
 - `AMistspirePhysicalButton` — set `BuiltInAction` for weather shrine, etc.
+- `AMistspireBuildingEntrance` / `AMistspireInteriorExit` — or use auto-spawn from atlas
+- `AMistspirePOIMarker`, `AMistspireLoreShard` — world detail
 
 Assign wind/heartbeat/summit **audio** on `AMistspireVRPawn` in Blueprint.

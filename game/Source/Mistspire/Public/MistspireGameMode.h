@@ -16,4 +16,5 @@ public:
 
 protected:
 	void SeedDefaultSummits();
+	void SeedWorldAtlas();
 };

@@ -1,6 +1,7 @@
 #include "MistspireNarrativeSubsystem.h"
 #include "MistspireAltitudeSubsystem.h"
 #include "MistspireSummitRegistry.h"
+#include "MistspireWorldAtlasSubsystem.h"
 #include "MistspireGameState.h"
 #include "Engine/Engine.h"
 
@@ -22,6 +23,11 @@ void UMistspireNarrativeSubsystem::Initialize(FSubsystemCollectionBase& Collecti
 	{
 		Registry->OnSummitReached.AddUObject(this, &UMistspireNarrativeSubsystem::OnSummitReached);
 	}
+
+	if (UMistspireWorldAtlasSubsystem* Atlas = GetWorld()->GetSubsystem<UMistspireWorldAtlasSubsystem>())
+	{
+		DistrictHandle = Atlas->OnDistrictEntered.AddUObject(this, &UMistspireNarrativeSubsystem::HandleDistrictChanged);
+	}
 }
 
 void UMistspireNarrativeSubsystem::Deinitialize()
@@ -35,6 +41,10 @@ void UMistspireNarrativeSubsystem::Deinitialize()
 		if (UMistspireAltitudeSubsystem* Alt = World->GetSubsystem<UMistspireAltitudeSubsystem>())
 		{
 			Alt->OnAltitudeRecord.Remove(AltitudeHandle);
+		}
+		if (UMistspireWorldAtlasSubsystem* Atlas = World->GetSubsystem<UMistspireWorldAtlasSubsystem>())
+		{
+			Atlas->OnDistrictEntered.Remove(DistrictHandle);
 		}
 	}
 	Super::Deinitialize();
@@ -101,4 +111,49 @@ void UMistspireNarrativeSubsystem::OnSummitReached(FName SummitId)
 	{
 		GS->BroadcastSocialAchievement(FString::Printf(TEXT("reached %s"), *SummitLabel));
 	}
+}
+
+void UMistspireNarrativeSubsystem::OnBuildingEntered(FName BuildingId, FText DisplayName)
+{
+	PushLine(FText::Format(
+		NSLOCTEXT("Mistspire", "BuildingEntered", "Inside: {0}"),
+		DisplayName), 5.f);
+}
+
+void UMistspireNarrativeSubsystem::OnPOIDiscovered(const FMistspirePOIEntry& POI)
+{
+	PushLine(FText::Format(
+		NSLOCTEXT("Mistspire", "POIFound", "Discovered: {0}"),
+		POI.Title), 6.f);
+	if (!POI.Description.IsEmpty())
+	{
+		PushLine(POI.Description, 7.f);
+	}
+}
+
+void UMistspireNarrativeSubsystem::HandleDistrictChanged(EMistspireWorldDistrict OldDistrict, EMistspireWorldDistrict NewDistrict)
+{
+	if (NewDistrict == EMistspireWorldDistrict::Unknown)
+	{
+		return;
+	}
+
+	if (UMistspireWorldAtlasSubsystem* Atlas = GetWorld()->GetSubsystem<UMistspireWorldAtlasSubsystem>())
+	{
+		for (const FMistspireDistrictEntry& D : Atlas->GetDistricts())
+		{
+			if (D.DistrictId == NewDistrict && !D.FlavorLine.IsEmpty())
+			{
+				PushLine(FText::Format(
+					NSLOCTEXT("Mistspire", "DistrictEnter", "{0} — {1}"),
+					UMistspireWorldAtlasSubsystem::GetDistrictDisplayName(NewDistrict),
+					D.FlavorLine), 7.f);
+				return;
+			}
+		}
+	}
+
+	PushLine(FText::Format(
+		NSLOCTEXT("Mistspire", "DistrictEnterShort", "Entering {0}."),
+		UMistspireWorldAtlasSubsystem::GetDistrictDisplayName(NewDistrict)), 5.f);
 }

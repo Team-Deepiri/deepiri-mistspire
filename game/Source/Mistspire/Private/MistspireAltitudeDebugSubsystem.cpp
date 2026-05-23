@@ -2,6 +2,8 @@
 #include "MistspireAltitudeSubsystem.h"
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireZoneSubsystem.h"
+#include "MistspireWorldAtlasSubsystem.h"
+#include "MistspireInteriorSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "Engine/Engine.h"
 #include "GameFramework/PlayerController.h"
@@ -65,7 +67,23 @@ void UMistspireAltitudeDebugSubsystem::Tick(float DeltaTime)
 			Line1 += FString::Printf(TEXT("   [%s]"), *UMistspireZoneSubsystem::GetZoneDisplayName(Zone->GetCurrentZone()).ToString());
 		}
 
+		if (UMistspireWorldAtlasSubsystem* Atlas = World->GetSubsystem<UMistspireWorldAtlasSubsystem>())
+		{
+			Line1 += FString::Printf(TEXT("   { %s }"),
+				*UMistspireWorldAtlasSubsystem::GetDistrictDisplayName(Atlas->GetCurrentDistrict()).ToString());
+		}
+
 		GEngine->AddOnScreenDebugMessage(INDEX_NONE, 0.f, FColor::Cyan, Line1);
+
+		if (UMistspireInteriorSubsystem* Interior = World->GetSubsystem<UMistspireInteriorSubsystem>())
+		{
+			if (Interior->IsInsideInterior())
+			{
+				GEngine->AddOnScreenDebugMessage(
+					3, 0.f, FColor::Yellow,
+					FString::Printf(TEXT("INTERIOR: %s"), *Interior->GetCurrentBuildingId().ToString()));
+			}
+		}
 
 		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
 		{
