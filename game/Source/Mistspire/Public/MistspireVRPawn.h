@@ -22,6 +22,7 @@ public:
 	AMistspireVRPawn();
 
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutReplicatedProps) const override;
@@ -60,7 +61,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void SetHandGrip(bool bIsLeft, bool bGripped);
 
-protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Traversal")
 	FVector LeftHandAnchor;
 
@@ -91,7 +91,27 @@ protected:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_TryJump();
 
-protected:
+	UFUNCTION(BlueprintPure, Category = "Mistspire|VR")
+	FVector GetLeftHandWorldLocation() const;
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|VR")
+	FVector GetRightHandWorldLocation() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Survival")
+	void ApplyShelterRefill(float OxygenPerSec, float StaminaPerSec, float DeltaTime);
+
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
+	void ApplyWindCrystalBoost(float DurationSeconds, float StaminaRestore);
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Survival")
+	float GetStaminaPercent() const;
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Survival")
+	float GetOxygenPercent() const;
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Survival")
+	float GetAtmosphericPressure() const;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
 	TObjectPtr<UCapsuleComponent> Capsule;
 
@@ -142,6 +162,24 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|UI")
 	TObjectPtr<UTextRenderComponent> AltimeterText;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|UI")
+	TObjectPtr<UTextRenderComponent> StaminaWristText;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|UI")
+	TObjectPtr<UTextRenderComponent> OxygenWristText;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|UI")
+	TObjectPtr<UTextRenderComponent> BeaconWristText;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Audio")
+	TObjectPtr<UAudioComponent> HeartbeatAudio;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Audio")
+	TObjectPtr<UAudioComponent> SummitChimeAudio;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
+	float GrappleTraceDistanceCm = 8000.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float DefaultLocomotionSpeedCmPerSec = 400.f;
@@ -212,11 +250,22 @@ private:
 	void UpdateStamina(float DeltaTime);
 	void UpdateOxygen(float DeltaTime);
 	void UpdateAtmosphericEffects(float DeltaTime);
+	void UpdateWristHUD();
+	void TryGrappleShot();
+	void TryMantle(float DeltaTime);
+	void UpdateBeaconPulseHaptics();
+	void HandleSummitReached(FName SummitId);
 
 	FVector2D CachedMoveInput;
 	float CachedTurnInput = 0.f;
 	float VerticalVelocityCmPerSec = 0.f;
 	bool bMenuPressedLast = false;
 	bool bJumpPressedLast = false;
+	bool bGrapplePressedLast = false;
+	bool bGliderPressedLast = false;
 	FVector GliderVelocity = FVector::ZeroVector;
+	FDelegateHandle SummitReachedHandle;
+	float GliderBoostTimeRemaining = 0.f;
+	float GliderBoostMultiplier = 1.65f;
+	bool bGrappleHeld = false;
 };

@@ -1,12 +1,16 @@
 #include "MistspireAltitudeDebugSubsystem.h"
 #include "MistspireAltitudeSubsystem.h"
+#include "MistspireEnvironmentSubsystem.h"
+#include "MistspireZoneSubsystem.h"
+#include "MistspireVRPawn.h"
 #include "Engine/Engine.h"
+#include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
 
 static TAutoConsoleVariable<int32> CVarMistspireShowAltitudeHud(
 	TEXT("mistspire.ShowAltitudeHUD"),
 	1,
-	TEXT("Draw current and personal-best altitude on screen (0=off, 1=on)."),
+	TEXT("Draw immersive survival HUD on screen (0=off, 1=on)."),
 	ECVF_Default);
 
 static TAutoConsoleVariable<int32> CVarMistspireAltitudeLogInterval(
@@ -54,9 +58,34 @@ void UMistspireAltitudeDebugSubsystem::Tick(float DeltaTime)
 
 	if (IsHudEnabled() && GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(
-			INDEX_NONE, 0.f, FColor::Cyan,
-			FString::Printf(TEXT("Mistspire  %.0f m   BEST %.0f m"), CurrentM, BestM));
+		FString Line1 = FString::Printf(TEXT("Mistspire  %.0f m   BEST %.0f m"), CurrentM, BestM);
+
+		if (UMistspireZoneSubsystem* Zone = World->GetSubsystem<UMistspireZoneSubsystem>())
+		{
+			Line1 += FString::Printf(TEXT("   [%s]"), *UMistspireZoneSubsystem::GetZoneDisplayName(Zone->GetCurrentZone()).ToString());
+		}
+
+		GEngine->AddOnScreenDebugMessage(INDEX_NONE, 0.f, FColor::Cyan, Line1);
+
+		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
+		{
+			GEngine->AddOnScreenDebugMessage(
+				1, 0.f, FColor::Silver,
+				FString::Printf(TEXT("Weather: %s"), *Env->GetWeatherDisplayName().ToString()));
+		}
+
+		if (APlayerController* PC = World->GetFirstPlayerController())
+		{
+			if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(PC->GetPawn()))
+			{
+				GEngine->AddOnScreenDebugMessage(
+					2, 0.f, FColor::Green,
+					FString::Printf(TEXT("STA %.0f%%  O2 %.0f%%  P %.2f atm"),
+						100.f * Pawn->GetStaminaPercent(),
+						100.f * Pawn->GetOxygenPercent(),
+						Pawn->GetAtmosphericPressure()));
+			}
+		}
 	}
 
 	const float Interval = static_cast<float>(CVarMistspireAltitudeLogInterval.GetValueOnGameThread());
@@ -66,7 +95,8 @@ void UMistspireAltitudeDebugSubsystem::Tick(float DeltaTime)
 		if (LogAccumulator >= Interval)
 		{
 			LogAccumulator = 0.f;
-			UE_LOG(LogTemp, Log, TEXT("Mistspire altitude: current=%.0fcm personal_best=%.0fcm"), Alt->GetCurrentAltitudeCm(), Alt->GetPersonalBestAltitudeCm());
+			UE_LOG(LogTemp, Log, TEXT("Mistspire altitude: current=%.0fcm personal_best=%.0fcm"),
+				Alt->GetCurrentAltitudeCm(), Alt->GetPersonalBestAltitudeCm());
 		}
 	}
 }

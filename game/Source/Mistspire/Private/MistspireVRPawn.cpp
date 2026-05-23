@@ -3,6 +3,12 @@
 #include "MistspireSummitRegistry.h"
 #include "MistspireXRActionSubsystem.h"
 #include "MistspireEnvironmentSubsystem.h"
+#include "MistspireZoneSubsystem.h"
+#include "MistspireNarrativeSubsystem.h"
+#include "MistspireBeaconSubsystem.h"
+#include "MistspirePlayerState.h"
+#include "MistspireProgressSubsystem.h"
+#include "MistspireAmbienceSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -14,6 +20,7 @@
 #include "MotionControllerComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
+#include "Engine/World.h"
 
 AMistspireVRPawn::AMistspireVRPawn()
 {
@@ -51,6 +58,27 @@ AMistspireVRPawn::AMistspireVRPawn()
 	AltimeterText->SetHorizontalAlignment(EHTA_Center);
 	AltimeterText->SetWorldSize(4.f);
 
+	StaminaWristText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("StaminaWristText"));
+	StaminaWristText->SetupAttachment(VisualLeftHand);
+	StaminaWristText->SetRelativeLocation(FVector(0.f, 8.f, 6.f));
+	StaminaWristText->SetRelativeRotation(FRotator(0.f, 90.f, 0.f));
+	StaminaWristText->SetHorizontalAlignment(EHTA_Center);
+	StaminaWristText->SetWorldSize(2.5f);
+
+	OxygenWristText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("OxygenWristText"));
+	OxygenWristText->SetupAttachment(VisualLeftHand);
+	OxygenWristText->SetRelativeLocation(FVector(0.f, 8.f, 2.f));
+	OxygenWristText->SetRelativeRotation(FRotator(0.f, 90.f, 0.f));
+	OxygenWristText->SetHorizontalAlignment(EHTA_Center);
+	OxygenWristText->SetWorldSize(2.5f);
+
+	BeaconWristText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("BeaconWristText"));
+	BeaconWristText->SetupAttachment(VisualLeftHand);
+	BeaconWristText->SetRelativeLocation(FVector(0.f, 8.f, -2.f));
+	BeaconWristText->SetRelativeRotation(FRotator(0.f, 90.f, 0.f));
+	BeaconWristText->SetHorizontalAlignment(EHTA_Center);
+	BeaconWristText->SetWorldSize(2.2f);
+
 	RightHandController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("RightHandController"));
 	RightHandController->SetupAttachment(Capsule);
 	RightHandController->MotionSource = FXRMotionControllerBase::RightHandSourceId;
@@ -87,6 +115,14 @@ AMistspireVRPawn::AMistspireVRPawn()
 	ExertionAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("ExertionAudio"));
 	ExertionAudio->SetupAttachment(VRCamera);
 
+	HeartbeatAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("HeartbeatAudio"));
+	HeartbeatAudio->SetupAttachment(VRCamera);
+	HeartbeatAudio->bAutoActivate = false;
+
+	SummitChimeAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("SummitChimeAudio"));
+	SummitChimeAudio->SetupAttachment(VRCamera);
+	SummitChimeAudio->bAutoActivate = false;
+
 	LocomotionSpeedCmPerSec = DefaultLocomotionSpeedCmPerSec;
 }
 
@@ -94,6 +130,31 @@ void AMistspireVRPawn::BeginPlay()
 {
 	Super::BeginPlay();
 	LocomotionSpeedCmPerSec = DefaultLocomotionSpeedCmPerSec;
+
+	if (Capsule)
+	{
+		Capsule->SetGenerateOverlapEvents(true);
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UMistspireSummitRegistry* Registry = World->GetSubsystem<UMistspireSummitRegistry>())
+		{
+			SummitReachedHandle = Registry->OnSummitReached.AddUObject(this, &AMistspireVRPawn::HandleSummitReached);
+		}
+	}
+}
+
+void AMistspireVRPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (UMistspireSummitRegistry* Registry = World->GetSubsystem<UMistspireSummitRegistry>())
+		{
+			Registry->OnSummitReached.Remove(SummitReachedHandle);
+		}
+	}
+	Super::EndPlay(EndPlayReason);
 }
 
 void AMistspireVRPawn::Tick(float DeltaTime)
@@ -102,6 +163,7 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 	
 	if (IsLocallyControlled())
 	{
+		UWorld* World = GetWorld();
 		PollXRInput();
 		
 		if (bIsClimbing)
@@ -124,6 +186,22 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		UpdateOxygen(DeltaTime);
 		UpdateAtmosphericEffects(DeltaTime);
 		UpdateImmersiveAudio(DeltaTime);
+		UpdateWristHUD();
+		TryMantle(DeltaTime);
+		UpdateBeaconPulseHaptics();
+
+		if (GliderBoostTimeRemaining > 0.f)
+		{
+			GliderBoostTimeRemaining -= DeltaTime;
+		}
+
+		if (UMistspireZoneSubsystem* Zone = World->GetSubsystem<UMistspireZoneSubsystem>())
+		{
+			if (UMistspireAltitudeSubsystem* Alt = World->GetSubsystem<UMistspireAltitudeSubsystem>())
+			{
+				Zone->UpdateZoneFromAltitude(Alt->GetCurrentAltitudeCm());
+			}
+		}
 
 		// Comfort Vignette based on rotation, speed, exhaustion, and hypoxia
 		if (ComfortVignette)
@@ -136,14 +214,23 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			ComfortVignette->BlendWeight = FMath::FInterpTo(ComfortVignette->BlendWeight, Intensity, DeltaTime, 5.f);
 		}
 
-		// Grapple Physics Pull
+		// Grapple Physics Pull (hold trigger to reel faster)
 		if (bGrappleActive)
 		{
+			float PullStrength = 1200.f;
+			if (UMistspireXRActionSubsystem* XRInput = World->GetSubsystem<UMistspireXRActionSubsystem>())
+			{
+				if (XRInput->GetInputState().bGrapplePressed)
+				{
+					PullStrength = 2200.f;
+				}
+			}
+
 			FVector ToAnchor = GrappleAnchorPoint - GetActorLocation();
 			float Dist = ToAnchor.Size();
 			if (Dist > 100.f)
 			{
-				FVector PullForce = ToAnchor.GetSafeNormal() * 1200.f * DeltaTime;
+				FVector PullForce = ToAnchor.GetSafeNormal() * PullStrength * DeltaTime;
 				AddActorWorldOffset(PullForce, true);
 				
 				if (GetLocalRole() < ROLE_Authority)
@@ -213,7 +300,7 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		}
 
 		// Weather-Specific Haptics (Static Electricity, Storm Turbulence)
-		if (UWorld* World = GetWorld())
+		if (World)
 		{
 			if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
 			{
@@ -261,15 +348,27 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			}
 		}
 
-		if (AltimeterText)
+		if (AltimeterText && World)
 		{
-			if (UWorld* World = GetWorld())
+			if (UMistspireAltitudeSubsystem* Alt = World->GetSubsystem<UMistspireAltitudeSubsystem>())
 			{
-				if (UMistspireAltitudeSubsystem* Alt = World->GetSubsystem<UMistspireAltitudeSubsystem>())
-				{
-					float Meters = Alt->GetCurrentAltitudeCm() / 100.f;
-					AltimeterText->SetText(FText::Format(NSLOCTEXT("Mistspire", "AltFormat", "{0}m"), FText::AsNumber(FMath::RoundToInt(Meters))));
-				}
+				const float Meters = Alt->GetCurrentAltitudeCm() / 100.f;
+				AltimeterText->SetText(FText::Format(NSLOCTEXT("Mistspire", "AltFormat", "{0}m"), FText::AsNumber(FMath::RoundToInt(Meters))));
+			}
+		}
+
+		if (HeartbeatAudio)
+		{
+			const float HeartVol = FMath::Clamp(Adrenaline * 0.35f, 0.f, 0.5f);
+			if (HeartVol > 0.08f)
+			{
+				if (!HeartbeatAudio->IsPlaying()) HeartbeatAudio->Play();
+				HeartbeatAudio->SetVolumeMultiplier(HeartVol);
+				HeartbeatAudio->SetPitchMultiplier(FMath::Lerp(0.85f, 1.4f, Adrenaline));
+			}
+			else if (HeartbeatAudio->IsPlaying())
+			{
+				HeartbeatAudio->Stop();
 			}
 		}
 	}
@@ -328,6 +427,18 @@ void AMistspireVRPawn::PollXRInput()
 		TryJump();
 	}
 	bJumpPressedLast = State.bJumpPressed;
+
+	if (State.bGrapplePressed && !bGrapplePressedLast)
+	{
+		TryGrappleShot();
+	}
+	bGrapplePressedLast = State.bGrapplePressed;
+
+	if (State.bGliderPressed && !bGliderPressedLast)
+	{
+		ToggleGlider(!bGliderActive);
+	}
+	bGliderPressedLast = State.bGliderPressed;
 }
 
 void AMistspireVRPawn::ApplySmoothLocomotion(FVector2D MoveInput, float DeltaTime)
@@ -425,13 +536,14 @@ void AMistspireVRPawn::UpdateGlidingMovement(float DeltaTime)
 	// 1. Gravity
 	GliderVelocity += FVector(0, 0, -600.f) * DeltaTime;
 
-	// 2. Environment (Wind)
+	// 2. Environment (Wind) + wind-crystal boost
+	const float BoostMult = (GliderBoostTimeRemaining > 0.f) ? GliderBoostMultiplier : 1.f;
 	FVector Wind = FVector::ZeroVector;
 	if (UWorld* World = GetWorld())
 	{
 		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
 		{
-			Wind = Env->GetWindAtAltitude(GetActorLocation().Z);
+			Wind = Env->GetWindAtAltitude(GetActorLocation().Z) * BoostMult;
 			GliderVelocity += Wind * DeltaTime;
 		}
 	}
@@ -488,7 +600,13 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 
 	float WindVolume = FMath::Clamp(RelativeSpeed / 2000.f, 0.1f, 1.0f);
 	float WindPitch = FMath::Clamp(0.8f + (RelativeSpeed / 4000.f), 0.8f, 1.5f);
-	
+
+	if (UMistspireAmbienceSubsystem* Amb = GetWorld()->GetSubsystem<UMistspireAmbienceSubsystem>())
+	{
+		WindVolume = FMath::Clamp(WindVolume + Amb->GetTensionLevel() * 0.15f, 0.f, 1.f);
+		WindPitch += Amb->GetMysteryLevel() * 0.2f;
+	}
+
 	WindAudio->SetVolumeMultiplier(WindVolume);
 	WindAudio->SetPitchMultiplier(WindPitch);
 	if (!WindAudio->IsPlaying()) WindAudio->Play();
@@ -514,6 +632,17 @@ void AMistspireVRPawn::UpdateStamina(float DeltaTime)
 {
 	float PressureFactor = 1.0f / CurrentAtmosphericPressure; // Harder to move in high pressure? No, harder to breathe in low pressure.
 	float EffortMultiplier = FMath::Clamp(PressureFactor, 1.0f, 2.5f);
+
+	if (UWorld* StaminaWorld = GetWorld())
+	{
+		if (UMistspireEnvironmentSubsystem* Env = StaminaWorld->GetSubsystem<UMistspireEnvironmentSubsystem>())
+		{
+			if (Env->GetCurrentWeather() == EMistspireWeatherType::ElectricTurmoil)
+			{
+				CurrentStamina -= 3.f * DeltaTime;
+			}
+		}
+	}
 
 	if (bIsClimbing)
 	{
@@ -591,16 +720,214 @@ void AMistspireVRPawn::UpdateAtmosphericEffects(float DeltaTime)
 			float Altitude = GetActorLocation().Z;
 			CurrentAtmosphericPressure = Env->GetAtmosphericPressure(Altitude);
 			
-			// Apply temperature-based visual effects (frost on visor?)
-			float Temp = Env->GetTemperatureCelsius(Altitude);
-			if (Temp < 0.f && ComfortVignette)
+			const float Temp = Env->GetTemperatureCelsius(Altitude);
+			const float Aurora = Env->GetAuroraIntensity(Altitude);
+			if (ComfortVignette)
 			{
-				// Simulate frost by increasing vignette opacity/tint
-				float FrostIntensity = FMath::Clamp(-Temp / 50.f, 0.f, 0.5f);
-				// (Vignette logic would go here if we had a specific frost param)
+				float FrostIntensity = (Temp < 0.f) ? FMath::Clamp(-Temp / 50.f, 0.f, 0.35f) : 0.f;
+				float AuroraGlow = Aurora * 0.25f;
+				ComfortVignette->BlendWeight = FMath::Max(ComfortVignette->BlendWeight, FrostIntensity + AuroraGlow);
 			}
 		}
 	}
+}
+
+FVector AMistspireVRPawn::GetLeftHandWorldLocation() const
+{
+	return LeftHandController ? LeftHandController->GetComponentLocation() : GetActorLocation();
+}
+
+FVector AMistspireVRPawn::GetRightHandWorldLocation() const
+{
+	return RightHandController ? RightHandController->GetComponentLocation() : GetActorLocation();
+}
+
+float AMistspireVRPawn::GetStaminaPercent() const
+{
+	return MaxStamina > 0.f ? CurrentStamina / MaxStamina : 0.f;
+}
+
+float AMistspireVRPawn::GetOxygenPercent() const
+{
+	return MaxOxygen > 0.f ? CurrentOxygen / MaxOxygen : 0.f;
+}
+
+float AMistspireVRPawn::GetAtmosphericPressure() const
+{
+	return CurrentAtmosphericPressure;
+}
+
+void AMistspireVRPawn::ApplyShelterRefill(float OxygenPerSec, float StaminaPerSec, float DeltaTime)
+{
+	CurrentOxygen = FMath::Min(MaxOxygen, CurrentOxygen + OxygenPerSec * DeltaTime);
+	CurrentStamina = FMath::Min(MaxStamina, CurrentStamina + StaminaPerSec * DeltaTime);
+	bIsExhausted = CurrentStamina < 10.f;
+}
+
+void AMistspireVRPawn::ApplyWindCrystalBoost(float DurationSeconds, float StaminaRestore)
+{
+	GliderBoostTimeRemaining = FMath::Max(GliderBoostTimeRemaining, DurationSeconds);
+	CurrentStamina = FMath::Min(MaxStamina, CurrentStamina + StaminaRestore);
+	if (!bGliderActive)
+	{
+		ToggleGlider(true);
+	}
+}
+
+void AMistspireVRPawn::TryMantle(float DeltaTime)
+{
+	if (bIsClimbing || bGliderActive || !Capsule || !LeftHandController || !RightHandController)
+	{
+		return;
+	}
+
+	const float HandHeight = FMath::Max(
+		LeftHandController->GetRelativeLocation().Z,
+		RightHandController->GetRelativeLocation().Z);
+	if (HandHeight < Capsule->GetScaledCapsuleHalfHeight() * 0.55f)
+	{
+		return;
+	}
+
+	const FVector Start = GetActorLocation();
+	const FVector End = Start + GetActorForwardVector() * 90.f + FVector(0.f, 0.f, 130.f);
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(MistspireMantle), false, this);
+	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params) && Hit.bBlockingHit)
+	{
+		const FVector MantleDelta = FVector(0.f, 0.f, 95.f) + GetActorForwardVector() * 45.f;
+		AddActorWorldOffset(MantleDelta * FMath::Min(DeltaTime * 10.f, 1.f), true);
+	}
+}
+
+void AMistspireVRPawn::UpdateBeaconPulseHaptics()
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	UMistspireBeaconSubsystem* Beacon = World->GetSubsystem<UMistspireBeaconSubsystem>();
+	UMistspireXRActionSubsystem* XR = World->GetSubsystem<UMistspireXRActionSubsystem>();
+	if (!Beacon || !XR)
+	{
+		return;
+	}
+
+	const FMistspireBeaconTarget Target = Beacon->GetCachedBeacon();
+	if (!Target.bValid || Target.DistanceCm > 150000.f)
+	{
+		return;
+	}
+
+	if (FMath::Sin(Beacon->GetPulsePhase()) > 0.92f)
+	{
+		const float Strength = FMath::Clamp(1.f - (Target.DistanceCm / 150000.f), 0.05f, 0.25f);
+		XR->TriggerHapticVibration(true, Strength, 0.03f, 70.f);
+	}
+}
+
+void AMistspireVRPawn::TryGrappleShot()
+{
+	if (bGrappleActive || !RightHandController || !VRCamera)
+	{
+		return;
+	}
+
+	const FVector Start = GetRightHandWorldLocation();
+	const FVector End = Start + VRCamera->GetForwardVector() * GrappleTraceDistanceCm;
+
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(MistspireGrapple), false, this);
+	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params) && Hit.bBlockingHit)
+	{
+		FireGrapple(Hit.ImpactPoint);
+		if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+		{
+			XR->TriggerHapticVibration(false, 0.6f, 0.1f, 120.f);
+		}
+	}
+}
+
+void AMistspireVRPawn::UpdateWristHUD()
+{
+	if (StaminaWristText)
+	{
+		StaminaWristText->SetText(FText::Format(
+			NSLOCTEXT("Mistspire", "StaminaFmt", "STA {0}%"),
+			FText::AsNumber(FMath::RoundToInt(100.f * CurrentStamina / MaxStamina))));
+	}
+	if (OxygenWristText)
+	{
+		OxygenWristText->SetText(FText::Format(
+			NSLOCTEXT("Mistspire", "OxygenFmt", "O2 {0}%"),
+			FText::AsNumber(FMath::RoundToInt(100.f * CurrentOxygen / MaxOxygen))));
+	}
+	if (BeaconWristText && GetWorld())
+	{
+		if (UMistspireBeaconSubsystem* Beacon = GetWorld()->GetSubsystem<UMistspireBeaconSubsystem>())
+		{
+			const FMistspireBeaconTarget Target = Beacon->GetCachedBeacon();
+			if (Target.bValid)
+			{
+				const float Km = Target.DistanceCm / 100000.f;
+				BeaconWristText->SetText(FText::Format(
+					NSLOCTEXT("Mistspire", "BeaconFmt", "▲ {0}km {1}°"),
+					FText::AsNumber(FMath::RoundToInt(Km * 10.f) / 10.f),
+					FText::AsNumber(FMath::RoundToInt(Target.BearingDegrees))));
+			}
+			else
+			{
+				BeaconWristText->SetText(NSLOCTEXT("Mistspire", "BeaconDone", "▲ ALL SUMMITS"));
+			}
+		}
+	}
+
+	if (GliderBoostTimeRemaining > 0.f && StaminaWristText)
+	{
+		StaminaWristText->SetText(FText::Format(
+			NSLOCTEXT("Mistspire", "BoostFmt", "BOOST {0}s"),
+			FText::AsNumber(FMath::CeilToInt(GliderBoostTimeRemaining))));
+	}
+}
+
+void AMistspireVRPawn::HandleSummitReached(FName SummitId)
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (UMistspireProgressSubsystem* Progress = GI->GetSubsystem<UMistspireProgressSubsystem>())
+		{
+			Progress->CaptureProgressFromWorld(GetWorld());
+		}
+	}
+
+	if (SummitChimeAudio)
+	{
+		SummitChimeAudio->Play();
+	}
+
+	if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+	{
+		for (int32 i = 0; i < 3; ++i)
+		{
+			XR->TriggerHapticVibration(true, 0.5f, 0.15f, 200.f - i * 40.f);
+			XR->TriggerHapticVibration(false, 0.5f, 0.15f, 200.f - i * 40.f);
+		}
+	}
+
+	CurrentStamina = MaxStamina;
+	CurrentOxygen = FMath::Min(MaxOxygen, CurrentOxygen + 25.f);
 }
 
 void AMistspireVRPawn::ApplyVerticalVelocity(float DeltaCm)
@@ -751,6 +1078,9 @@ void AMistspireVRPawn::UpdateAltitudeTracking()
 			TEXT("summit_cloud_garden"),
 			TEXT("summit_obelisk_prime"),
 			TEXT("summit_orbital_needle"),
+			TEXT("summit_spire_cathedral"),
+			TEXT("summit_rift_observatory"),
+			TEXT("summit_ember_crown"),
 		};
 		for (FName Id : SummitIds)
 		{

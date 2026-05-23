@@ -1,4 +1,5 @@
 #include "MistspireEnvironmentSubsystem.h"
+#include "MistspireGameState.h"
 
 void UMistspireEnvironmentSubsystem::Tick(float DeltaTime)
 {
@@ -11,6 +12,12 @@ TStatId UMistspireEnvironmentSubsystem::GetStatId() const { RETURN_QUICK_DECLARE
 
 void UMistspireEnvironmentSubsystem::UpdateWeather(float DeltaTime)
 {
+	if (ForcedWeatherHold > 0.f)
+	{
+		ForcedWeatherHold -= DeltaTime;
+		return;
+	}
+
 	if (!GetWorld()->IsNetMode(NM_Client))
 	{
 		WeatherTransitionTimer -= DeltaTime;
@@ -79,9 +86,51 @@ FVector UMistspireEnvironmentSubsystem::GetWindAtAltitude(float AltitudeCm) cons
 
 float UMistspireEnvironmentSubsystem::GetMistDensityAtAltitude(float AltitudeCm) const
 {
-	// Dense mist in the lowlands, clearing as you ascend
 	float Density = FMath::Clamp(1.0f - (AltitudeCm / 150000.f), 0.05f, 1.0f);
+	switch (CurrentWeather)
+	{
+		case EMistspireWeatherType::MistStorm: Density = FMath::Min(1.f, Density * 1.6f); break;
+		case EMistspireWeatherType::ZenithGlow: Density *= 0.4f; break;
+		default: break;
+	}
 	return Density;
+}
+
+float UMistspireEnvironmentSubsystem::GetDayNightBlend() const
+{
+	return 0.5f + 0.5f * FMath::Sin(TimeAccumulator * 0.02f);
+}
+
+float UMistspireEnvironmentSubsystem::GetAuroraIntensity(float AltitudeCm) const
+{
+	if (CurrentWeather != EMistspireWeatherType::ZenithGlow && CurrentWeather != EMistspireWeatherType::Clear)
+	{
+		return 0.f;
+	}
+	const float AltFactor = FMath::Clamp((AltitudeCm - 400000.f) / 400000.f, 0.f, 1.f);
+	return AltFactor * (1.f - GetDayNightBlend()) * 0.85f;
+}
+
+void UMistspireEnvironmentSubsystem::ForceWeather(EMistspireWeatherType Weather, float HoldSeconds)
+{
+	CurrentWeather = Weather;
+	ForcedWeatherHold = HoldSeconds;
+	WeatherTransitionTimer = HoldSeconds;
+	if (AMistspireGameState* GS = GetWorld()->GetGameState<AMistspireGameState>())
+	{
+		GS->CurrentWeatherIndex = static_cast<uint8>(Weather);
+	}
+}
+
+FText UMistspireEnvironmentSubsystem::GetWeatherDisplayName() const
+{
+	switch (CurrentWeather)
+	{
+		case EMistspireWeatherType::MistStorm: return NSLOCTEXT("Mistspire", "WeatherMist", "Mist Storm");
+		case EMistspireWeatherType::ElectricTurmoil: return NSLOCTEXT("Mistspire", "WeatherElectric", "Electric Turmoil");
+		case EMistspireWeatherType::ZenithGlow: return NSLOCTEXT("Mistspire", "WeatherZenith", "Zenith Glow");
+		default: return NSLOCTEXT("Mistspire", "WeatherClear", "Clear");
+	}
 }
 
 float UMistspireEnvironmentSubsystem::GetAtmosphericPressure(float AltitudeCm) const

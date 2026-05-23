@@ -1,5 +1,10 @@
 #include "MistspireAltitudeSubsystem.h"
-#include "MistspireGameState.h"
+#include "MistspireProgressSubsystem.h"
+
+void UMistspireAltitudeSubsystem::ApplyPersonalBest(float AltitudeCm)
+{
+	PersonalBestAltitudeCm = FMath::Max(PersonalBestAltitudeCm, AltitudeCm);
+}
 
 void UMistspireAltitudeSubsystem::UpdateAltitudeFromWorldLocation(const FVector& WorldLocation)
 {
@@ -8,13 +13,14 @@ void UMistspireAltitudeSubsystem::UpdateAltitudeFromWorldLocation(const FVector&
 	{
 		PersonalBestAltitudeCm = CurrentAltitudeCm;
 		OnAltitudeRecord.Broadcast(CurrentAltitudeCm, PersonalBestAltitudeCm);
-	}
 
-	if (UWorld* World = GetWorld())
-	{
-		if (AMistspireGameState* GS = World->GetGameState<AMistspireGameState>())
+		if (UGameInstance* GI = GetWorld()->GetGameInstance())
 		{
-			GS->NotifyAltitudeSample(CurrentAltitudeCm);
+			if (UMistspireProgressSubsystem* Progress = GI->GetSubsystem<UMistspireProgressSubsystem>())
+			{
+				Progress->CaptureProgressFromWorld(GetWorld());
+			}
 		}
 	}
+
 }

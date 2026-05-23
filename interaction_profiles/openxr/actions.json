@@ -46,6 +46,16 @@
           "localized_name": "Menu"
         },
         {
+          "name": "grapple",
+          "type": "boolean",
+          "localized_name": "Grapple"
+        },
+        {
+          "name": "glider",
+          "type": "boolean",
+          "localized_name": "Glider"
+        },
+        {
           "name": "hand_pose",
           "type": "pose",
           "localized_name": "Hand Pose"

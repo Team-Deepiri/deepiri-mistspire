@@ -24,6 +24,7 @@ void UMistspireXRActionSubsystem::Deinitialize()
 	if (FMistspireOpenXRAccess::GetNativeHandles(I, S) && ActionSet && I) xrDestroyActionSet(ActionSet);
 	ActionSet = nullptr;
 	GrabAction = MoveAction = StrafeAction = TurnAction = JumpAction = ClimbAction = MenuAction = nullptr;
+	GrappleAction = GliderAction = nullptr;
 	bActionsReady = false;
 	Super::Deinitialize();
 }
@@ -65,6 +66,8 @@ bool UMistspireXRActionSubsystem::BuildActionLayout()
 		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "jump", "Jump", JumpAction, false) ||
 		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "climb", "Climb", ClimbAction, true) ||
 		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "menu", "Menu", MenuAction, false) ||
+		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "grapple", "Grapple", GrappleAction, false) ||
+		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "glider", "Glider", GliderAction, false) ||
 		!Mk(XR_ACTION_TYPE_VIBRATION_OUTPUT, "haptic", "Haptic", HapticAction, true))
 		return false;
 
@@ -133,6 +136,8 @@ void UMistspireXRActionSubsystem::PollInputActions()
 	
 	RB(MenuAction, XR_NULL_PATH, InputState.bMenuPressed);
 	RB(JumpAction, XR_NULL_PATH, InputState.bJumpPressed);
+	RB(GrappleAction, XR_NULL_PATH, InputState.bGrapplePressed);
+	RB(GliderAction, XR_NULL_PATH, InputState.bGliderPressed);
 	
 	RF(MoveAction, XR_NULL_PATH, InputState.MoveY);
 	RF(StrafeAction, XR_NULL_PATH, InputState.MoveX);

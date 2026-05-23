@@ -40,11 +40,24 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Mistspire|Environment")
 	EMistspireWeatherType GetCurrentWeather() const { return CurrentWeather; }
 
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Environment")
+	float GetDayNightBlend() const;
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Environment")
+	float GetAuroraIntensity(float AltitudeCm) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Environment")
+	void ForceWeather(EMistspireWeatherType Weather, float HoldSeconds = 60.f);
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Environment")
+	FText GetWeatherDisplayName() const;
+
 private:
 	void UpdateWeather(float DeltaTime);
 
 	float TimeAccumulator = 0.f;
 	float WeatherTransitionTimer = 0.f;
+	float ForcedWeatherHold = 0.f;
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Environment", meta = (AllowPrivateAccess = "true"))
 	EMistspireWeatherType CurrentWeather = EMistspireWeatherType::Clear;

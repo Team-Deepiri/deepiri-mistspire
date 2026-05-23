@@ -36,6 +36,15 @@ void AMistspirePlayerState::AddSummit(FName SummitId)
 	ReachedSummits.AddUnique(SummitId);
 }
 
+void AMistspirePlayerState::ApplyLoadedProgress(float PersonalBestCm, const TArray<FName>& Summits)
+{
+	MaxAltitudeCm = FMath::Max(MaxAltitudeCm, PersonalBestCm);
+	for (FName Id : Summits)
+	{
+		ReachedSummits.AddUnique(Id);
+	}
+}
+
 bool AMistspirePlayerState::Server_SyncAltitudeToGameState_Validate(float Current, float Max) { return true; }
 void AMistspirePlayerState::Server_SyncAltitudeToGameState_Implementation(float Current, float Max)
 {

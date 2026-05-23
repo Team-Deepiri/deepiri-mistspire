@@ -1,6 +1,12 @@
 #include "MistspirePhysicalButton.h"
+#include "MistspireEnvironmentSubsystem.h"
+#include "MistspireInteractionSubsystem.h"
+#include "MistspireVRPawn.h"
+#include "MistspireXRActionSubsystem.h"
+#include "MistspireNarrativeSubsystem.h"
 #include "Components/StaticMeshComponent.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 AMistspirePhysicalButton::AMistspirePhysicalButton()
 {
@@ -18,8 +24,6 @@ AMistspirePhysicalButton::AMistspirePhysicalButton()
 	PhysicsConstraint = CreateDefaultSubobject<UPhysicsConstraintComponent>(TEXT("PhysicsConstraint"));
 	PhysicsConstraint->SetupAttachment(BaseMesh);
 }
-
-#include "MistspireInteractionSubsystem.h"
 
 void AMistspirePhysicalButton::BeginPlay()
 {
@@ -56,9 +60,58 @@ void AMistspirePhysicalButton::Tick(float DeltaTime)
 	{
 		bIsPressed = true;
 		OnButtonPressed.Broadcast();
+		ExecuteBuiltInAction();
 	}
 	else if (CurrentOffset < ActivationThresholdCm * 0.5f && bIsPressed)
 	{
 		bIsPressed = false;
+	}
+}
+
+void AMistspirePhysicalButton::ExecuteBuiltInAction()
+{
+	UWorld* World = GetWorld();
+	if (!World || BuiltInAction == EMistspireButtonAction::None)
+	{
+		return;
+	}
+
+	if (UMistspireXRActionSubsystem* XR = World->GetSubsystem<UMistspireXRActionSubsystem>())
+	{
+		XR->TriggerHapticVibration(true, 0.4f, 0.1f, 100.f);
+	}
+
+	switch (BuiltInAction)
+	{
+		case EMistspireButtonAction::CycleWeather:
+			if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
+			{
+				const int32 Next = (static_cast<int32>(Env->GetCurrentWeather()) + 1) % 4;
+				Env->ForceWeather(static_cast<EMistspireWeatherType>(Next), 90.f);
+				if (UMistspireNarrativeSubsystem* Narr = World->GetSubsystem<UMistspireNarrativeSubsystem>())
+				{
+					Narr->PushLine(FText::Format(
+						NSLOCTEXT("Mistspire", "WeatherCycle", "Sky shifts: {0}"),
+						Env->GetWeatherDisplayName()), 4.f);
+				}
+			}
+			break;
+		case EMistspireButtonAction::RefillSurvival:
+			if (APawn* Pawn = UGameplayStatics::GetPlayerPawn(World, 0))
+			{
+				if (AMistspireVRPawn* VR = Cast<AMistspireVRPawn>(Pawn))
+				{
+					VR->ApplyShelterRefill(50.f, 50.f, 1.f);
+				}
+			}
+			break;
+		case EMistspireButtonAction::TeleportUp:
+			if (APawn* Pawn = UGameplayStatics::GetPlayerPawn(World, 0))
+			{
+				Pawn->AddActorWorldOffset(FVector(0.f, 0.f, TeleportUpCm), false, nullptr, ETeleportType::TeleportPhysics);
+			}
+			break;
+		default:
+			break;
 	}
 }

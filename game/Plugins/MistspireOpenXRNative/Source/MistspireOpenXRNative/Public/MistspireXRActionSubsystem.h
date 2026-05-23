@@ -17,6 +17,8 @@ struct FMistspireXRInputState
 	UPROPERTY(BlueprintReadOnly) bool bClimbRight = false;
 	UPROPERTY(BlueprintReadOnly) bool bMenuPressed = false;
 	UPROPERTY(BlueprintReadOnly) bool bJumpPressed = false;
+	UPROPERTY(BlueprintReadOnly) bool bGrapplePressed = false;
+	UPROPERTY(BlueprintReadOnly) bool bGliderPressed = false;
 	UPROPERTY(BlueprintReadOnly) float MoveX = 0.f, MoveY = 0.f, Turn = 0.f;
 };
 
@@ -42,6 +44,7 @@ private:
 	XrActionSet ActionSet = nullptr;
 	XrAction GrabAction = nullptr, MoveAction = nullptr, StrafeAction = nullptr, TurnAction = nullptr;
 	XrAction JumpAction = nullptr, ClimbAction = nullptr, MenuAction = nullptr;
+	XrAction GrappleAction = nullptr, GliderAction = nullptr;
 	XrAction HapticAction = nullptr;
 	FMistspireXRInputState InputState;
 	bool bActionsReady = false;

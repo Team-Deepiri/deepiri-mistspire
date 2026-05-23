@@ -34,3 +34,10 @@
 - `mistspire.AltitudeStats`
 - `mistspire.TeleportUp 5000`
 - `mistspire.ShowAltitudeHUD 1`
+- `mistspire.SetWeather 0` (0=Clear, 1=MistStorm, 2=Electric, 3=ZenithGlow)
+- `mistspire.RefillSurvival`
+- `mistspire.SaveProgress` / `mistspire.LoadProgress`
+
+## Immersion stack
+
+See [docs/IMMERSION.md](docs/IMMERSION.md) — zones, narrative, beacon, companion orb, ghosts, pickups, persistence.

@@ -34,6 +34,16 @@
           "inputs": { "click": { "position": true } },
           "path": "/user/hand/right/input/menu",
           "action": "menu"
+        },
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/right/input/squeeze",
+          "action": "grapple"
+        },
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/left/input/menu",
+          "action": "glider"
         }
       ]
     }

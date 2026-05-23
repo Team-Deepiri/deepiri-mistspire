@@ -5,6 +5,10 @@
 #include "MistspireSummitRegistry.h"
 #include "MistspireAltitudeSubsystem.h"
 #include "MistspireAltitudeDebugSubsystem.h"
+#include "MistspireProgressSubsystem.h"
+#include "MistspireCompanionSubsystem.h"
+#include "MistspireGhostClimberSubsystem.h"
+#include "MistspireAmbienceSubsystem.h"
 
 AMistspireGameMode::AMistspireGameMode()
 {
@@ -25,7 +29,21 @@ void AMistspireGameMode::StartPlay()
 	if (UWorld* World = GetWorld())
 	{
 		World->GetSubsystem<UMistspireAltitudeDebugSubsystem>();
-		UE_LOG(LogTemp, Log, TEXT("Mistspire: climb higher. Console: mistspire.AltitudeStats, mistspire.TeleportUp"));
+
+		if (UGameInstance* GI = World->GetGameInstance())
+		{
+			if (UMistspireProgressSubsystem* Progress = GI->GetSubsystem<UMistspireProgressSubsystem>())
+			{
+				Progress->LoadProgress();
+				Progress->ApplyLoadedProgressToWorld(World);
+			}
+		}
+
+		World->GetSubsystem<UMistspireCompanionSubsystem>();
+		World->GetSubsystem<UMistspireGhostClimberSubsystem>();
+		World->GetSubsystem<UMistspireAmbienceSubsystem>();
+
+		UE_LOG(LogTemp, Log, TEXT("Mistspire: climb higher. mistspire.SaveProgress | SetWeather | RefillSurvival"));
 	}
 }
 
@@ -49,4 +67,7 @@ void AMistspireGameMode::SeedDefaultSummits()
 	Registry->RegisterSummit(TEXT("summit_cloud_garden"), FVector(250000.f, 250000.f, 400000.f), 400000.f);
 	Registry->RegisterSummit(TEXT("summit_obelisk_prime"), FVector(0.f, 500000.f, 600000.f), 600000.f);
 	Registry->RegisterSummit(TEXT("summit_orbital_needle"), FVector(0.f, 0.f, 800000.f), 800000.f);
+	Registry->RegisterSummit(TEXT("summit_spire_cathedral"), FVector(-300000.f, 400000.f, 550000.f), 550000.f);
+	Registry->RegisterSummit(TEXT("summit_rift_observatory"), FVector(400000.f, -200000.f, 700000.f), 700000.f);
+	Registry->RegisterSummit(TEXT("summit_ember_crown"), FVector(-150000.f, -350000.f, 350000.f), 350000.f);
 }

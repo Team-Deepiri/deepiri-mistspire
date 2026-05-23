@@ -19,6 +19,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Mistspire|Altitude")
 	float GetPersonalBestAltitudeCm() const { return PersonalBestAltitudeCm; }
 
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Altitude")
+	void ApplyPersonalBest(float AltitudeCm);
+
 	UPROPERTY(BlueprintAssignable, Category = "Mistspire|Altitude")
 	FOnMistspireAltitudeRecord OnAltitudeRecord;
 

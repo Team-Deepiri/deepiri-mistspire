@@ -51,6 +51,16 @@
           "action": "menu"
         },
         {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/right/input/trigger",
+          "action": "grapple"
+        },
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/right/input/b",
+          "action": "glider"
+        },
+        {
           "inputs": { "position": true, "orientation": true },
           "path": "/user/hand/left/input/grip/pose",
           "action": "hand_pose"

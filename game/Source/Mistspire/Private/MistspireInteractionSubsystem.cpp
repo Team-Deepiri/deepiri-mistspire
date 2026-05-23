@@ -1,5 +1,6 @@
 #include "MistspireInteractionSubsystem.h"
 #include "MistspireVRPawn.h"
+#include "MistspireXRActionSubsystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/PrimitiveComponent.h"
 
@@ -8,45 +9,63 @@ void UMistspireInteractionSubsystem::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
-	if (!PlayerPawn) return;
-
 	AMistspireVRPawn* VRPawn = Cast<AMistspireVRPawn>(PlayerPawn);
-	if (!VRPawn) return;
+	if (!VRPawn)
+	{
+		return;
+	}
 
-	// Use hand locations from the pawn
-	TArray<FVector> HandLocations;
-	HandLocations.Add(VRPawn->GetActorLocation()); // Fallback to capsule center
+	const TArray<FVector> HandLocations = {
+		VRPawn->GetLeftHandWorldLocation(),
+		VRPawn->GetRightHandWorldLocation(),
+		VRPawn->GetActorLocation()
+	};
+
+	const float ProximityCm = 35.f;
+	UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>();
 
 	for (AActor* Actor : InteractiveActors)
 	{
-		if (!Actor) continue;
-
-		bool bShouldHighlight = false;
-		float MinDist = 30.f; // 30cm proximity for highlight
-
-		float Dist = FVector::Dist(Actor->GetActorLocation(), VRPawn->GetActorLocation());
-		if (Dist < MinDist)
+		if (!Actor)
 		{
-			bShouldHighlight = true;
+			continue;
 		}
 
-		if (HighlightStates.FindOrAdd(Actor) != bShouldHighlight)
+		bool bShouldHighlight = false;
+		for (const FVector& HandLoc : HandLocations)
 		{
-			HighlightStates[Actor] = bShouldHighlight;
-			
-			// Set custom depth on all primitive components for outline effect
+			if (FVector::Dist(Actor->GetActorLocation(), HandLoc) < ProximityCm)
+			{
+				bShouldHighlight = true;
+				break;
+			}
+		}
+
+		const bool bWasHighlighted = HighlightStates.FindRef(Actor);
+		if (bWasHighlighted != bShouldHighlight)
+		{
+			HighlightStates.Add(Actor, bShouldHighlight);
+
 			TArray<UPrimitiveComponent*> Comps;
 			Actor->GetComponents<UPrimitiveComponent>(Comps);
 			for (UPrimitiveComponent* Comp : Comps)
 			{
 				Comp->SetRenderCustomDepth(bShouldHighlight);
-				Comp->SetCustomDepthStencilValue(1); // Standard interaction color
+				Comp->SetCustomDepthStencilValue(bShouldHighlight ? 1 : 0);
+			}
+
+			if (bShouldHighlight && XR && VRPawn->IsLocallyControlled())
+			{
+				XR->TriggerHapticVibration(true, 0.12f, 0.04f, 90.f);
 			}
 		}
 	}
 }
 
-TStatId UMistspireInteractionSubsystem::GetStatId() const { RETURN_QUICK_DECLARE_CYCLE_STAT(UMistspireInteractionSubsystem, STATGROUP_Tickables); }
+TStatId UMistspireInteractionSubsystem::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(UMistspireInteractionSubsystem, STATGROUP_Tickables);
+}
 
 void UMistspireInteractionSubsystem::RegisterInteractiveActor(AActor* Actor)
 {

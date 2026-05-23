@@ -29,6 +29,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Score")
 	void AddSummit(FName SummitId);
 
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Score")
+	void ApplyLoadedProgress(float PersonalBestCm, const TArray<FName>& Summits);
+
 protected:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SyncAltitudeToGameState(float Current, float Max);
