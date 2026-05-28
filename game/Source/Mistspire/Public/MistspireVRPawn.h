@@ -109,6 +109,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Mistspire|Survival")
 	float GetOxygenPercent() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|UI")
+	void ShowNotification(const FString& Message, float Duration = 3.f);
+
 	UFUNCTION(BlueprintPure, Category = "Mistspire|Survival")
 	float GetAtmosphericPressure() const;
 
@@ -171,6 +174,12 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|UI")
 	TObjectPtr<UTextRenderComponent> BeaconWristText;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|UI")
+	TObjectPtr<UTextRenderComponent> BiomeWristText;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|UI")
+	TObjectPtr<UTextRenderComponent> NotificationText;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Audio")
 	TObjectPtr<UAudioComponent> HeartbeatAudio;
@@ -260,6 +269,8 @@ private:
 	float CachedTurnInput = 0.f;
 	float VerticalVelocityCmPerSec = 0.f;
 	bool bMenuPressedLast = false;
+	bool bMenuHeld = false;
+	float MenuHoldTimer = 0.f;
 	bool bJumpPressedLast = false;
 	bool bGrapplePressedLast = false;
 	bool bGliderPressedLast = false;
@@ -268,4 +279,5 @@ private:
 	float GliderBoostTimeRemaining = 0.f;
 	float GliderBoostMultiplier = 1.65f;
 	bool bGrappleHeld = false;
+	float NotificationTimer = 0.f;
 };

@@ -11,6 +11,7 @@
 #include "MistspireAmbienceSubsystem.h"
 #include "MistspireWorldAtlasSubsystem.h"
 #include "MistspireInteriorSubsystem.h"
+#include "MistspireAudioSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -81,6 +82,21 @@ AMistspireVRPawn::AMistspireVRPawn()
 	BeaconWristText->SetHorizontalAlignment(EHTA_Center);
 	BeaconWristText->SetWorldSize(2.2f);
 
+	BiomeWristText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("BiomeWristText"));
+	BiomeWristText->SetupAttachment(VisualLeftHand);
+	BiomeWristText->SetRelativeLocation(FVector(0.f, 8.f, -6.f));
+	BiomeWristText->SetRelativeRotation(FRotator(0.f, 90.f, 0.f));
+	BiomeWristText->SetHorizontalAlignment(EHTA_Center);
+	BiomeWristText->SetWorldSize(2.5f);
+
+	NotificationText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("NotificationText"));
+	NotificationText->SetupAttachment(VRCamera);
+	NotificationText->SetRelativeLocation(FVector(60.f, 0.f, -30.f));
+	NotificationText->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
+	NotificationText->SetHorizontalAlignment(EHTA_Center);
+	NotificationText->SetWorldSize(3.f);
+	NotificationText->SetText(FText::GetEmpty());
+
 	RightHandController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("RightHandController"));
 	RightHandController->SetupAttachment(Capsule);
 	RightHandController->MotionSource = FXRMotionControllerBase::RightHandSourceId;
@@ -108,7 +124,7 @@ AMistspireVRPawn::AMistspireVRPawn()
 	GrappleCable->CableLength = 0.f;
 
 	GliderMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GliderMesh"));
-	GliderMesh->SetupAttachment(Capsule);
+	GliderMesh->SetupAttachment(VRCamera);
 	GliderMesh->SetHiddenInGame(true);
 
 	WindAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("WindAudio"));
@@ -195,6 +211,20 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		if (GliderBoostTimeRemaining > 0.f)
 		{
 			GliderBoostTimeRemaining -= DeltaTime;
+		}
+
+		if (NotificationTimer > 0.f)
+		{
+			NotificationTimer -= DeltaTime;
+			if (NotificationText)
+			{
+				const float Alpha = FMath::Min(NotificationTimer, 1.f);
+				NotificationText->SetTextRenderColor(FLinearColor(1.f, 1.f, 1.f, Alpha).ToFColor(false));
+			}
+			if (NotificationTimer <= 0.f && NotificationText)
+			{
+				NotificationText->SetText(FText::GetEmpty());
+			}
 		}
 
 		if (UMistspireZoneSubsystem* Zone = World->GetSubsystem<UMistspireZoneSubsystem>())
@@ -398,6 +428,15 @@ void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AMistspireVRPawn, CurrentOxygen);
 }
 
+void AMistspireVRPawn::ShowNotification(const FString& Message, float Duration)
+{
+	if (NotificationText)
+	{
+		NotificationText->SetText(FText::FromString(Message));
+		NotificationTimer = Duration;
+	}
+}
+
 void AMistspireVRPawn::PollXRInput()
 {
 	UWorld* World = GetWorld();
@@ -423,9 +462,28 @@ void AMistspireVRPawn::PollXRInput()
 		StopClimb();
 	}
 
-	if (State.bMenuPressed && !bMenuPressedLast)
+	if (State.bMenuPressed)
 	{
-		TeleportForward(TeleportForwardCm);
+		if (!bMenuPressedLast)
+		{
+			bMenuHeld = true;
+			MenuHoldTimer = 0.f;
+		}
+		MenuHoldTimer += GetWorld()->GetDeltaSeconds();
+		if (MenuHoldTimer >= 1.0f && bMenuHeld)
+		{
+			bMenuHeld = false;
+			ToggleGlider(!bGliderActive);
+		}
+	}
+	else
+	{
+		if (bMenuPressedLast && bMenuHeld && MenuHoldTimer < 1.0f)
+		{
+			TeleportForward(TeleportForwardCm);
+		}
+		bMenuHeld = false;
+		MenuHoldTimer = 0.f;
 	}
 	bMenuPressedLast = State.bMenuPressed;
 
@@ -875,6 +933,27 @@ void AMistspireVRPawn::UpdateWristHUD()
 		OxygenWristText->SetText(FText::Format(
 			NSLOCTEXT("Mistspire", "OxygenFmt", "O2 {0}%"),
 			FText::AsNumber(FMath::RoundToInt(100.f * CurrentOxygen / MaxOxygen))));
+	}
+	if (BiomeWristText && GetWorld())
+	{
+		if (UMistspireEnvironmentSubsystem* Env = GetWorld()->GetSubsystem<UMistspireEnvironmentSubsystem>())
+		{
+			const EMistspireBiomeType Biome = Env->GetCurrentBiome();
+			FText BiomeName;
+			FColor BiomeColor;
+			switch (Biome)
+			{
+				case EMistspireBiomeType::Mist:    BiomeName = NSLOCTEXT("Mistspire", "BiomeMist", "MIST");    BiomeColor = FColor(100, 128, 153); break;
+				case EMistspireBiomeType::Arid:    BiomeName = NSLOCTEXT("Mistspire", "BiomeArid", "ARID");    BiomeColor = FColor(179, 128,  51); break;
+				case EMistspireBiomeType::Forest:  BiomeName = NSLOCTEXT("Mistspire", "BiomeForest", "FOREST");  BiomeColor = FColor( 26, 153,  51); break;
+				case EMistspireBiomeType::Ember:   BiomeName = NSLOCTEXT("Mistspire", "BiomeEmber", "EMBER");   BiomeColor = FColor(204,  38,  13); break;
+				case EMistspireBiomeType::Crystal: BiomeName = NSLOCTEXT("Mistspire", "BiomeCrystal", "CRYSTAL"); BiomeColor = FColor( 51, 204, 255); break;
+				case EMistspireBiomeType::Void:    BiomeName = NSLOCTEXT("Mistspire", "BiomeVoid", "VOID");    BiomeColor = FColor( 13,  13,  38); break;
+				default:                           BiomeName = FText::GetEmpty();                              BiomeColor = FColor::White; break;
+			}
+			BiomeWristText->SetText(BiomeName);
+			BiomeWristText->SetTextRenderColor(BiomeColor);
+		}
 	}
 	if (BeaconWristText && GetWorld())
 	{
