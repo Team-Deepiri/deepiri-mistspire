@@ -11,6 +11,7 @@
 #include "MistspireAmbienceSubsystem.h"
 #include "MistspireWorldAtlasSubsystem.h"
 #include "MistspireInteriorSubsystem.h"
+#include "MistspireAudioSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -81,6 +82,21 @@ AMistspireVRPawn::AMistspireVRPawn()
 	BeaconWristText->SetHorizontalAlignment(EHTA_Center);
 	BeaconWristText->SetWorldSize(2.2f);
 
+	BiomeWristText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("BiomeWristText"));
+	BiomeWristText->SetupAttachment(VisualLeftHand);
+	BiomeWristText->SetRelativeLocation(FVector(0.f, 8.f, -6.f));
+	BiomeWristText->SetRelativeRotation(FRotator(0.f, 90.f, 0.f));
+	BiomeWristText->SetHorizontalAlignment(EHTA_Center);
+	BiomeWristText->SetWorldSize(2.5f);
+
+	NotificationText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("NotificationText"));
+	NotificationText->SetupAttachment(VRCamera);
+	NotificationText->SetRelativeLocation(FVector(60.f, 0.f, -30.f));
+	NotificationText->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
+	NotificationText->SetHorizontalAlignment(EHTA_Center);
+	NotificationText->SetWorldSize(3.f);
+	NotificationText->SetText(FText::GetEmpty());
+
 	RightHandController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("RightHandController"));
 	RightHandController->SetupAttachment(Capsule);
 	RightHandController->MotionSource = FXRMotionControllerBase::RightHandSourceId;
@@ -108,7 +124,7 @@ AMistspireVRPawn::AMistspireVRPawn()
 	GrappleCable->CableLength = 0.f;
 
 	GliderMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GliderMesh"));
-	GliderMesh->SetupAttachment(Capsule);
+	GliderMesh->SetupAttachment(VRCamera);
 	GliderMesh->SetHiddenInGame(true);
 
 	WindAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("WindAudio"));
@@ -197,6 +213,20 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			GliderBoostTimeRemaining -= DeltaTime;
 		}
 
+		if (NotificationTimer > 0.f)
+		{
+			NotificationTimer -= DeltaTime;
+			if (NotificationText)
+			{
+				const float Alpha = FMath::Min(NotificationTimer, 1.f);
+				NotificationText->SetTextRenderColor(FLinearColor(1.f, 1.f, 1.f, Alpha).ToFColor(false));
+			}
+			if (NotificationTimer <= 0.f && NotificationText)
+			{
+				NotificationText->SetText(FText::GetEmpty());
+			}
+		}
+
 		if (UMistspireZoneSubsystem* Zone = World->GetSubsystem<UMistspireZoneSubsystem>())
 		{
 			if (UMistspireAltitudeSubsystem* Alt = World->GetSubsystem<UMistspireAltitudeSubsystem>())
@@ -263,15 +293,19 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			FHitResult Hit;
 			VisualHand->SetWorldLocationAndRotation(TargetLoc, TargetRot, true, &Hit);
 			
-			// If we hit something, triggered haptics to feel the "bump"
-			if (Hit.bBlockingHit)
+		// If we hit something, triggered haptics and surface contact audio to feel the "bump"
+		if (Hit.bBlockingHit)
+		{
+			if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
 			{
-				if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
-				{
-					bool bIsLeft = (VisualHand == VisualLeftHand);
-					XR->TriggerHapticVibration(bIsLeft, 0.3f, 0.05f, 100.f);
-				}
+				bool bIsLeft = (VisualHand == VisualLeftHand);
+				XR->TriggerHapticVibration(bIsLeft, 0.3f, 0.05f, 100.f);
 			}
+			if (UMistspireAudioSubsystem* Audio = GetWorld()->GetSubsystem<UMistspireAudioSubsystem>())
+			{
+				Audio->PlaySurfaceContactSound(500.f, Hit.PhysMaterial.IsValid());
+			}
+		}
 		};
 
 		UpdateHandPhysics(VisualLeftHand, LeftHandController);
@@ -398,6 +432,15 @@ void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AMistspireVRPawn, CurrentOxygen);
 }
 
+void AMistspireVRPawn::ShowNotification(const FString& Message, float Duration)
+{
+	if (NotificationText)
+	{
+		NotificationText->SetText(FText::FromString(Message));
+		NotificationTimer = Duration;
+	}
+}
+
 void AMistspireVRPawn::PollXRInput()
 {
 	UWorld* World = GetWorld();
@@ -423,9 +466,40 @@ void AMistspireVRPawn::PollXRInput()
 		StopClimb();
 	}
 
-	if (State.bMenuPressed && !bMenuPressedLast)
+	if (State.bMenuPressed)
 	{
-		TeleportForward(TeleportForwardCm);
+		if (!bMenuPressedLast)
+		{
+			bMenuHeld = true;
+			MenuHoldTimer = 0.f;
+			if (UMistspireAudioSubsystem* Audio = World->GetSubsystem<UMistspireAudioSubsystem>())
+			{
+				Audio->PlayUISound(TEXT("ui_menu_press"), 0.5f);
+			}
+		}
+		MenuHoldTimer += GetWorld()->GetDeltaSeconds();
+		if (MenuHoldTimer >= 1.0f && bMenuHeld)
+		{
+			bMenuHeld = false;
+			ToggleGlider(!bGliderActive);
+			if (UMistspireAudioSubsystem* Audio = World->GetSubsystem<UMistspireAudioSubsystem>())
+			{
+				Audio->PlayUISound(bGliderActive ? TEXT("ui_glider_deploy") : TEXT("ui_glider_stow"), 0.6f);
+			}
+		}
+	}
+	else
+	{
+		if (bMenuPressedLast && bMenuHeld && MenuHoldTimer < 1.0f)
+		{
+			TeleportForward(TeleportForwardCm);
+			if (UMistspireAudioSubsystem* Audio = World->GetSubsystem<UMistspireAudioSubsystem>())
+			{
+				Audio->PlayUISound(TEXT("ui_teleport"), 0.5f);
+			}
+		}
+		bMenuHeld = false;
+		MenuHoldTimer = 0.f;
 	}
 	bMenuPressedLast = State.bMenuPressed;
 
@@ -581,6 +655,13 @@ void AMistspireVRPawn::UpdateGlidingMovement(float DeltaTime)
 		XR->TriggerHapticVibration(false, FMath::Min(Turbulence, 0.2f), 0.1f, 30.f);
 	}
 
+	// Spatial glider wind audio
+	if (UMistspireAudioSubsystem* Audio = GetWorld()->GetSubsystem<UMistspireAudioSubsystem>())
+	{
+		float AirSpeed = GliderVelocity.Size() / 100.f;
+		Audio->PlaySpatialSoundAtLocation(TEXT("glider_wind"), GetActorLocation(), FMath::Clamp(AirSpeed / 20.f, 0.f, 1.f));
+	}
+
 	// 5. Apply movement
 	FHitResult Hit;
 	AddActorWorldOffset(GliderVelocity * DeltaTime, true, &Hit);
@@ -595,20 +676,32 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 {
 	if (!WindAudio || !ExertionAudio) return;
 
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	UMistspireAudioSubsystem* AudioSys = World->GetSubsystem<UMistspireAudioSubsystem>();
+	UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>();
+	UMistspireAltitudeSubsystem* Alt = World->GetSubsystem<UMistspireAltitudeSubsystem>();
+
+	const float AltitudeCm = Alt ? Alt->GetCurrentAltitudeCm() : GetActorLocation().Z;
+
+	// Altitude EQ via audio subsystem
+	if (AudioSys)
+	{
+		AudioSys->SetAltitudeEQ(AltitudeCm / 100000.f);
+	}
+
 	// Wind Audio based on relative velocity and environment wind
 	float RelativeSpeed = GliderVelocity.Size();
-	if (UWorld* World = GetWorld())
+	if (Env)
 	{
-		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
-		{
-			RelativeSpeed += Env->GetWindAtAltitude(GetActorLocation().Z).Size();
-		}
+		RelativeSpeed += Env->GetWindAtAltitude(AltitudeCm).Size();
 	}
 
 	float WindVolume = FMath::Clamp(RelativeSpeed / 2000.f, 0.1f, 1.0f);
 	float WindPitch = FMath::Clamp(0.8f + (RelativeSpeed / 4000.f), 0.8f, 1.5f);
 
-	if (UMistspireAmbienceSubsystem* Amb = GetWorld()->GetSubsystem<UMistspireAmbienceSubsystem>())
+	if (UMistspireAmbienceSubsystem* Amb = World->GetSubsystem<UMistspireAmbienceSubsystem>())
 	{
 		WindVolume = FMath::Clamp(WindVolume + Amb->GetTensionLevel() * 0.15f, 0.f, 1.f);
 		WindPitch += Amb->GetMysteryLevel() * 0.2f;
@@ -632,6 +725,103 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 	{
 		ExertionAudio->SetVolumeMultiplier(FMath::FInterpTo(ExertionAudio->VolumeMultiplier, 0.f, DeltaTime, 1.f));
 		if (ExertionAudio->VolumeMultiplier < 0.01f) ExertionAudio->Stop();
+	}
+
+	// Biome ambience and reverb through audio subsystem
+	if (AudioSys && Env)
+	{
+		const EMistspireBiomeType Biome = Env->GetCurrentBiome();
+		if (Biome != EMistspireBiomeType::None)
+		{
+			FName BiomeName;
+			FName ReverbName;
+			switch (Biome)
+			{
+				case EMistspireBiomeType::Mist:
+					BiomeName = TEXT("ambient_mist");
+					ReverbName = TEXT("reverb_mist");
+					break;
+				case EMistspireBiomeType::Arid:
+					BiomeName = TEXT("ambient_arid");
+					ReverbName = TEXT("reverb_arid");
+					break;
+				case EMistspireBiomeType::Forest:
+					BiomeName = TEXT("ambient_forest");
+					ReverbName = TEXT("reverb_forest");
+					break;
+				case EMistspireBiomeType::Ember:
+					BiomeName = TEXT("ambient_ember");
+					ReverbName = TEXT("reverb_ember");
+					break;
+				case EMistspireBiomeType::Crystal:
+					BiomeName = TEXT("ambient_crystal");
+					ReverbName = TEXT("reverb_crystal");
+					break;
+				case EMistspireBiomeType::Void:
+					BiomeName = TEXT("ambient_void");
+					ReverbName = TEXT("reverb_void");
+					break;
+				default: break;
+			}
+			if (!BiomeName.IsNone())
+			{
+				AudioSys->PlayBiomeAmbience(BiomeName, 2.f);
+			}
+			if (!ReverbName.IsNone())
+			{
+				AudioSys->SetReverbPreset(ReverbName, 2.f);
+			}
+		}
+	}
+
+	// Tension level from survival factors
+	if (AudioSys)
+	{
+		float SpeedFactor = GliderVelocity.Size() / 3000.f;
+		float AltitudeFactor = AltitudeCm / 500000.f;
+		float ExhaustFactor = 1.f - (CurrentStamina / MaxStamina);
+		float HypoxiaFactor = 1.f - (CurrentOxygen / MaxOxygen);
+		float Tension = FMath::Clamp(SpeedFactor + AltitudeFactor + ExhaustFactor + HypoxiaFactor, 0.f, 1.f);
+		AudioSys->SetTensionLevel(Tension);
+	}
+
+	// Physiology sounds (timered to avoid spam)
+	static float PhysTimer = 0.f;
+	PhysTimer += DeltaTime;
+	if (AudioSys && PhysTimer >= 2.f)
+	{
+		PhysTimer = 0.f;
+		const float StamPct = CurrentStamina / MaxStamina;
+		const float OxyPct = CurrentOxygen / MaxOxygen;
+
+		if (OxyPct < 0.15f)
+		{
+			AudioSys->PlayPhysiologySound(EPhysiologySoundType::HypoxiaGasp, 1.f);
+		}
+		else if (OxyPct < 0.3f)
+		{
+			AudioSys->PlayPhysiologySound(EPhysiologySoundType::BreathingShallow, 1.f - OxyPct);
+		}
+
+		if (StamPct < 0.2f)
+		{
+			AudioSys->PlayPhysiologySound(EPhysiologySoundType::Exhaustion, 1.f - StamPct);
+		}
+		else if (StamPct < 0.4f)
+		{
+			AudioSys->PlayPhysiologySound(EPhysiologySoundType::BreathingHeavy, 1.f - StamPct);
+		}
+
+		if (Tension > 0.6f)
+		{
+			AudioSys->PlayPhysiologySound(EPhysiologySoundType::HeartbeatRacing, FMath::Min(Tension, 1.f));
+		}
+	}
+
+	// Weather audio
+	if (AudioSys && Env)
+	{
+		AudioSys->PlayWeatherSound(Env->GetCurrentWeather(), 1.f);
 	}
 }
 
@@ -876,6 +1066,27 @@ void AMistspireVRPawn::UpdateWristHUD()
 			NSLOCTEXT("Mistspire", "OxygenFmt", "O2 {0}%"),
 			FText::AsNumber(FMath::RoundToInt(100.f * CurrentOxygen / MaxOxygen))));
 	}
+	if (BiomeWristText && GetWorld())
+	{
+		if (UMistspireEnvironmentSubsystem* Env = GetWorld()->GetSubsystem<UMistspireEnvironmentSubsystem>())
+		{
+			const EMistspireBiomeType Biome = Env->GetCurrentBiome();
+			FText BiomeName;
+			FColor BiomeColor;
+			switch (Biome)
+			{
+				case EMistspireBiomeType::Mist:    BiomeName = NSLOCTEXT("Mistspire", "BiomeMist", "MIST");    BiomeColor = FColor(100, 128, 153); break;
+				case EMistspireBiomeType::Arid:    BiomeName = NSLOCTEXT("Mistspire", "BiomeArid", "ARID");    BiomeColor = FColor(179, 128,  51); break;
+				case EMistspireBiomeType::Forest:  BiomeName = NSLOCTEXT("Mistspire", "BiomeForest", "FOREST");  BiomeColor = FColor( 26, 153,  51); break;
+				case EMistspireBiomeType::Ember:   BiomeName = NSLOCTEXT("Mistspire", "BiomeEmber", "EMBER");   BiomeColor = FColor(204,  38,  13); break;
+				case EMistspireBiomeType::Crystal: BiomeName = NSLOCTEXT("Mistspire", "BiomeCrystal", "CRYSTAL"); BiomeColor = FColor( 51, 204, 255); break;
+				case EMistspireBiomeType::Void:    BiomeName = NSLOCTEXT("Mistspire", "BiomeVoid", "VOID");    BiomeColor = FColor( 13,  13,  38); break;
+				default:                           BiomeName = FText::GetEmpty();                              BiomeColor = FColor::White; break;
+			}
+			BiomeWristText->SetText(BiomeName);
+			BiomeWristText->SetTextRenderColor(BiomeColor);
+		}
+	}
 	if (BeaconWristText && GetWorld())
 	{
 		if (UMistspireBeaconSubsystem* Beacon = GetWorld()->GetSubsystem<UMistspireBeaconSubsystem>())
@@ -1001,6 +1212,11 @@ void AMistspireVRPawn::FireGrapple(FVector WorldTarget)
 	{
 		GrappleCable->SetHiddenInGame(false);
 		GrappleCable->SetWorldLocation(WorldTarget);
+	}
+
+	if (UMistspireAudioSubsystem* Audio = GetWorld()->GetSubsystem<UMistspireAudioSubsystem>())
+	{
+		Audio->PlaySpatialSoundAtLocation(TEXT("grapple_fire"), WorldTarget, 0.7f);
 	}
 
 	if (GetLocalRole() < ROLE_Authority)

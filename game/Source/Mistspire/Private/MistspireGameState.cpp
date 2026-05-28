@@ -1,5 +1,8 @@
 #include "MistspireGameState.h"
+#include "MistspirePlayerState.h"
 #include "Net/UnrealNetwork.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/HUD.h"
 
 AMistspireGameState::AMistspireGameState()
 {
@@ -13,6 +16,15 @@ void AMistspireGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(AMistspireGameState, SessionBestAltitudeCm);
 	DOREPLIFETIME(AMistspireGameState, Leaderboard);
 	DOREPLIFETIME(AMistspireGameState, CurrentWeatherIndex);
+}
+
+void AMistspireGameState::NotifyAltitudeSample(float CurrentAltitudeCm, float MaxAltitudeCm)
+{
+	if (!HasAuthority()) return;
+	if (AMistspirePlayerState* PS = GetPlayerState<AMistspirePlayerState>())
+	{
+		NotifyAltitudeSample(PS->GetPlayerName(), CurrentAltitudeCm, MaxAltitudeCm);
+	}
 }
 
 void AMistspireGameState::NotifyAltitudeSample(const FString& PlayerName, float CurrentAltitudeCm, float MaxAltitudeCm)
@@ -50,6 +62,12 @@ void AMistspireGameState::NotifyAltitudeSample(const FString& PlayerName, float 
 void AMistspireGameState::BroadcastSocialAchievement(const FString& Message)
 {
 	if (!HasAuthority()) return;
-	// Logic to send to all player UIs
 	UE_LOG(LogTemp, Log, TEXT("Mistspire Social: %s"), *Message);
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		if (APlayerController* PC = It->Get())
+		{
+			PC->ClientMessage(Message);
+		}
+	}
 }

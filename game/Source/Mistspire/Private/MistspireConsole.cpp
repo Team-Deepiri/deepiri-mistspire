@@ -5,6 +5,7 @@
 #include "MistspireWorldAtlasSubsystem.h"
 #include "MistspireInteriorSubsystem.h"
 #include "MistspireVRPawn.h"
+#include "MistspireAudioSubsystem.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "HAL/IConsoleManager.h"
@@ -197,3 +198,33 @@ static FAutoConsoleCommand CmdMistspireRespawnWorldMarkers(
 	TEXT("mistspire.RespawnWorldMarkers"),
 	TEXT("Respawn building doors and POI markers from atlas."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireRespawnWorldMarkers));
+
+static void MistspireShowAltitudeHUD(const TArray<FString>& Args)
+{
+	if (!GWorld) return;
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(GWorld->GetFirstPlayerController()->GetPawn()))
+	{
+		uint8 Show = 1;
+		if (Args.Num() > 0) Show = FMath::Clamp(FCString::Atoi(*Args[0]), 0, 1);
+		if (Pawn->AltimeterText) Pawn->AltimeterText->SetHiddenInGame(Show == 0);
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireShowAltitudeHUD(
+	TEXT("mistspire.ShowAltitudeHUD"),
+	TEXT("Toggle altitude HUD visibility: 0=hide, 1=show."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireShowAltitudeHUD));
+
+static void MistspireAudioDebug(const TArray<FString>&)
+{
+	if (!GWorld) return;
+	if (UMistspireAudioSubsystem* Audio = GWorld->GetSubsystem<UMistspireAudioSubsystem>())
+	{
+		Audio->DebugAudioStats();
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireAudioDebug(
+	TEXT("mistspire.DebugAudioStats"),
+	TEXT("Log all audio bus states (volume, pitch, mute, filter)."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireAudioDebug));

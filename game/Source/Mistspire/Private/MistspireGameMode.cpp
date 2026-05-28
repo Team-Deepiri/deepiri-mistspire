@@ -10,6 +10,8 @@
 #include "MistspireGhostClimberSubsystem.h"
 #include "MistspireAmbienceSubsystem.h"
 #include "MistspireWorldAtlasSubsystem.h"
+#include "MistspireNarrativeSubsystem.h"
+#include "MistspireEnvironmentSubsystem.h"
 
 AMistspireGameMode::AMistspireGameMode()
 {
@@ -46,6 +48,11 @@ void AMistspireGameMode::StartPlay()
 		World->GetSubsystem<UMistspireAmbienceSubsystem>();
 
 		UE_LOG(LogTemp, Log, TEXT("Mistspire: climb higher. mistspire.SaveProgress | SetWeather | RefillSurvival"));
+		
+		if (AMistspireGameState* GS = World->GetGameState<AMistspireGameState>())
+		{
+			GS->BroadcastSocialAchievement(TEXT("Welcome to Mistspire — climb higher."));
+		}
 	}
 }
 

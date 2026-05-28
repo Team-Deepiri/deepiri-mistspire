@@ -40,14 +40,31 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|XR")
 	void TriggerHapticVibration(bool bIsLeftHand, float Amplitude, float DurationSeconds, float Frequency = 60.f);
 
+	/** Hand pose tracking via OpenXR action spaces. */
+	UFUNCTION(BlueprintPure, Category = "Mistspire|XR")
+	const FTransform& GetLeftHandPose() const { return LeftHandPose; }
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|XR")
+	const FTransform& GetRightHandPose() const { return RightHandPose; }
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|XR")
+	bool AreHandPosesValid() const { return bHandPosesValid; }
+
 private:
 	XrActionSet ActionSet = nullptr;
 	XrAction GrabAction = nullptr, MoveAction = nullptr, StrafeAction = nullptr, TurnAction = nullptr;
 	XrAction JumpAction = nullptr, ClimbAction = nullptr, MenuAction = nullptr;
 	XrAction GrappleAction = nullptr, GliderAction = nullptr;
+	XrAction HandPoseAction = nullptr;
 	XrAction HapticAction = nullptr;
+	XrSpace LeftHandSpace = nullptr, RightHandSpace = nullptr;
+	XrSpace ReferenceSpace = nullptr;
+	FTransform LeftHandPose, RightHandPose;
 	FMistspireXRInputState InputState;
 	bool bActionsReady = false;
+	bool bHandPosesValid = false;
 	static void CopyOpenXRString(char* Dest, size_t DestSize, const char* Src);
 	bool AttachActionSetToSession();
+	void PollHandPoses();
+	void DestroyHandPoseResources();
 };
