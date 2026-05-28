@@ -7,6 +7,14 @@ void UMistspireEnvironmentSubsystem::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	TimeAccumulator += DeltaTime;
 	UpdateWeather(DeltaTime);
+
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+	{
+		if (APawn* Pawn = PC->GetPawn())
+		{
+			CurrentBiome = BiomeFromAltitude(Pawn->GetActorLocation().Z);
+		}
+	}
 }
 
 TStatId UMistspireEnvironmentSubsystem::GetStatId() const { RETURN_QUICK_DECLARE_CYCLE_STAT(UMistspireEnvironmentSubsystem, STATGROUP_Tickables); }
@@ -171,4 +179,15 @@ float UMistspireEnvironmentSubsystem::GetTemperatureCelsius(float AltitudeCm) co
 	float LapseRate = 0.0065f; // per cm
 	float Temp = BaseTemp - (AltitudeCm * LapseRate);
 	return Temp;
+}
+
+EMistspireBiomeType UMistspireEnvironmentSubsystem::BiomeFromAltitude(float AltitudeCm)
+{
+	if (AltitudeCm < 100000.f) return EMistspireBiomeType::Mist;
+	if (AltitudeCm < 300000.f) return EMistspireBiomeType::Arid;
+	if (AltitudeCm < 500000.f) return EMistspireBiomeType::Forest;
+	if (AltitudeCm < 700000.f) return EMistspireBiomeType::Ember;
+	if (AltitudeCm < 900000.f) return EMistspireBiomeType::Crystal;
+	if (AltitudeCm < 1200000.f) return EMistspireBiomeType::Void;
+	return EMistspireBiomeType::None;
 }

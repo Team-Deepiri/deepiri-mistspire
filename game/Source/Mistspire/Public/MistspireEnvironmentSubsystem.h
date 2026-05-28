@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "Systems/MistspireBiomeSubsystem.h"
 #include "MistspireEnvironmentSubsystem.generated.h"
 
 UENUM(BlueprintType)
@@ -14,7 +15,7 @@ enum class EMistspireWeatherType : uint8
 };
 
 /**
- * Handles immersive environment factors like wind, mist density, and weather.
+ * Handles immersive environment factors like wind, mist density, weather, and biome detection.
  */
 UCLASS()
 class MISTSPIRE_API UMistspireEnvironmentSubsystem : public UTickableWorldSubsystem
@@ -52,6 +53,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Mistspire|Environment")
 	FText GetWeatherDisplayName() const;
 
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Environment")
+	EMistspireBiomeType GetCurrentBiome() const { return CurrentBiome; }
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Environment")
+	static EMistspireBiomeType BiomeFromAltitude(float AltitudeCm);
+
 private:
 	void UpdateWeather(float DeltaTime);
 
@@ -61,4 +68,7 @@ private:
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Environment", meta = (AllowPrivateAccess = "true"))
 	EMistspireWeatherType CurrentWeather = EMistspireWeatherType::Clear;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Environment", meta = (AllowPrivateAccess = "true"))
+	EMistspireBiomeType CurrentBiome = EMistspireBiomeType::None;
 };
