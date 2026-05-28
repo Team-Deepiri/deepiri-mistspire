@@ -20,11 +20,12 @@ void UMistspireXRActionSubsystem::Initialize(FSubsystemCollectionBase& Collectio
 
 void UMistspireXRActionSubsystem::Deinitialize()
 {
+	DestroyHandPoseResources();
 	XrInstance I = nullptr; XrSession S = nullptr;
 	if (FMistspireOpenXRAccess::GetNativeHandles(I, S) && ActionSet && I) xrDestroyActionSet(ActionSet);
 	ActionSet = nullptr;
 	GrabAction = MoveAction = StrafeAction = TurnAction = JumpAction = ClimbAction = MenuAction = nullptr;
-	GrappleAction = GliderAction = nullptr;
+	GrappleAction = GliderAction = HandPoseAction = nullptr;
 	bActionsReady = false;
 	Super::Deinitialize();
 }
@@ -68,11 +69,35 @@ bool UMistspireXRActionSubsystem::BuildActionLayout()
 		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "menu", "Menu", MenuAction, false) ||
 		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "grapple", "Grapple", GrappleAction, false) ||
 		!Mk(XR_ACTION_TYPE_BOOLEAN_INPUT, "glider", "Glider", GliderAction, false) ||
+		!Mk(XR_ACTION_TYPE_POSE_INPUT, "hand_pose", "Hand Pose", HandPoseAction, true) ||
 		!Mk(XR_ACTION_TYPE_VIBRATION_OUTPUT, "haptic", "Haptic", HapticAction, true))
 		return false;
 
-	bActionsReady = AttachActionSetToSession();
-	return bActionsReady;
+	if (!AttachActionSetToSession()) return false;
+
+	// Create reference space
+	XrReferenceSpaceCreateInfo RSCI{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
+	RSCI.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+	RSCI.poseInReferenceSpace = XrPosef{{0.f, 0.f, 0.f, 1.f}, {0.f, 0.f, 0.f}};
+	if (XR_FAILED(xrCreateReferenceSpace(S, &RSCI, &ReferenceSpace)))
+	{
+		ReferenceSpace = nullptr;
+	}
+
+	// Create hand pose action spaces
+	auto CreateHandSpace = [&](XrPath HandPath, XrSpace& OutSpace)
+	{
+		XrActionSpaceCreateInfo ASCI{XR_TYPE_ACTION_SPACE_CREATE_INFO};
+		ASCI.action = HandPoseAction;
+		ASCI.subactionPath = HandPath;
+		ASCI.poseInActionSpace = XrPosef{{0.f, 0.f, 0.f, 1.f}, {0.f, 0.f, 0.f}};
+		return XR_SUCCEEDED(xrCreateActionSpace(S, &ASCI, &OutSpace));
+	};
+	CreateHandSpace(LeftHandPath, LeftHandSpace);
+	CreateHandSpace(RightHandPath, RightHandSpace);
+
+	bActionsReady = true;
+	return true;
 }
 
 void UMistspireXRActionSubsystem::TriggerHapticVibration(bool bIsLeftHand, float Amplitude, float DurationSeconds, float Frequency)
@@ -142,4 +167,44 @@ void UMistspireXRActionSubsystem::PollInputActions()
 	RF(MoveAction, XR_NULL_PATH, InputState.MoveY);
 	RF(StrafeAction, XR_NULL_PATH, InputState.MoveX);
 	RF(TurnAction, XR_NULL_PATH, InputState.Turn);
+
+	PollHandPoses();
+}
+
+void UMistspireXRActionSubsystem::DestroyHandPoseResources()
+{
+	XrInstance I = nullptr; XrSession S = nullptr;
+	if (!FMistspireOpenXRAccess::GetNativeHandles(I, S)) return;
+
+	if (LeftHandSpace) { xrDestroySpace(LeftHandSpace); LeftHandSpace = nullptr; }
+	if (RightHandSpace) { xrDestroySpace(RightHandSpace); RightHandSpace = nullptr; }
+	if (ReferenceSpace) { xrDestroySpace(ReferenceSpace); ReferenceSpace = nullptr; }
+	bHandPosesValid = false;
+}
+
+void UMistspireXRActionSubsystem::PollHandPoses()
+{
+	if (!bActionsReady || !ReferenceSpace) return;
+	XrInstance I = nullptr; XrSession S = nullptr;
+	if (!FMistspireOpenXRAccess::GetNativeHandles(I, S)) return;
+
+	auto LocateHand = [&](XrSpace HandSpace, FTransform& OutTransform) -> bool
+	{
+		if (!HandSpace) return false;
+		XrSpaceLocation Loc{XR_TYPE_SPACE_LOCATION};
+		if (XR_FAILED(xrLocateSpace(HandSpace, ReferenceSpace, &Loc))) return false;
+		if (!(Loc.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT)) return false;
+
+		const XrQuaternionf& Q = Loc.pose.orientation;
+		const XrVector3f& P = Loc.pose.position;
+		OutTransform = FTransform(
+			FQuat(Q.x, Q.y, Q.z, Q.w),
+			FVector(P.x * 100.f, P.y * 100.f, P.z * 100.f)  // OpenXR meters to cm
+		);
+		return true;
+	};
+
+	bool bLeft = LocateHand(LeftHandSpace, LeftHandPose);
+	bool bRight = LocateHand(RightHandSpace, RightHandPose);
+	bHandPosesValid = bLeft || bRight;
 }
