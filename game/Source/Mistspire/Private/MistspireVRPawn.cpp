@@ -653,20 +653,32 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 {
 	if (!WindAudio || !ExertionAudio) return;
 
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	UMistspireAudioSubsystem* AudioSys = World->GetSubsystem<UMistspireAudioSubsystem>();
+	UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>();
+	UMistspireAltitudeSubsystem* Alt = World->GetSubsystem<UMistspireAltitudeSubsystem>();
+
+	const float AltitudeCm = Alt ? Alt->GetCurrentAltitudeCm() : GetActorLocation().Z;
+
+	// Altitude EQ via audio subsystem
+	if (AudioSys)
+	{
+		AudioSys->SetAltitudeEQ(AltitudeCm / 100000.f);
+	}
+
 	// Wind Audio based on relative velocity and environment wind
 	float RelativeSpeed = GliderVelocity.Size();
-	if (UWorld* World = GetWorld())
+	if (Env)
 	{
-		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
-		{
-			RelativeSpeed += Env->GetWindAtAltitude(GetActorLocation().Z).Size();
-		}
+		RelativeSpeed += Env->GetWindAtAltitude(AltitudeCm).Size();
 	}
 
 	float WindVolume = FMath::Clamp(RelativeSpeed / 2000.f, 0.1f, 1.0f);
 	float WindPitch = FMath::Clamp(0.8f + (RelativeSpeed / 4000.f), 0.8f, 1.5f);
 
-	if (UMistspireAmbienceSubsystem* Amb = GetWorld()->GetSubsystem<UMistspireAmbienceSubsystem>())
+	if (UMistspireAmbienceSubsystem* Amb = World->GetSubsystem<UMistspireAmbienceSubsystem>())
 	{
 		WindVolume = FMath::Clamp(WindVolume + Amb->GetTensionLevel() * 0.15f, 0.f, 1.f);
 		WindPitch += Amb->GetMysteryLevel() * 0.2f;
@@ -690,6 +702,41 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 	{
 		ExertionAudio->SetVolumeMultiplier(FMath::FInterpTo(ExertionAudio->VolumeMultiplier, 0.f, DeltaTime, 1.f));
 		if (ExertionAudio->VolumeMultiplier < 0.01f) ExertionAudio->Stop();
+	}
+
+	// Biome ambience through audio subsystem
+	if (AudioSys && Env)
+	{
+		const EMistspireBiomeType Biome = Env->GetCurrentBiome();
+		if (Biome != EMistspireBiomeType::None)
+		{
+			FName BiomeName;
+			switch (Biome)
+			{
+				case EMistspireBiomeType::Mist:    BiomeName = TEXT("ambient_mist"); break;
+				case EMistspireBiomeType::Arid:    BiomeName = TEXT("ambient_arid"); break;
+				case EMistspireBiomeType::Forest:  BiomeName = TEXT("ambient_forest"); break;
+				case EMistspireBiomeType::Ember:   BiomeName = TEXT("ambient_ember"); break;
+				case EMistspireBiomeType::Crystal: BiomeName = TEXT("ambient_crystal"); break;
+				case EMistspireBiomeType::Void:    BiomeName = TEXT("ambient_void"); break;
+				default: break;
+			}
+			if (!BiomeName.IsNone())
+			{
+				AudioSys->PlayBiomeAmbience(BiomeName, 2.f);
+			}
+		}
+	}
+
+	// Tension level from survival factors
+	if (AudioSys)
+	{
+		float SpeedFactor = GliderVelocity.Size() / 3000.f;
+		float AltitudeFactor = AltitudeCm / 500000.f;
+		float ExhaustFactor = 1.f - (CurrentStamina / MaxStamina);
+		float HypoxiaFactor = 1.f - (CurrentOxygen / MaxOxygen);
+		float Tension = FMath::Clamp(SpeedFactor + AltitudeFactor + ExhaustFactor + HypoxiaFactor, 0.f, 1.f);
+		AudioSys->SetTensionLevel(Tension);
 	}
 }
 
