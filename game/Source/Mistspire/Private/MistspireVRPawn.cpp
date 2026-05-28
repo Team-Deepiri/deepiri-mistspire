@@ -293,15 +293,19 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			FHitResult Hit;
 			VisualHand->SetWorldLocationAndRotation(TargetLoc, TargetRot, true, &Hit);
 			
-			// If we hit something, triggered haptics to feel the "bump"
-			if (Hit.bBlockingHit)
+		// If we hit something, triggered haptics and surface contact audio to feel the "bump"
+		if (Hit.bBlockingHit)
+		{
+			if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
 			{
-				if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
-				{
-					bool bIsLeft = (VisualHand == VisualLeftHand);
-					XR->TriggerHapticVibration(bIsLeft, 0.3f, 0.05f, 100.f);
-				}
+				bool bIsLeft = (VisualHand == VisualLeftHand);
+				XR->TriggerHapticVibration(bIsLeft, 0.3f, 0.05f, 100.f);
 			}
+			if (UMistspireAudioSubsystem* Audio = GetWorld()->GetSubsystem<UMistspireAudioSubsystem>())
+			{
+				Audio->PlaySurfaceContactSound(500.f, Hit.PhysMaterial.IsValid());
+			}
+		}
 		};
 
 		UpdateHandPhysics(VisualLeftHand, LeftHandController);
@@ -737,6 +741,45 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 		float HypoxiaFactor = 1.f - (CurrentOxygen / MaxOxygen);
 		float Tension = FMath::Clamp(SpeedFactor + AltitudeFactor + ExhaustFactor + HypoxiaFactor, 0.f, 1.f);
 		AudioSys->SetTensionLevel(Tension);
+	}
+
+	// Physiology sounds (timered to avoid spam)
+	static float PhysTimer = 0.f;
+	PhysTimer += DeltaTime;
+	if (AudioSys && PhysTimer >= 2.f)
+	{
+		PhysTimer = 0.f;
+		const float StamPct = CurrentStamina / MaxStamina;
+		const float OxyPct = CurrentOxygen / MaxOxygen;
+
+		if (OxyPct < 0.15f)
+		{
+			AudioSys->PlayPhysiologySound(EPhysiologySoundType::HypoxiaGasp, 1.f);
+		}
+		else if (OxyPct < 0.3f)
+		{
+			AudioSys->PlayPhysiologySound(EPhysiologySoundType::BreathingShallow, 1.f - OxyPct);
+		}
+
+		if (StamPct < 0.2f)
+		{
+			AudioSys->PlayPhysiologySound(EPhysiologySoundType::Exhaustion, 1.f - StamPct);
+		}
+		else if (StamPct < 0.4f)
+		{
+			AudioSys->PlayPhysiologySound(EPhysiologySoundType::BreathingHeavy, 1.f - StamPct);
+		}
+
+		if (Tension > 0.6f)
+		{
+			AudioSys->PlayPhysiologySound(EPhysiologySoundType::HeartbeatRacing, FMath::Min(Tension, 1.f));
+		}
+	}
+
+	// Weather audio
+	if (AudioSys && Env)
+	{
+		AudioSys->PlayWeatherSound(Env->GetCurrentWeather(), 1.f);
 	}
 }
 
