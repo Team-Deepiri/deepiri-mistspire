@@ -472,12 +472,20 @@ void AMistspireVRPawn::PollXRInput()
 		{
 			bMenuHeld = true;
 			MenuHoldTimer = 0.f;
+			if (UMistspireAudioSubsystem* Audio = World->GetSubsystem<UMistspireAudioSubsystem>())
+			{
+				Audio->PlayUISound(TEXT("ui_menu_press"), 0.5f);
+			}
 		}
 		MenuHoldTimer += GetWorld()->GetDeltaSeconds();
 		if (MenuHoldTimer >= 1.0f && bMenuHeld)
 		{
 			bMenuHeld = false;
 			ToggleGlider(!bGliderActive);
+			if (UMistspireAudioSubsystem* Audio = World->GetSubsystem<UMistspireAudioSubsystem>())
+			{
+				Audio->PlayUISound(bGliderActive ? TEXT("ui_glider_deploy") : TEXT("ui_glider_stow"), 0.6f);
+			}
 		}
 	}
 	else
@@ -485,6 +493,10 @@ void AMistspireVRPawn::PollXRInput()
 		if (bMenuPressedLast && bMenuHeld && MenuHoldTimer < 1.0f)
 		{
 			TeleportForward(TeleportForwardCm);
+			if (UMistspireAudioSubsystem* Audio = World->GetSubsystem<UMistspireAudioSubsystem>())
+			{
+				Audio->PlayUISound(TEXT("ui_teleport"), 0.5f);
+			}
 		}
 		bMenuHeld = false;
 		MenuHoldTimer = 0.f;
@@ -643,6 +655,13 @@ void AMistspireVRPawn::UpdateGlidingMovement(float DeltaTime)
 		XR->TriggerHapticVibration(false, FMath::Min(Turbulence, 0.2f), 0.1f, 30.f);
 	}
 
+	// Spatial glider wind audio
+	if (UMistspireAudioSubsystem* Audio = GetWorld()->GetSubsystem<UMistspireAudioSubsystem>())
+	{
+		float AirSpeed = GliderVelocity.Size() / 100.f;
+		Audio->PlaySpatialSoundAtLocation(TEXT("glider_wind"), GetActorLocation(), FMath::Clamp(AirSpeed / 20.f, 0.f, 1.f));
+	}
+
 	// 5. Apply movement
 	FHitResult Hit;
 	AddActorWorldOffset(GliderVelocity * DeltaTime, true, &Hit);
@@ -708,26 +727,49 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 		if (ExertionAudio->VolumeMultiplier < 0.01f) ExertionAudio->Stop();
 	}
 
-	// Biome ambience through audio subsystem
+	// Biome ambience and reverb through audio subsystem
 	if (AudioSys && Env)
 	{
 		const EMistspireBiomeType Biome = Env->GetCurrentBiome();
 		if (Biome != EMistspireBiomeType::None)
 		{
 			FName BiomeName;
+			FName ReverbName;
 			switch (Biome)
 			{
-				case EMistspireBiomeType::Mist:    BiomeName = TEXT("ambient_mist"); break;
-				case EMistspireBiomeType::Arid:    BiomeName = TEXT("ambient_arid"); break;
-				case EMistspireBiomeType::Forest:  BiomeName = TEXT("ambient_forest"); break;
-				case EMistspireBiomeType::Ember:   BiomeName = TEXT("ambient_ember"); break;
-				case EMistspireBiomeType::Crystal: BiomeName = TEXT("ambient_crystal"); break;
-				case EMistspireBiomeType::Void:    BiomeName = TEXT("ambient_void"); break;
+				case EMistspireBiomeType::Mist:
+					BiomeName = TEXT("ambient_mist");
+					ReverbName = TEXT("reverb_mist");
+					break;
+				case EMistspireBiomeType::Arid:
+					BiomeName = TEXT("ambient_arid");
+					ReverbName = TEXT("reverb_arid");
+					break;
+				case EMistspireBiomeType::Forest:
+					BiomeName = TEXT("ambient_forest");
+					ReverbName = TEXT("reverb_forest");
+					break;
+				case EMistspireBiomeType::Ember:
+					BiomeName = TEXT("ambient_ember");
+					ReverbName = TEXT("reverb_ember");
+					break;
+				case EMistspireBiomeType::Crystal:
+					BiomeName = TEXT("ambient_crystal");
+					ReverbName = TEXT("reverb_crystal");
+					break;
+				case EMistspireBiomeType::Void:
+					BiomeName = TEXT("ambient_void");
+					ReverbName = TEXT("reverb_void");
+					break;
 				default: break;
 			}
 			if (!BiomeName.IsNone())
 			{
 				AudioSys->PlayBiomeAmbience(BiomeName, 2.f);
+			}
+			if (!ReverbName.IsNone())
+			{
+				AudioSys->SetReverbPreset(ReverbName, 2.f);
 			}
 		}
 	}
@@ -1170,6 +1212,11 @@ void AMistspireVRPawn::FireGrapple(FVector WorldTarget)
 	{
 		GrappleCable->SetHiddenInGame(false);
 		GrappleCable->SetWorldLocation(WorldTarget);
+	}
+
+	if (UMistspireAudioSubsystem* Audio = GetWorld()->GetSubsystem<UMistspireAudioSubsystem>())
+	{
+		Audio->PlaySpatialSoundAtLocation(TEXT("grapple_fire"), WorldTarget, 0.7f);
 	}
 
 	if (GetLocalRole() < ROLE_Authority)
