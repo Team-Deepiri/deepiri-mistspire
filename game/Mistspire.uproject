@@ -13,6 +13,7 @@
 		{ "Name": "OpenXR", "Enabled": true },
 		{ "Name": "OpenXRCore", "Enabled": true },
 		{ "Name": "OpenXRHandTracking", "Enabled": true, "Optional": true },
+		{ "Name": "CableComponent", "Enabled": true },
 		{ "Name": "MistspireOpenXRNative", "Enabled": true }
 	],
 	"TargetPlatforms": [ "Linux", "Win64" ]

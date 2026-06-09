@@ -189,5 +189,9 @@ EMistspireBiomeType UMistspireEnvironmentSubsystem::BiomeFromAltitude(float Alti
 	if (AltitudeCm < 700000.f) return EMistspireBiomeType::Ember;
 	if (AltitudeCm < 900000.f) return EMistspireBiomeType::Crystal;
 	if (AltitudeCm < 1200000.f) return EMistspireBiomeType::Void;
-	return EMistspireBiomeType::None;
+	if (AltitudeCm < 1400000.f) return EMistspireBiomeType::Tundra;
+	if (AltitudeCm < 1600000.f) return EMistspireBiomeType::Aether;
+	if (AltitudeCm < 1800000.f) return EMistspireBiomeType::Sanctum;
+	if (AltitudeCm < 2000000.f) return EMistspireBiomeType::Pinnacle;
+	return EMistspireBiomeType::Pinnacle;
 }

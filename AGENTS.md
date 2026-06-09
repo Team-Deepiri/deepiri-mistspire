@@ -22,12 +22,52 @@
 4. Binary `.umap` / `.uasset` — Git LFS; document map steps in `game/Content/Maps/README.md`.
 5. Repo layout is **flat** under `deepiri-mistspire/` (no nested `deepiri-cloudloom/`).
 
-## Build
+## Quick start
+
+```bash
+./setup.sh          # Install deps + compile + launch editor
+./run.sh            # Launch VR preview or packaged build
+```
+
+## Manual build
 
 ```bash
 ./scripts/setup-linux-deps.sh
 # Open game/Mistspire.uproject → compile C++ modules
 ```
+
+## Pipeline tools
+
+| Path | Purpose |
+|------|---------|
+| `tools/pipeline/step_*_README.md` | 20-step world-authoring guide |
+| `tools/pipeline/step_01_create_map.py` | UE Python script to auto-create Main_WP |
+
+## World biomes (10 total, C++ subsystems)
+
+| # | Subsystem | Altitude | Hazard |
+|---|-----------|----------|--------|
+| 01 | `UMistspireBiomeMist` | 0–2 km | — |
+| 02 | `UMistspireBiomeArid` | 2–4 km | — |
+| 03 | `UMistspireBiomeForest` | 4–6 km | — |
+| 04 | `UMistspireBiomeEmber` | 6–8 km | HeatExhaustion |
+| 05 | `UMistspireBiomeCrystal` | 8–10 km | SharpShards |
+| 06 | `UMistspireBiomeVoid` | 10–12 km | VoidSickness |
+| 07 | `UMistspireBiomeTundra` | 12–14 km | Blizzard |
+| 08 | `UMistspireBiomeAether` | 14–16 km | GravityAnomaly |
+| 09 | `UMistspireBiomeSanctum` | 16–18 km | OxygenVacuum |
+| 10 | `UMistspireBiomePinnacle` | 18–20 km | CosmicRadiation |
+
+## Interaction profiles (OpenXR native)
+
+| Path | Headsets |
+|------|----------|
+| `interaction_profiles/openxr/bindings_meta_quest*.json` | Meta Quest 2/3/Pro |
+| `interaction_profiles/openxr/bindings_valve_index.json` | Valve Index |
+| `interaction_profiles/openxr/bindings_htc_vive.json` | HTC Vive |
+| `interaction_profiles/openxr/bindings_khr_simple.json` | Fallback/simple |
+
+Bindings include: `move`, `strafe`, `turn`, `grip`, `jump`, `climb`, `grapple`, `glider`, `menu`, `teleport`.
 
 ## Debug console
 
