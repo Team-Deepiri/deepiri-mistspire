@@ -32,6 +32,16 @@
         },
         {
           "inputs": { "click": { "position": true } },
+          "path": "/user/hand/left/input/select",
+          "action": "jump"
+        },
+        {
+          "inputs": { "click": { "position": true } },
+          "path": "/user/hand/right/input/select",
+          "action": "climb"
+        },
+        {
+          "inputs": { "click": { "position": true } },
           "path": "/user/hand/right/input/menu",
           "action": "menu"
         },
@@ -44,6 +54,11 @@
           "inputs": { "click": { "position": true } },
           "path": "/user/hand/left/input/menu",
           "action": "glider"
+        },
+        {
+          "inputs": { "position": true, "orientation": true },
+          "path": "/user/hand/left/input/grip/pose",
+          "action": "hand_pose"
         }
       ]
     }
