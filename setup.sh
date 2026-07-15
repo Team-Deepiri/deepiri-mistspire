@@ -10,6 +10,16 @@ echo "  Mistspire — Full Setup"
 echo "============================================"
 FAILED=0
 
+# ── 0. Git Hooks ────────────────────────────────
+echo ""
+echo "==> [0/6] Configuring git hooks..."
+if [ -d ".git-hooks" ]; then
+    git config core.hooksPath .git-hooks
+    echo "   Git hooks configured (core.hooksPath = .git-hooks)"
+else
+    echo "   No .git-hooks directory found, skipping hooks setup"
+fi
+
 # ── 1. System dependencies ──────────────────────
 echo ""
 echo "==> [1/6] Installing system dependencies..."
