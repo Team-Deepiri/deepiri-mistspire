@@ -1,6 +1,7 @@
 #include "MistspireGameInstance.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSessionSettings.h"
+#include "Online/OnlineSessionNames.h"
 #include "Kismet/GameplayStatics.h"
 
 UMistspireGameInstance::UMistspireGameInstance()
@@ -61,7 +62,7 @@ void UMistspireGameInstance::FindSessions()
 			SessionSearch = MakeShareable(new FOnlineSessionSearch());
 			SessionSearch->bIsLanQuery = true; // For LAN discovery like Minecraft
 			SessionSearch->MaxSearchResults = 20;
-			SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+			SessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
 
 			SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegate);
 			SessionInterface->FindSessions(0, SessionSearch.ToSharedRef());
@@ -76,12 +77,12 @@ void UMistspireGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
 		// In a real UI we would populate a list, for now we join the first found
 		if (SessionSearch->SearchResults.Num() > 0)
 		{
-			JoinSession(0);
+			JoinFoundSession(0);
 		}
 	}
 }
 
-void UMistspireGameInstance::JoinSession(int32 SessionIndex)
+void UMistspireGameInstance::JoinFoundSession(int32 SessionIndex)
 {
 	IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
 	if (Subsystem)

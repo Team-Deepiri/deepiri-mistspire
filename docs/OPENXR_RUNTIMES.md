@@ -27,6 +27,6 @@ Set active runtime in SteamVR or Meta Quest Developer Hub before launching UE VR
 
 ## UE integration
 
-Enabled in `Mistspire.uproject`: OpenXR, OpenXRCore, MistspireOpenXRNative.
+Enabled in `Mistspire.uproject`: OpenXR, MistspireOpenXRNative (OpenXRHandTracking optional).
 
-`FMistspireOpenXRAccess` reads `IOpenXRCore` — do not start a second OpenXR session in game code.
+`FMistspireOpenXRAccess` reads session handles via UE `IOpenXRHMD` — do not start a second OpenXR session in game code.

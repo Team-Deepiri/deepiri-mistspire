@@ -33,7 +33,7 @@ class MISTSPIRE_API AMistspireGameState : public AGameStateBase
 public:
 	AMistspireGameState();
 
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutReplicatedProps) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Score")
 	float SessionBestAltitudeCm = 0.f;
@@ -44,8 +44,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Score")
 	void NotifyAltitudeSample(const FString& PlayerName, float CurrentAltitudeCm, float MaxAltitudeCm);
 
-	UFUNCTION(BlueprintCallable, Category = "Mistspire|Score")
-	void NotifyAltitudeSample(float CurrentAltitudeCm, float MaxAltitudeCm);
+	/** Convenience for the local player's PlayerState name (not exposed to Blueprint — UHT disallows UFUNCTION overloads). */
+	void NotifyLocalAltitudeSample(float CurrentAltitudeCm, float MaxAltitudeCm);
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Score")
 	void BroadcastSocialAchievement(const FString& Message);

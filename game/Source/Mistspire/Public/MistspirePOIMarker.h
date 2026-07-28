@@ -16,6 +16,12 @@ class MISTSPIRE_API AMistspirePOIMarker : public AActor
 public:
 	AMistspirePOIMarker();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|POI")
+	FName POIId = NAME_None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|POI")
+	EMistspirePOIType POIType = EMistspirePOIType::Landmark;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -23,12 +29,6 @@ protected:
 	UFUNCTION()
 	void OnDiscoverOverlap(UPrimitiveComponent* Overlapped, AActor* Other, UPrimitiveComponent* OtherComp,
 		int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|POI")
-	FName POIId = NAME_None;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|POI")
-	EMistspirePOIType POIType = EMistspirePOIType::Landmark;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|POI")
 	float DiscoverRadiusCm = 400.f;

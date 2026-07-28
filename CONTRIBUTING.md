@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- UE 5.5+, Linux or Windows
+- UE 5.8+, Linux or Windows
 - Follow [docs/PCVR_DEV_SETUP.md](docs/PCVR_DEV_SETUP.md)
 
 ## C++ modules

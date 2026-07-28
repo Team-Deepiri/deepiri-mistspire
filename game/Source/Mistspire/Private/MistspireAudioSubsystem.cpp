@@ -185,7 +185,8 @@ void UMistspireAudioSubsystem::PlaySpatialSoundAtLocation(FName SoundId, FVector
 	AudioComp->SetSound(*FoundCue);
 	AudioComp->SetVolumeMultiplier(BusVolume * FMath::Clamp(Volume, 0.0f, 2.0f));
 	AudioComp->bIsUISound = false;
-	AudioComp->AttenuationOverrides.bApplyAttenuation = true;
+	AudioComp->AttenuationOverrides.bAttenuate = true;
+	AudioComp->bOverrideAttenuation = true;
 	AudioComp->RegisterComponent();
 	AudioComp->Play();
 }

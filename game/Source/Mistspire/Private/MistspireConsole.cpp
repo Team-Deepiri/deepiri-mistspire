@@ -7,6 +7,8 @@
 #include "MistspireInteriorSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "MistspireAudioSubsystem.h"
+#include "MistspireLog.h"
+#include "Components/TextRenderComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "HAL/IConsoleManager.h"
@@ -211,10 +213,34 @@ static void MistspireShowAltitudeHUD(const TArray<FString>& Args)
 	}
 }
 
-static FAutoConsoleCommand CmdMistspireShowAltitudeHUD(
-	TEXT("mistspire.ShowAltitudeHUD"),
-	TEXT("Toggle altitude HUD visibility: 0=hide, 1=show."),
-	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireShowAltitudeHUD));
+static void RegisterMistspireAltitudeHudCommands()
+{
+	IConsoleManager& CM = IConsoleManager::Get();
+
+	// Register an alias for maintainers + saved console workflows.
+	if (!CM.FindConsoleObject(TEXT("mistspire.ShowAltitudeHUD")))
+	{
+		CM.RegisterConsoleCommand(
+			TEXT("mistspire.ShowAltitudeHUD"),
+			TEXT("Toggle wrist altimeter text visibility: 0=hide, 1=show."),
+			FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireShowAltitudeHUD));
+	}
+
+	// New preferred name (kept for clarity).
+	if (!CM.FindConsoleObject(TEXT("mistspire.ShowWristAltimeter")))
+	{
+		CM.RegisterConsoleCommand(
+			TEXT("mistspire.ShowWristAltimeter"),
+			TEXT("Toggle wrist altimeter text visibility: 0=hide, 1=show."),
+			FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireShowAltitudeHUD));
+	}
+}
+
+struct FMistspireRegisterAltitudeHudCommands
+{
+	FMistspireRegisterAltitudeHudCommands() { RegisterMistspireAltitudeHudCommands(); }
+};
+static FMistspireRegisterAltitudeHudCommands GRegisterMistspireAltitudeHudCommands;
 
 static void MistspireAudioDebug(const TArray<FString>&)
 {

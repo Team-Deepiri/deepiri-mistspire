@@ -25,7 +25,7 @@ public:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutReplicatedProps) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void ApplySmoothLocomotion(FVector2D MoveInput, float DeltaTime);
@@ -263,6 +263,7 @@ private:
 	void TryGrappleShot();
 	void TryMantle(float DeltaTime);
 	void UpdateBeaconPulseHaptics();
+	UFUNCTION()
 	void HandleSummitReached(FName SummitId);
 
 	FVector2D CachedMoveInput;
@@ -275,7 +276,6 @@ private:
 	bool bGrapplePressedLast = false;
 	bool bGliderPressedLast = false;
 	FVector GliderVelocity = FVector::ZeroVector;
-	FDelegateHandle SummitReachedHandle;
 	float GliderBoostTimeRemaining = 0.f;
 	float GliderBoostMultiplier = 1.65f;
 	bool bGrappleHeld = false;
