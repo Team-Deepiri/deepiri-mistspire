@@ -10,7 +10,7 @@
 
 ## Requirements
 
-- Unreal Engine **5.5+** (Epic Launcher)
+- Unreal Engine **5.8+** (Epic Launcher)
 - OpenXR runtime (SteamVR, Oculus, or Monado on Linux)
 - GPU with Vulkan 1.3 (RTX 40/50 series recommended)
 

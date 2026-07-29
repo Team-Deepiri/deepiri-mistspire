@@ -10,10 +10,10 @@
 
 ## First open
 
-1. Install UE **5.5+**.
+1. Install UE **5.8+**.
 2. Open `game/Mistspire.uproject`.
 3. Build **Mistspire** + **MistspireOpenXRNative** when prompted.
-4. Confirm plugins: OpenXR, OpenXRCore, MistspireOpenXRNative.
+4. Confirm plugins: OpenXR, MistspireOpenXRNative (OpenXRHandTracking optional).
 
 ## VR Preview
 

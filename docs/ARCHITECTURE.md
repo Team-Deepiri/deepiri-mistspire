@@ -17,13 +17,13 @@ flowchart TB
     Rnd[MistspireXRRenderBridge]
   end
   subgraph ue [UE OpenXR]
-    Core[IOpenXRCore]
+    HMD[IOpenXRHMD]
   end
   Pawn --> Alt
   Pawn --> Act
   GM --> Sum
   Dbg --> Alt
-  Act --> Acc --> Core
+  Act --> Acc --> HMD
   Rnd --> Acc
 ```
 

@@ -12,7 +12,7 @@ class MISTSPIRE_API AMistspirePlayerState : public APlayerState
 public:
 	AMistspirePlayerState();
 
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutReplicatedProps) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Score")
 	float MaxAltitudeCm = 0.f;

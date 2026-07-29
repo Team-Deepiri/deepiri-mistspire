@@ -37,14 +37,15 @@ public:
 	FOnMistspireNarrativeLine OnNarrativeLine;
 
 private:
+	UFUNCTION()
 	void HandleZoneChanged(EMistspireAltitudeZone OldZone, EMistspireAltitudeZone NewZone);
+
+	UFUNCTION()
 	void HandleAltitudeRecord(float NewAltitudeCm, float PersonalBestCm);
+
+	UFUNCTION()
 	void HandleDistrictChanged(EMistspireWorldDistrict OldDistrict, EMistspireWorldDistrict NewDistrict);
 
 	FText LastLine;
 	int32 LastMilestoneKm = -1;
-
-	FDelegateHandle ZoneHandle;
-	FDelegateHandle AltitudeHandle;
-	FDelegateHandle DistrictHandle;
 };

@@ -2,7 +2,7 @@
 
 ## Project
 
-**Mistspire** — UE 5.5 PCVR game. Objective: reach the highest altitude on a World Partition map.
+**Mistspire** — UE 5.8 PCVR game. Objective: reach the highest altitude on a World Partition map.
 
 ## Key paths
 
@@ -16,7 +16,7 @@
 
 ## Rules for agents
 
-1. Do **not** call `xrCreateInstance` / `xrCreateSession` in game code — use `FMistspireOpenXRAccess` + UE `IOpenXRCore`.
+1. Do **not** call `xrCreateInstance` / `xrCreateSession` in game code — use `FMistspireOpenXRAccess` + UE `IOpenXRHMD`.
 2. Do **not** call `xrWaitFrame` from `MistspireOpenXRNative` in shipping paths.
 3. OpenXR action set name: `mistspire_gameplay`.
 4. Binary `.umap` / `.uasset` — Git LFS; document map steps in `game/Content/Maps/README.md`.

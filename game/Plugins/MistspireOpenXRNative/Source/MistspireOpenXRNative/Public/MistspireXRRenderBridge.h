@@ -3,8 +3,6 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "MistspireXRRenderBridge.generated.h"
 
-struct FXrGraphicsBinding;
-
 UCLASS()
 class MISTSPIREOPENXRNATIVE_API UMistspireXRRenderBridge : public UWorldSubsystem
 {
@@ -25,10 +23,9 @@ public:
 private:
 	void OnPostEngineInit();
 	void ExecuteRenderProbe(FRHICommandListImmediate& RHICmdList);
-	void EnqueueViewProbe(void* InstanceHandle, void* SessionHandle);
-	uint64 GetXrSystemId(void* SessionHandle) const;
+	void EnqueueViewProbe();
+	uint64 GetXrSystemId() const;
 	void DestroySwapchain();
-	const TArray<FXrGraphicsBinding>& GetOpenXrGraphicsBindings(void* InstanceHandle) const;
 
 	bool bHooked = false;
 	bool bNativeXrReady = false;

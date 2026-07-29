@@ -24,7 +24,8 @@ public:
 	void FindSessions();
 
 	/** Joins a specific session found via FindSessions. */
-	void JoinSession(int32 SessionIndex);
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Multiplayer")
+	void JoinFoundSession(int32 SessionIndex);
 
 protected:
 	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);

@@ -21,6 +21,7 @@
 #include "Components/PostProcessComponent.h"
 #include "CableComponent.h"
 #include "MotionControllerComponent.h"
+#include "IMotionController.h"
 #include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
 #include "Engine/World.h"
@@ -45,7 +46,7 @@ AMistspireVRPawn::AMistspireVRPawn()
 
 	LeftHandController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("LeftHandController"));
 	LeftHandController->SetupAttachment(Capsule);
-	LeftHandController->MotionSource = FXRMotionControllerBase::LeftHandSourceId;
+	LeftHandController->MotionSource = IMotionController::LeftHandSourceId;
 
 	LeftHandMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("LeftHandMesh"));
 	LeftHandMesh->SetupAttachment(LeftHandController);
@@ -99,7 +100,7 @@ AMistspireVRPawn::AMistspireVRPawn()
 
 	RightHandController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("RightHandController"));
 	RightHandController->SetupAttachment(Capsule);
-	RightHandController->MotionSource = FXRMotionControllerBase::RightHandSourceId;
+	RightHandController->MotionSource = IMotionController::RightHandSourceId;
 
 	RightHandMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("RightHandMesh"));
 	RightHandMesh->SetupAttachment(RightHandController);
@@ -158,7 +159,7 @@ void AMistspireVRPawn::BeginPlay()
 	{
 		if (UMistspireSummitRegistry* Registry = World->GetSubsystem<UMistspireSummitRegistry>())
 		{
-			SummitReachedHandle = Registry->OnSummitReached.AddUObject(this, &AMistspireVRPawn::HandleSummitReached);
+			Registry->OnSummitReached.AddDynamic(this, &AMistspireVRPawn::HandleSummitReached);
 		}
 	}
 }
@@ -169,7 +170,7 @@ void AMistspireVRPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		if (UMistspireSummitRegistry* Registry = World->GetSubsystem<UMistspireSummitRegistry>())
 		{
-			Registry->OnSummitReached.Remove(SummitReachedHandle);
+			Registry->OnSummitReached.RemoveDynamic(this, &AMistspireVRPawn::HandleSummitReached);
 		}
 	}
 	Super::EndPlay(EndPlayReason);
@@ -283,12 +284,12 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		}
 
 		// Physical Hand Collisions
-		auto UpdateHandPhysics = [&](USkeletalMeshComponent* VisualHand, UMotionControllerComponent* Controller)
+		auto UpdateHandPhysics = [&](USkeletalMeshComponent* VisualHand, UMotionControllerComponent* HandController)
 		{
-			if (!VisualHand || !Controller) return;
+			if (!VisualHand || !HandController) return;
 			
-			FVector TargetLoc = Controller->GetComponentLocation();
-			FRotator TargetRot = Controller->GetComponentRotation();
+			FVector TargetLoc = HandController->GetComponentLocation();
+			FRotator TargetRot = HandController->GetComponentRotation();
 			
 			FHitResult Hit;
 			VisualHand->SetWorldLocationAndRotation(TargetLoc, TargetRot, true, &Hit);
@@ -420,9 +421,9 @@ void AMistspireVRPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 }
 
-void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutReplicatedProps) const
+void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	Super::GetLifetimeReplicatedProps(OutReplicatedProps);
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMistspireVRPawn, bIsClimbing);
 	DOREPLIFETIME(AMistspireVRPawn, bGliderActive);
@@ -828,9 +829,10 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 			AudioSys->PlayPhysiologySound(EPhysiologySoundType::BreathingHeavy, 1.f - StamPct);
 		}
 
+		const float Tension = FMath::Clamp((1.f - StamPct) * 0.5f + (1.f - OxyPct) * 0.5f, 0.f, 1.f);
 		if (Tension > 0.6f)
 		{
-			AudioSys->PlayPhysiologySound(EPhysiologySoundType::HeartbeatRacing, FMath::Min(Tension, 1.f));
+			AudioSys->PlayPhysiologySound(EPhysiologySoundType::HeartbeatRacing, Tension);
 		}
 	}
 
