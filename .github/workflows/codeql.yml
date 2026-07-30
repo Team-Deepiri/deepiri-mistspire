@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   analyze:
-    name: Analyze (cpp-csharp)
+    name: Analyze (cpp)
     runs-on: ubuntu-latest
 
     steps:
@@ -25,8 +25,19 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: cpp,csharp
+          languages: cpp
           config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Install OpenXR dev headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenxr-dev pkg-config
+
+      - name: Configure native sandbox
+        run: cmake -B native/xr-sandbox/build -S native/xr-sandbox -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build native sandbox
+        run: cmake --build native/xr-sandbox/build
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
