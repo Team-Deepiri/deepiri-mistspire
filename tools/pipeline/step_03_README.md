@@ -15,4 +15,4 @@
 3. Assign each layer a landscape-visibility toggle
 4. Set up PCG volume per biome band with biome-specific spawn rules
 
-**See:** `docs/WORLD_DESIGN.md`, `docs/biomes/`
+**See:** `docs/gameplay/WORLD_DESIGN.md`, `docs/gameplay/biomes/`

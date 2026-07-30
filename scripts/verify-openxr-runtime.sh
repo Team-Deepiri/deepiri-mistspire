@@ -54,7 +54,7 @@ if grep -qi microsoft /proc/version 2>/dev/null; then
   echo ""
   echo "[WSL] You are in WSL — HMD USB/display passthrough is unreliable."
   echo "      Use native Linux or Windows for VR Preview playtests."
-  echo "      See docs/PCVR_DEV_SETUP.md"
+  echo "      See docs/setup/PCVR_DEV_SETUP.md"
 fi
 
 if [[ $ok -ne 0 ]]; then

@@ -1,11 +1,22 @@
 # Main_WP — World Partition vertical slice
 
-Binary `.umap` assets are not committed in v1. Create the map in UE Editor after opening `game/Mistspire.uproject`.
+`Main_WP` and its World Partition externals live under `game/Content/Maps/` and are tracked with **Git LFS**. After clone: `git lfs install` then `git lfs pull`.
 
-## Create Main_WP (4 × 4 km vertical slice)
+If LFS pointers are not pulled, the editor will show tiny pointer files instead of a real map — fix LFS before recreating assets.
+
+## Open existing Main_WP
+
+1. Open `game/Mistspire.uproject` in UE **5.8+**.
+2. Open `/Game/Maps/Main_WP` (or let `DefaultEngine.ini` load it as the default map).
+3. Confirm World Partition cells stream and Game Mode is `MistspireGameMode`.
+4. **Play → VR Preview** with an active OpenXR runtime.
+
+## Recreate or expand Main_WP
+
+Use this only if you need a fresh map or a larger grid. Prefer editing the committed `Main_WP` when possible.
 
 1. **File → New Level → Empty Open World** (World Partition enabled).
-2. Save as `Content/Maps/Main_WP`.
+2. Save as `Content/Maps/Main_WP` (overwrite only intentionally).
 3. **World Settings → World Partition:**
    - Cell Size: **25600** (256 m) or **12800** (128 m)
    - Loading Range: **2** cells
@@ -25,11 +36,12 @@ Binary `.umap` assets are not committed in v1. Create the map in UE Editor after
 7. **Summit landmark:**
    - Place `AMistspireSummitMarker` actor on layer `DL_Landmarks_Authored`
    - `SummitId = summit_obelisk_prime`, set `OfficialAltitudeCm` to marker Z
-   - Duplicate markers per [docs/WORLD_DESIGN.md](../../../docs/WORLD_DESIGN.md)
+   - Duplicate markers per [docs/gameplay/WORLD_DESIGN.md](../../../docs/gameplay/WORLD_DESIGN.md)
 8. **Player start:** place `PlayerStart` in valley; set **Game Mode** `MistspireGameMode` in World Settings.
 9. **HLOD:** Generate HLOD for distant cells (World Partition → HLOD).
-10. **Building pockets:** author interior rooms at pocket coords — see [docs/BUILDINGS_AND_INTERIORS.md](../../../docs/BUILDINGS_AND_INTERIORS.md). Doors spawn at runtime from the world atlas.
+10. **Building pockets:** author interior rooms at pocket coords — see [docs/gameplay/BUILDINGS_AND_INTERIORS.md](../../../docs/gameplay/BUILDINGS_AND_INTERIORS.md). Doors spawn at runtime from the world atlas.
 11. **VR test:** VR Preview with OpenXR runtime active.
+12. Commit map/externals via **Git LFS** (never commit raw binaries without LFS).
 
 ## Expand to full production grid
 
@@ -39,4 +51,4 @@ Binary `.umap` assets are not committed in v1. Create the map in UE Editor after
 | Area | ~4 km² | 20–50 km² |
 | Data Layers | 3 | 5+ |
 
-See [docs/WORLD_DESIGN.md](../../../docs/WORLD_DESIGN.md).
+See [docs/gameplay/WORLD_DESIGN.md](../../../docs/gameplay/WORLD_DESIGN.md).

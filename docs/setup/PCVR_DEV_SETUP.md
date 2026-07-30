@@ -11,9 +11,10 @@
 ## First open
 
 1. Install UE **5.8+**.
-2. Open `game/Mistspire.uproject`.
-3. Build **Mistspire** + **MistspireOpenXRNative** when prompted.
-4. Confirm plugins: OpenXR, MistspireOpenXRNative (OpenXRHandTracking optional).
+2. `git lfs pull` (required for `Main_WP`).
+3. Open `game/Mistspire.uproject`.
+4. Build **Mistspire** + **MistspireOpenXRNative** when prompted.
+5. Confirm plugins: OpenXR, MistspireOpenXRNative (OpenXRHandTracking optional).
 
 ## VR Preview
 
@@ -37,12 +38,17 @@ Runtime maps hardware → `mistspire_gameplay` actions.
 ```
 mistspire.AltitudeStats
 mistspire.TeleportUp 10000
+mistspire.ShowAltitudeHUD 1
+mistspire.SetWeather 0
+mistspire.RefillSurvival
+mistspire.SaveProgress
+mistspire.LoadProgress
 ```
 
-Enable on-screen altitude: `mistspire.ShowAltitudeHUD 1`
+Day-1 smoke path: [DAY1_MAINTAINER_CHECKLIST.md](DAY1_MAINTAINER_CHECKLIST.md).
 
 ## Packaging (later)
 
 - Configuration: **Shipping**
 - Disable Live Coding
-- Win64 + Linux once map assets exist
+- Win64 + Linux (map assets are in-repo via LFS)

@@ -5,16 +5,14 @@ This folder contains the CodeQL configuration for security scanning in this repo
 ## What each file does
 
 - `.github/workflows/codeql.yml`
-  - Defines when scans run and how GitHub Actions executes CodeQL for C++ and C# (Unreal Engine/VR project).
+  - Runs CodeQL for **C++** on PRs/pushes to `main` and `dev`.
+  - Builds `native/xr-sandbox` between init and analyze so CodeQL sees compiled C/C++ (the Unreal game project is not built on hosted runners).
 - `.github/codeql/codeql-config.yml`
-  - Defines what folders to include and ignore during analysis, with Unreal/VR-specific exclusions.
+  - Include/ignore paths, with Unreal/VR-specific exclusions.
 
 ## CodeQL workflow breakdown (`.github/workflows/codeql.yml`)
 
-### `name: CodeQL`
-The display name in the Actions tab.
-
-### `on.pull_request.branches` and `on.push.branches`
+### Triggers
 ```yaml
 on:
   pull_request:
@@ -22,44 +20,35 @@ on:
   push:
     branches: [main, dev]
 ```
-Runs scans when PRs target `main` or `dev`, and when commits are pushed to `main` or `dev`.
 
-### `permissions`
+### Permissions
 ```yaml
 permissions:
   actions: read
   contents: read
   security-events: write
 ```
-Uses least-privilege permissions. `security-events: write` is required so CodeQL can upload findings.
+`security-events: write` is required so CodeQL can upload findings.
 
-### Language setup (current)
+### Language setup
 ```yaml
 with:
-  languages: cpp,csharp
+  languages: cpp
 ```
-This workflow currently runs analysis for C++ and C# (matching Unreal Engine/VR codebase).
+C# was dropped: the hosted job never builds Unreal/C# targets, which caused empty-analysis failures. Native OpenXR smoke-test code under `native/xr-sandbox` is the compilable C++ surface for CI.
 
-### Checkout step
-```yaml
-with:
-  fetch-depth: 0
-```
-- `fetch-depth: 0` keeps full git history (safe default for analysis and troubleshooting).
+### Build steps (required for cpp)
+Between `codeql-action/init` and `codeql-action/analyze`:
 
-### Initialize CodeQL
-```yaml
-uses: github/codeql-action/init@v3
-with:
-  config-file: ./.github/codeql/codeql-config.yml
-```
-Starts the CodeQL engine and loads `.github/codeql/codeql-config.yml`.
+1. Install `libopenxr-dev` + `pkg-config`
+2. `cmake` configure `native/xr-sandbox`
+3. `cmake --build` that sandbox
 
 ### Analyze
 ```yaml
 uses: github/codeql-action/analyze@v3
 ```
-Executes queries and uploads results to GitHub Security.
+Runs queries and uploads results to GitHub Security.
 
 ## Config breakdown (`.github/codeql/codeql-config.yml`)
 
@@ -85,35 +74,18 @@ paths-ignore:
   - 'tests/manual/**'
 ```
 
+## Related validate workflow
+
+`.github/workflows/validate.yml` (not CodeQL) checks project JSON, shellcheck on `scripts/*.sh`, pinned Ruff (`ruff==0.16.0` + repo `.ruff.toml`) on `scripts/*.py`, and builds `native/xr-sandbox`.
+
 ## Best practices
 
-1. **Keep trigger scope intentional.**  
-   Use branch filters (`main`, `dev`) to control cost and noise.
-2. **Keep language list explicit.**  
-   CodeQL should only review languages with meaningful source code.
-3. **Exclude generated/vendor artifacts.**  
-   Keep caches, dependencies, build outputs, logs, and minified files in `paths-ignore`.
-4. **Pin to stable major action versions.**  
-   `@v3` is the current stable major for CodeQL actions.
-5. **Review alerts regularly.**  
-   Handle high/critical findings made by the CodeQL bot first and solve with documented reasoning for accepting or rejecting the recommended fix.
+1. Keep trigger scope intentional (`main`, `dev`).
+2. Keep language list aligned with what CI can actually compile.
+3. Exclude generated/vendor artifacts in `paths-ignore`.
+4. Pin to stable major action versions (`@v3`).
+5. Triage high/critical CodeQL alerts first.
 
-## Maintenance examples
-Keeping this updated as code and language coverage evolve is important. Here are common maintenance changes.
+## Maintenance
 
-### Keep language scope aligned with this repository
-This workflow currently analyzes C++ and C# only:
-
-```yaml
-with:
-  languages: cpp,csharp
-```
-
-Only change this value when this repository adds production code in another supported language.
-
-### Exclude another generated folder
-Add a glob to `paths-ignore`, for example:
-
-```yaml
-- '**/generated/**'
-```
+Only change `languages` when CI gains another compilable language target. To exclude another generated folder, add a glob under `paths-ignore`.

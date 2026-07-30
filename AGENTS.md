@@ -12,7 +12,7 @@
 | `game/Source/Mistspire/` | Game module (pawn, altitude, summits) |
 | `game/Plugins/MistspireOpenXRNative/` | OpenXR native bridge |
 | `interaction_profiles/openxr/` | Controller bindings (Meta, Valve, HTC) |
-| `docs/PCVR_DEV_SETUP.md` | Linux / WSL / Windows VR dev |
+| `docs/setup/PCVR_DEV_SETUP.md` | Linux / WSL / Windows VR dev |
 
 ## Rules for agents
 
@@ -21,7 +21,7 @@
 3. OpenXR action set name: `mistspire_gameplay`.
 4. Binary `.umap` / `.uasset` — Git LFS; document map steps in `game/Content/Maps/README.md`.
 5. Repo layout is **flat** under `deepiri-mistspire/` (no nested `deepiri-cloudloom/`).
-
+6. Keep project docs in sync with code: when adding or changing features, update the matching files under `docs/` (`gameplay/`, `architecture/`, `setup/`) and this `AGENTS.md` when paths, rules, systems, or setup steps change.
 ## Quick start
 
 ```bash
@@ -80,10 +80,10 @@ Bindings include: `move`, `strafe`, `turn`, `grip`, `jump`, `climb`, `grapple`, 
 
 ## Immersion stack
 
-See [docs/IMMERSION.md](docs/IMMERSION.md) — zones, narrative, beacon, companion orb, ghosts, pickups, persistence.
+See [docs/gameplay/IMMERSION.md](docs/gameplay/IMMERSION.md) — zones, narrative, beacon, companion orb, ghosts, pickups, persistence.
 
 ## World scale & interiors
 
 - `UMistspireWorldAtlasSubsystem` — districts, buildings, POIs
 - `UMistspireInteriorSubsystem` — enter/exit buildings (VR teleport)
-- [docs/BUILDINGS_AND_INTERIORS.md](docs/BUILDINGS_AND_INTERIORS.md)
+- [docs/gameplay/BUILDINGS_AND_INTERIORS.md](docs/gameplay/BUILDINGS_AND_INTERIORS.md)

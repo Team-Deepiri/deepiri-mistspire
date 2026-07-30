@@ -51,4 +51,4 @@ Reposition in editor after creating `Main_WP`.
 
 Target **90 FPS** on high-end PC. Use HLOD, scalability ini, and fog for distant strata.
 
-Build: [game/Content/Maps/README.md](../game/Content/Maps/README.md).
+Build: [game/Content/Maps/README.md](../../game/Content/Maps/README.md).

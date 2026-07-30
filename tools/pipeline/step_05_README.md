@@ -24,4 +24,4 @@ Place structures along the ascent path:
 | Sanctum_Chapel | 12 — Sanctum Hollow |
 | Pinnacle_Shrine | 13 — Pinnacle Ascent |
 
-**See:** `docs/BUILDINGS_AND_INTERIORS.md`
+**See:** `docs/gameplay/BUILDINGS_AND_INTERIORS.md`

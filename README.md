@@ -11,6 +11,7 @@
 ## Requirements
 
 - Unreal Engine **5.8+** (Epic Launcher)
+- Git LFS (`git lfs pull` for `Main_WP`)
 - OpenXR runtime (SteamVR, Oculus, or Monado on Linux)
 - GPU with Vulkan 1.3 (RTX 40/50 series recommended)
 
@@ -19,6 +20,7 @@
 ```bash
 ./scripts/setup-linux-deps.sh
 ./scripts/verify-openxr-runtime.sh
+git lfs pull
 ```
 
 Open `game/Mistspire.uproject` in the UE editor, allow C++ compile, then **Play → VR Preview**.
@@ -34,8 +36,9 @@ Console (editor or PIE):
 
 ```
 deepiri-mistspire/
-├── game/                         # UE5 project (Mistspire.uproject)
+├── game/                         # UE 5.8 project (Mistspire.uproject)
 │   ├── Source/Mistspire/         # Game module: pawn, altitude, summits
+│   ├── Content/Maps/             # Main_WP (Git LFS)
 │   └── Plugins/MistspireOpenXRNative/
 ├── interaction_profiles/openxr/  # Meta, Valve, HTC, KHR bindings
 ├── native/xr-sandbox/            # OpenXR loader smoke test (no UE)
@@ -45,11 +48,13 @@ deepiri-mistspire/
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [PCVR development](docs/PCVR_DEV_SETUP.md)
-- [World design](docs/WORLD_DESIGN.md)
-- [OpenXR runtimes](docs/OPENXR_RUNTIMES.md)
-- [Build Main_WP map](game/Content/Maps/README.md)
+- [Docs index](docs/README.md)
+- [Architecture](docs/architecture/ARCHITECTURE.md)
+- [Day 1 maintainer checklist](docs/setup/DAY1_MAINTAINER_CHECKLIST.md)
+- [PCVR development](docs/setup/PCVR_DEV_SETUP.md)
+- [World design](docs/gameplay/WORLD_DESIGN.md)
+- [OpenXR runtimes](docs/architecture/OPENXR_RUNTIMES.md)
+- [Build / edit Main_WP](game/Content/Maps/README.md)
 
 ## WSL
 

@@ -17,4 +17,4 @@
    - Collect 3 shards per district to unlock a lore entry
    - 12 districts = 36 lore entries total
 
-**See:** `docs/IMMERSION.md` § Narrative
+**See:** `docs/gameplay/IMMERSION.md` § Narrative
