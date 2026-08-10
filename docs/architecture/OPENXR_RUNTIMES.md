@@ -11,7 +11,7 @@ Mistspire uses abstract actions in `mistspire_gameplay`. The active runtime maps
 | HTC Vive | `/interaction_profiles/htc/vive_controller` | SteamVR OpenXR |
 | Generic | `/interaction_profiles/khr/simple_controller` | Any |
 
-JSON: [interaction_profiles/openxr/](../../interaction_profiles/openxr/).
+Binding files: [interaction_profiles/openxr/](../../interaction_profiles/openxr/) — Meta Quest uses `bindings_meta_quest.json` (OpenXR path `/interaction_profiles/oculus/touch_controller`).
 
 ## Linux (Monado)
 

@@ -11,12 +11,12 @@
 **Lighting per biome:**
 | Biome | Sun tint | Fog color |
 |-------|----------|-----------|
-| Mist (0–2 km) | Grey-white | Pale grey |
-| Arid (2–4 km) | Warm amber | Dusty tan |
-| Forest (4–6 km) | Green dappled | Soft green |
-| Ember (6–8 km) | Orange-red | Ash grey |
-| Crystal (8–10 km) | Cool blue | Ice blue |
-| Void (10–12 km) | Purple-black | Dark violet |
+| Mist (0–1 km) | Grey-white | Pale grey |
+| Arid (1–3 km) | Warm amber | Dusty tan |
+| Forest (3–5 km) | Green dappled | Soft green |
+| Ember (5–7 km) | Orange-red | Ash grey |
+| Crystal (7–9 km) | Cool blue | Ice blue |
+| Void (9–12 km) | Purple-black | Dark violet |
 | Tundra (12–14 km) | Pale white | Frost grey |
 | Aether (14–16 km) | Silver-white | Luminous white |
 | Sanctum (16–18 km) | Golden-white | Warm white |

@@ -53,15 +53,13 @@ Goal: confirm both C++ modules build.
 - [ ] **Window → World Settings** — Game Mode Override / default game mode is **MistspireGameMode**
 - [ ] Confirm a **PlayerStart** exists (add one near `(0, 0, 200)` if missing)
 
-### Fallback — recreate map if LFS failed
+### If Main_WP is missing or corrupt
 
-If the map is missing or corrupt, create a minimal level:
+Use [`game/Content/Maps/README.md`](../../game/Content/Maps/README.md) → **"Recreate or expand Main_WP"** for the full LFS-safe recreate + data-layer setup.
 
-- [ ] **File → New Level → Empty Open World**
-- [ ] **File → Save Current Level As…** → `Content/Maps/Main_WP`
-- [ ] Set game mode to C++ `MistspireGameMode`, place PlayerStart, save
-
-Optional: `tools/pipeline/step_01_create_map.py` (Tools → Execute Python Script). It may reference a Blueprint game mode path that does not exist — set the C++ game mode manually if needed.
+After recreating, re-check:
+- **Game Mode Override** is `MistspireGameMode`
+- A **PlayerStart** exists near `(0, 0, 200)`
 
 **Pass:** Double-clicking `Main_WP` opens a World Partition level without missing-map errors.
 

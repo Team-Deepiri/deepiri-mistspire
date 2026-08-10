@@ -58,9 +58,7 @@ flowchart TB
 
 ## OpenXR rules
 
-1. Never create a parallel `XrInstance` / `XrSession` when UE OpenXR plugins are enabled — use `FMistspireOpenXRAccess` + `IOpenXRHMD`.
-2. Never call `xrWaitFrame` from `MistspireOpenXRNative` in shipping builds.
-3. Bindings live in `interaction_profiles/openxr/` for Meta, Valve, HTC, and KHR simple controllers.
+Canonical agent rules (no second session / no shipping `xrWaitFrame` / action set `mistspire_gameplay`): [AGENTS.md](../../AGENTS.md). Binding JSON index: [interaction_profiles/openxr/](../../interaction_profiles/openxr/). Runtime notes: [OPENXR_RUNTIMES.md](OPENXR_RUNTIMES.md).
 
 ## Scoring
 
@@ -73,7 +71,7 @@ flowchart TB
 
 ## CI (hosted runners)
 
-GitHub Actions cannot build the Unreal editor project. Validate JSON, shellcheck, pinned Ruff on `scripts/*.py`, and cmake-build `native/xr-sandbox`. CodeQL analyzes **cpp** after building that sandbox. See [.github/codeql/README.md](../../.github/codeql/README.md).
+Unreal editor builds aren't available on hosted runners. See [CONTRIBUTING.md](../../CONTRIBUTING.md) and [.github/codeql/README.md](../../.github/codeql/README.md) for what CI validates and why.
 
 ## Extension points
 

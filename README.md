@@ -1,6 +1,6 @@
-# deepiri-mistspire
+# Project Mistspire
 
-**Mistspire** A PCVR vertical exploration game: traverse a massive World Partition map and reach the **highest altitude** you can find.
+**Project Mistspire** is an experimental PCVR vertical exploration game: traverse a massive World Partition map and reach the **highest altitude** you can find.
 
 ```
   valley ──► red mesas ──► cloud forests ──► sky islands ──► orbital spire
@@ -17,20 +17,16 @@
 
 ## Quick start
 
+Preferred (repo scripts):
+
 ```bash
-./scripts/setup-linux-deps.sh
-./scripts/verify-openxr-runtime.sh
-git lfs pull
+./setup.sh   # Install deps + compile + launch editor
+./run.sh     # Launch VR preview or packaged build
 ```
 
-Open `game/Mistspire.uproject` in the UE editor, allow C++ compile, then **Play → VR Preview**.
+Manual / platform detail (WSL, OpenXR runtimes, `git lfs pull`, VR Preview): [PCVR development](docs/setup/PCVR_DEV_SETUP.md).
 
-Console (editor or PIE):
-
-| Command | Action |
-|---------|--------|
-| `mistspire.AltitudeStats` | Log current vs personal-best altitude |
-| `mistspire.TeleportUp 5000` | Debug teleport +Z (cm) |
+Debug console cheat sheet: [docs/gameplay/IMMERSION.md](docs/gameplay/IMMERSION.md) — e.g. `mistspire.TeleportUp 5000`.
 
 ## Repository layout
 
@@ -46,6 +42,8 @@ deepiri-mistspire/
 └── docs/
 ```
 
+
+
 ## Documentation
 
 - [Docs index](docs/README.md)
@@ -55,6 +53,8 @@ deepiri-mistspire/
 - [World design](docs/gameplay/WORLD_DESIGN.md)
 - [OpenXR runtimes](docs/architecture/OPENXR_RUNTIMES.md)
 - [Build / edit Main_WP](game/Content/Maps/README.md)
+
+
 
 ## WSL
 

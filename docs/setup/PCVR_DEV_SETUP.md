@@ -24,12 +24,7 @@
 
 ## Headsets (agnostic actions)
 
-Interaction JSON under `interaction_profiles/openxr/`:
-
-- Meta Quest Touch
-- Valve Index
-- HTC Vive
-- Khronos simple controller
+See [`interaction_profiles/openxr/README.md`](../../interaction_profiles/openxr/README.md) for the binding-file → device mapping for `mistspire_gameplay`.
 
 Runtime maps hardware → `mistspire_gameplay` actions.
 
@@ -37,13 +32,12 @@ Runtime maps hardware → `mistspire_gameplay` actions.
 
 ```
 mistspire.AltitudeStats
-mistspire.TeleportUp 10000
+mistspire.TeleportUp 5000
 mistspire.ShowAltitudeHUD 1
-mistspire.SetWeather 0
-mistspire.RefillSurvival
-mistspire.SaveProgress
-mistspire.LoadProgress
+mistspire.ShowWristAltimeter 1  # alias
 ```
+
+Full console commands: [docs/gameplay/IMMERSION.md](../gameplay/IMMERSION.md).
 
 Day-1 smoke path: [DAY1_MAINTAINER_CHECKLIST.md](DAY1_MAINTAINER_CHECKLIST.md).
 

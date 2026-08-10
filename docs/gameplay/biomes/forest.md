@@ -1,10 +1,10 @@
 # Biome: Forest
 
-**Altitude Range:** 1000m - 2500m
+**Altitude Range:** 3000m - 5000m
 **World Partition Layer:** `DL_PCG_Biome_Forest`
 
 ## Overview
-The Cloud Forest is the lungs of the Mistspire. Between 1000 and 2500 meters, the moisture from the lower mists meets the warmer air of the mid-heights, creating a lush, vertical jungle that clings to every available surface. It is a riot of green and silver.
+The Cloud Forest is the lungs of the Mistspire. Between 3000 and 5000 meters, the moisture from the lower mists meets the warmer air of the mid-heights, creating a lush, vertical jungle that clings to every available surface. It is a riot of green and silver.
 
 ## Visual Description
 Towering spires are swallowed by thick, bioluminescent moss and massive, gravity-defying trees. Giant "Mist-Whales" (large, floating plant-life) drift between the peaks, their long, trailing roots providing makeshift bridges for those brave enough to climb them. The air is thick with humidity and the sweet, heavy scent of blooming spores.

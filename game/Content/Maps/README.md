@@ -25,10 +25,11 @@ Use this only if you need a fresh map or a larger grid. Prefer editing the commi
    - New Landscape → 8129×8129 or use **Import** heightmap (see `Content/Terrain/README.md`)
    - Scale Z exaggerated (e.g. 100–200) for dramatic vertical strata
    - Position so playable valley starts near origin
-5. **Data Layers** (Window → World Partition → Data Layers):
+5. **Data Layers** (Window → World Partition → Data Layers). Keep the `PCG` token — these are Procedural Content Generation layers (not a typo for “biome”):
    - `DL_Landmarks_Authored`
    - `DL_PCG_Biome_Forest`
    - `DL_PCG_Biome_Arid`
+   - (full set in [WORLD_DESIGN.md](../../../docs/gameplay/WORLD_DESIGN.md))
 6. **PCG (Forest biome):**
    - Add PCG Volume in `DL_PCG_Biome_Forest`
    - Graph: surface sampler → mesh spawner (trees/rocks)
@@ -42,6 +43,12 @@ Use this only if you need a fresh map or a larger grid. Prefer editing the commi
 10. **Building pockets:** author interior rooms at pocket coords — see [docs/gameplay/BUILDINGS_AND_INTERIORS.md](../../../docs/gameplay/BUILDINGS_AND_INTERIORS.md). Doors spawn at runtime from the world atlas.
 11. **VR test:** VR Preview with OpenXR runtime active.
 12. Commit map/externals via **Git LFS** (never commit raw binaries without LFS).
+
+### Optional: Generate Main_WP via pipeline script
+
+If you want to start from a scripted baseline, you can run `tools/pipeline/step_01_create_map.py` (Tools → Execute Python Script in the UE editor).
+
+Note: the script may reference a Blueprint game mode path that does not exist in this repo. If the script fails due to missing game mode assets, set the world’s Game Mode Override manually to the C++ `MistspireGameMode`, then re-run (or follow the manual steps above).
 
 ## Expand to full production grid
 

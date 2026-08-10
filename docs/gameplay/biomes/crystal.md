@@ -1,6 +1,6 @@
 # Biome: Crystal
 
-**Altitude Range:** 3000m - 5000m
+**Altitude Range:** 7000m - 9000m
 **World Partition Layer:** `DL_PCG_Biome_Crystal`
 
 ## Overview
@@ -19,5 +19,6 @@ Light does not simply fall here; it is captured, refracted, and reborn. The spir
 - **Glass-Golems:** Rare, slow-moving constructs of animated crystal that serve as the silent guardians of the deeper clusters.
 
 ## Environmental Hazards
+- **SharpShards** (code hazard for this band)
 - **Resonant Fractures:** Certain areas are tuned to specific frequencies. A heavy jump or a loud sound can cause the surrounding floor to shatter instantly.
 - **Light Blindness:** The intensity of the refracted light can temporarily blind players who do not navigate through the shadows of the larger formations.

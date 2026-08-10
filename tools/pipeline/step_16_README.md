@@ -11,14 +11,14 @@ Place `AMistspirePhysicalButton` in a dev-only layer:
 | Save | `SaveProgress` | Near player start |
 
 ## Console cheats (shipping disabled)
+Full command list: see `docs/gameplay/IMMERSION.md`.
+
 ```
 mistspire.AltitudeStats
 mistspire.ShowAltitudeHUD 1/0
 mistspire.TeleportUp <cm>
 mistspire.SetWeather 0/1/2/3
 mistspire.RefillSurvival
-mistspire.SaveProgress
-mistspire.LoadProgress
 mistspire.TeleportDistrict <id>
 mistspire.ExitInterior
 mistspire.RespawnWorldMarkers
