@@ -64,7 +64,7 @@ fi
 echo ""
 echo "==> [3/6] Locating Unreal Engine 5.8..."
 SKIP_UE_LAUNCH=1
-if mistspire_find_ue_linux "$ROOT"; then
+if mistspire_find_ue_linux; then
   echo "   Found: $UE_EDITOR"
   SKIP_UE_LAUNCH=0
 else
@@ -88,31 +88,31 @@ if [[ "$SKIP_UE_LAUNCH" -eq 0 ]]; then
   BUILD_SH="$UE_ROOT/Engine/Build/BatchFiles/Linux/Build.sh"
   UBT_DLL="$UE_ROOT/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
   UBT_BIN="$UE_ROOT/Engine/Binaries/Linux/UnrealBuildTool"
-  BUILT=0
 
+  # Use PIPESTATUS[0] so tail does not mask UBT failure (pipefail is set).
   if [[ -x "$BUILD_SH" ]]; then
     echo "   Building via Build.sh..."
-    if "$BUILD_SH" MistspireEditor Linux Development "$UPROJECT" -Progress 2>&1 | tail -20; then
+    "$BUILD_SH" MistspireEditor Linux Development "$UPROJECT" -Progress 2>&1 | tail -20
+    if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
       echo "   Build succeeded."
-      BUILT=1
     else
       echo "   Build FAILED — check errors above."
       FAILED=1
     fi
   elif [[ -f "$UBT_DLL" ]] && command -v dotnet &>/dev/null; then
     echo "   Building via dotnet UBT..."
-    if dotnet "$UBT_DLL" MistspireEditor Linux Development -Project="$UPROJECT" -Progress 2>&1 | tail -20; then
+    dotnet "$UBT_DLL" MistspireEditor Linux Development -Project="$UPROJECT" -Progress 2>&1 | tail -20
+    if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
       echo "   Build succeeded."
-      BUILT=1
     else
       echo "   Build FAILED — check errors above."
       FAILED=1
     fi
   elif [[ -x "$UBT_BIN" ]]; then
     echo "   Building via native UBT..."
-    if "$UBT_BIN" MistspireEditor Linux Development -Project="$UPROJECT" -Progress 2>&1 | tail -20; then
+    "$UBT_BIN" MistspireEditor Linux Development -Project="$UPROJECT" -Progress 2>&1 | tail -20
+    if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
       echo "   Build succeeded."
-      BUILT=1
     else
       echo "   Build FAILED — check errors above."
       FAILED=1

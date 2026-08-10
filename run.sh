@@ -25,18 +25,16 @@ echo ""
 echo "==> Checking OpenXR runtime..."
 ./scripts/verify-openxr-runtime.sh || true
 
-# ── Locate UE editor ────────────────────────────
-if ! mistspire_find_ue_linux "$ROOT"; then
-  echo "!! Unreal Engine 5.8 not found."
-  echo "   Set UE_ROOT=/path/to/UE_5.8 or install via Epic Launcher."
-  echo "   Windows: powershell -File setup.ps1"
-  exit 1
-fi
-
 UPROJECT="$ROOT/game/Mistspire.uproject"
 
 # ── Launch ──────────────────────────────────────
 if [[ "$MODE" == "editor" ]]; then
+  if ! mistspire_find_ue_linux; then
+    echo "!! Unreal Engine 5.8 not found."
+    echo "   Set UE_ROOT=/path/to/UE_5.8 or install via Epic Launcher."
+    echo "   Windows: powershell -File setup.ps1"
+    exit 1
+  fi
   echo ""
   echo "==> Launching UE Editor..."
   echo "   Once loaded: Play -> VR Preview to test"

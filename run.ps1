@@ -17,21 +17,21 @@ Write-Host ""
 Write-Host "==> Checking OpenXR runtime..."
 & powershell -NoProfile -File "$Root\scripts\verify-openxr-runtime.ps1" 2>$null
 
-$UEEditor = $null
-$candidates = @(
-  "$env:ProgramFiles\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe",
-  "C:\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe"
-)
-if ($env:UE_ROOT) {
-  $candidates = @((Join-Path $env:UE_ROOT "Engine\Binaries\Win64\UnrealEditor.exe")) + $candidates
-}
-foreach ($c in $candidates) {
-  if (Test-Path $c) { $UEEditor = $c; break }
-}
-
 $UProject = Join-Path $Root "game\Mistspire.uproject"
 
 if ($Mode -eq "editor") {
+  $UEEditor = $null
+  $candidates = @(
+    "$env:ProgramFiles\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe",
+    "C:\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe",
+    "$env:LOCALAPPDATA\Programs\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe"
+  )
+  if ($env:UE_ROOT) {
+    $candidates = @((Join-Path $env:UE_ROOT "Engine\Binaries\Win64\UnrealEditor.exe")) + $candidates
+  }
+  foreach ($c in $candidates) {
+    if (Test-Path $c) { $UEEditor = $c; break }
+  }
   if (-not $UEEditor) {
     Write-Host "!! Unreal Engine 5.8 not found. Set UE_ROOT or install via Epic Launcher."
     exit 1

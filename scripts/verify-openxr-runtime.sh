@@ -14,12 +14,18 @@ else
   ok=1
 fi
 
+loader_ok=0
 for lib in libopenxr_loader.so libopenxr_loader.so.1; do
   if ldconfig -p 2>/dev/null | grep -q "$lib"; then
     echo "[ok] $lib in loader cache"
+    loader_ok=1
     break
   fi
 done
+if [[ $loader_ok -eq 0 ]]; then
+  echo "[!!] OpenXR loader not found in ldconfig cache — install libopenxr-dev / openxr-loader"
+  ok=1
+fi
 
 if [[ -n "${XR_RUNTIME_JSON:-}" ]]; then
   echo "[ok] XR_RUNTIME_JSON=$XR_RUNTIME_JSON"

@@ -4,7 +4,6 @@ $ErrorActionPreference = "Continue"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $Root
-$Failed = 0
 
 Write-Host "============================================"
 Write-Host "  Mistspire — Full Setup (Windows)"
@@ -38,7 +37,6 @@ if (Get-Command git-lfs -ErrorAction SilentlyContinue) {
 Write-Host ""
 Write-Host "==> [3/5] Locating Unreal Engine 5.8..."
 $UEEditor = $null
-$UERoot = $null
 $candidates = @(
   "$env:ProgramFiles\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe",
   "C:\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe",
@@ -52,7 +50,6 @@ if ($env:UE_ROOT) {
 foreach ($c in $candidates) {
   if (Test-Path $c) {
     $UEEditor = $c
-    $UERoot = (Get-Item $c).Directory.Parent.Parent.Parent.FullName
     break
   }
 }
@@ -79,7 +76,8 @@ Write-Host "==> [5/5] Launching Unreal Editor..."
 if (-not $SkipLaunch) {
   Write-Host "   Opening Mistspire.uproject..."
   Write-Host "   First launch may compile Mistspire + MistspireOpenXRNative in the editor."
-  Start-Process -FilePath $UEEditor -ArgumentList $UProject
+  # Quote project path — default Epic install is under "Program Files".
+  Start-Process -FilePath $UEEditor -ArgumentList @("`"$UProject`"")
   Write-Host "   Once loaded: Play -> VR Preview (see docs\setup\headsets\)"
 } else {
   Write-Host "   Open manually: $UProject"
@@ -95,5 +93,4 @@ Write-Host "  docs\setup\DEV_BOOTSTRAP.md   Full walkthrough"
 Write-Host "  mistspire.TeleportUp 5000     (in-game console)"
 Write-Host ""
 
-if ($Failed -ne 0) { exit $Failed }
 exit 0

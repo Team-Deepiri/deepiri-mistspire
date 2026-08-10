@@ -1,8 +1,13 @@
 # Mistspire — shared Unreal Engine 5.8 path discovery (Linux).
-# Source from setup.sh / run.sh: source "$(dirname "$0")/scripts/lib/ue-paths.sh"
+# Source from setup.sh / run.sh: source "$ROOT/scripts/lib/ue-paths.sh"
+#
+# On success sets globals: UE_EDITOR, UE_ROOT
 
 mistspire_find_ue_linux() {
-  local root="${1:-}"
+  # Preserve caller/env UE_ROOT — do not clear it before the env fallback check.
+  local env_ue_root="${UE_ROOT:-}"
+  local env_doxy="${UE_DOXY_ENGINE_ROOT:-}"
+
   UE_EDITOR=""
   UE_ROOT=""
 
@@ -22,14 +27,15 @@ mistspire_find_ue_linux() {
     fi
   done
 
-  if [[ -n "${UE_DOXY_ENGINE_ROOT:-}" && -x "$UE_DOXY_ENGINE_ROOT/Engine/Binaries/Linux/UnrealEditor" ]]; then
-    UE_EDITOR="$UE_DOXY_ENGINE_ROOT/Engine/Binaries/Linux/UnrealEditor"
-    UE_ROOT="$UE_DOXY_ENGINE_ROOT"
+  if [[ -n "$env_doxy" && -x "$env_doxy/Engine/Binaries/Linux/UnrealEditor" ]]; then
+    UE_EDITOR="$env_doxy/Engine/Binaries/Linux/UnrealEditor"
+    UE_ROOT="$env_doxy"
     return 0
   fi
 
-  if [[ -n "${UE_ROOT:-}" && -x "$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" ]]; then
-    UE_EDITOR="$UE_ROOT/Engine/Binaries/Linux/UnrealEditor"
+  if [[ -n "$env_ue_root" && -x "$env_ue_root/Engine/Binaries/Linux/UnrealEditor" ]]; then
+    UE_EDITOR="$env_ue_root/Engine/Binaries/Linux/UnrealEditor"
+    UE_ROOT="$env_ue_root"
     return 0
   fi
 
