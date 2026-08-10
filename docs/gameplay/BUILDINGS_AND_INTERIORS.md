@@ -57,6 +57,6 @@ mistspire.RespawnWorldMarkers
 | Target | Horizontal | Vertical | Districts | Building slots |
 |--------|------------|----------|-----------|----------------|
 | Slice | 4 km² | 8 km | 12 seeded | 16 enterable |
-| Full | 20–50 km² | 12+ km | 12+ | 100+ |
+| Full | 20–50 km² | 0–20 km (C++ biome stack) | 12+ | 100+ |
 
 Expand `SeedProductionWorld()` and add World Partition cells per [WORLD_DESIGN.md](WORLD_DESIGN.md).

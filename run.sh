@@ -19,8 +19,8 @@ echo "==> Checking OpenXR runtime..."
 # ── Locate UE editor ────────────────────────────
 UE_EDITOR=""
 CANDIDATES=(
-  "$HOME/UnrealEngine/5.5/Engine/Binaries/Linux/UnrealEditor"
-  "$HOME/UE_5.5/Engine/Binaries/Linux/UnrealEditor"
+  "$HOME/UnrealEngine/5.8/Engine/Binaries/Linux/UnrealEditor"
+  "$HOME/UE_5.8/Engine/Binaries/Linux/UnrealEditor"
   "/opt/unreal-engine/Engine/Binaries/Linux/UnrealEditor"
   "/usr/local/unreal-engine/Engine/Binaries/Linux/UnrealEditor"
 )
@@ -41,8 +41,8 @@ elif [[ -z "$UE_EDITOR" && -n "${UE_ROOT:-}" && -x "$UE_ROOT/Engine/Binaries/Lin
 fi
 
 if [[ -z "$UE_EDITOR" ]]; then
-  echo "!! Unreal Engine 5.5 not found."
-  echo "   Set UE_ROOT=/path/to/UE_5.5 or install via Epic Launcher."
+  echo "!! Unreal Engine 5.8 not found."
+  echo "   Set UE_ROOT=/path/to/UE_5.8 or install via Epic Launcher."
   echo "   Then open game/Mistspire.uproject manually."
   exit 1
 fi

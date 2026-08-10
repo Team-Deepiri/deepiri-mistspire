@@ -47,18 +47,22 @@ Auto-saves on **new personal best** and **summit reached**. Slot: `MistspireProf
 
 ```
 mistspire.ShowAltitudeHUD 1
+mistspire.ShowWristAltimeter 1  # alias
+mistspire.AltitudeStats
+mistspire.TeleportUp 5000
 mistspire.SetWeather 2          # 0–3
 mistspire.RefillSurvival
 mistspire.SaveProgress
 mistspire.LoadProgress
-mistspire.TeleportUp 5000
-mistspire.AltitudeStats
+mistspire.VisualDebug
+mistspire.ForceBiomeVisuals 4
+mistspire.DebugAudioStats
 ```
 
 ## Huge world & buildings
 
 - **12 districts** (Valley Haven → Zenith Dock) with flavor text on entry
-- **16 enterable buildings** — walk through door volumes; pocket interiors at X ≈ 50 km+
+- **16 enterable buildings** — walk through door volumes; pocket interiors are off-map (see [BUILDINGS_AND_INTERIORS.md](BUILDINGS_AND_INTERIORS.md) for coordinates)
 - **POI discovery** — viewpoints, lore plaques, landmarks
 - Auto-spawned doors/POIs on play; see [BUILDINGS_AND_INTERIORS.md](BUILDINGS_AND_INTERIORS.md)
 

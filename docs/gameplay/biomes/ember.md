@@ -1,6 +1,6 @@
 # Biome: Ember
 
-**Altitude Range:** 1500m - 3000m
+**Altitude Range:** 5000m - 7000m
 **World Partition Layer:** `DL_PCG_Biome_Ember`
 
 ## Overview
@@ -19,5 +19,6 @@ The ground is a crust of black, glass-like obsidian, often fractured by rivers o
 - **Magma-Crabs:** Heavily armored crustaceans that bathe in the lava flows, their shells reinforced by the minerals found in the molten rock.
 
 ## Environmental Hazards
+- **HeatExhaustion** (code hazard for this band)
 - **Magmatic Bursts:** Small, unpredictable eruptions that can propel molten rock across the player's path.
 - **Toxic Haze:** Low-lying areas collect heavy, unbreathable gases. Staying in these pockets too long will deplete the player's stamina rapidly.

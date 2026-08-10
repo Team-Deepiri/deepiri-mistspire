@@ -40,11 +40,11 @@ fi
 
 # ── 3. UE5 engine detection ─────────────────────
 echo ""
-echo "==> [3/6] Locating Unreal Engine 5.5..."
+echo "==> [3/6] Locating Unreal Engine 5.8..."
 UE_EDITOR=""
 CANDIDATES=(
-  "$HOME/UnrealEngine/5.5/Engine/Binaries/Linux/UnrealEditor"
-  "$HOME/UE_5.5/Engine/Binaries/Linux/UnrealEditor"
+  "$HOME/UnrealEngine/5.8/Engine/Binaries/Linux/UnrealEditor"
+  "$HOME/UE_5.8/Engine/Binaries/Linux/UnrealEditor"
   "/opt/unreal-engine/Engine/Binaries/Linux/UnrealEditor"
   "/usr/local/unreal-engine/Engine/Binaries/Linux/UnrealEditor"
 )
@@ -65,8 +65,8 @@ elif [[ -z "$UE_EDITOR" && -n "${UE_ROOT:-}" && -x "$UE_ROOT/Engine/Binaries/Lin
 fi
 
 if [[ -z "$UE_EDITOR" ]]; then
-  echo "!! Could not find Unreal Engine 5.5."
-  echo "   Set UE_ROOT=/path/to/UE_5.5 or install via Epic Launcher."
+  echo "!! Could not find Unreal Engine 5.8."
+  echo "   Set UE_ROOT=/path/to/UE_5.8 or install via Epic Launcher."
   echo "   Open manually: game/Mistspire.uproject"
   SKIP_UE_LAUNCH=1
 else

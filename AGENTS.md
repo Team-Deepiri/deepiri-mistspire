@@ -12,7 +12,7 @@
 | `game/Source/Mistspire/` | Game module (pawn, altitude, summits) |
 | `game/Plugins/MistspireOpenXRNative/` | OpenXR native bridge |
 | `interaction_profiles/openxr/` | Controller bindings (Meta, Valve, HTC) |
-| `docs/PCVR_DEV_SETUP.md` | Linux / WSL / Windows VR dev |
+| `docs/setup/PCVR_DEV_SETUP.md` | Linux / WSL / Windows VR dev |
 
 ## Rules for agents
 
@@ -21,13 +21,15 @@
 3. OpenXR action set name: `mistspire_gameplay`.
 4. Binary `.umap` / `.uasset` — Git LFS; document map steps in `game/Content/Maps/README.md`.
 5. Repo layout is **flat** under `deepiri-mistspire/` (no nested `deepiri-cloudloom/`).
-
+6. Keep project docs in sync with code: when adding or changing features, update the matching files under `docs/` (`gameplay/`, `architecture/`, `setup/`) and this `AGENTS.md` when paths, rules, systems, or setup steps change.
 ## Quick start
 
 ```bash
 ./setup.sh          # Install deps + compile + launch editor
 ./run.sh            # Launch VR preview or packaged build
 ```
+
+Manual / platform notes: [docs/setup/PCVR_DEV_SETUP.md](docs/setup/PCVR_DEV_SETUP.md).
 
 ## Manual build
 
@@ -47,12 +49,12 @@
 
 | # | Subsystem | Altitude | Hazard |
 |---|-----------|----------|--------|
-| 01 | `UMistspireBiomeMist` | 0–2 km | — |
-| 02 | `UMistspireBiomeArid` | 2–4 km | — |
-| 03 | `UMistspireBiomeForest` | 4–6 km | — |
-| 04 | `UMistspireBiomeEmber` | 6–8 km | HeatExhaustion |
-| 05 | `UMistspireBiomeCrystal` | 8–10 km | SharpShards |
-| 06 | `UMistspireBiomeVoid` | 10–12 km | VoidSickness |
+| 01 | `UMistspireBiomeMist` | 0–1 km | — |
+| 02 | `UMistspireBiomeArid` | 1–3 km | — |
+| 03 | `UMistspireBiomeForest` | 3–5 km | — |
+| 04 | `UMistspireBiomeEmber` | 5–7 km | HeatExhaustion |
+| 05 | `UMistspireBiomeCrystal` | 7–9 km | SharpShards |
+| 06 | `UMistspireBiomeVoid` | 9–12 km | VoidSickness |
 | 07 | `UMistspireBiomeTundra` | 12–14 km | Blizzard |
 | 08 | `UMistspireBiomeAether` | 14–16 km | GravityAnomaly |
 | 09 | `UMistspireBiomeSanctum` | 16–18 km | OxygenVacuum |
@@ -62,7 +64,7 @@
 
 | Path | Headsets |
 |------|----------|
-| `interaction_profiles/openxr/bindings_meta_quest*.json` | Meta Quest 2/3/Pro |
+| `interaction_profiles/openxr/bindings_meta_quest.json` | Meta Quest |
 | `interaction_profiles/openxr/bindings_valve_index.json` | Valve Index |
 | `interaction_profiles/openxr/bindings_htc_vive.json` | HTC Vive |
 | `interaction_profiles/openxr/bindings_khr_simple.json` | Fallback/simple |
@@ -73,17 +75,15 @@ Bindings include: `move`, `strafe`, `turn`, `grip`, `jump`, `climb`, `grapple`, 
 
 - `mistspire.AltitudeStats`
 - `mistspire.TeleportUp 5000`
-- `mistspire.ShowAltitudeHUD 1`
-- `mistspire.SetWeather 0` (0=Clear, 1=MistStorm, 2=Electric, 3=ZenithGlow)
-- `mistspire.RefillSurvival`
-- `mistspire.SaveProgress` / `mistspire.LoadProgress`
+- `mistspire.ShowAltitudeHUD 1` (or `mistspire.ShowWristAltimeter 1`)
+- Full command list: see [docs/gameplay/IMMERSION.md](docs/gameplay/IMMERSION.md).
 
 ## Immersion stack
 
-See [docs/IMMERSION.md](docs/IMMERSION.md) — zones, narrative, beacon, companion orb, ghosts, pickups, persistence.
+See [docs/gameplay/IMMERSION.md](docs/gameplay/IMMERSION.md) — zones, narrative, beacon, companion orb, ghosts, pickups, persistence.
 
 ## World scale & interiors
 
 - `UMistspireWorldAtlasSubsystem` — districts, buildings, POIs
 - `UMistspireInteriorSubsystem` — enter/exit buildings (VR teleport)
-- [docs/BUILDINGS_AND_INTERIORS.md](docs/BUILDINGS_AND_INTERIORS.md)
+- [docs/gameplay/BUILDINGS_AND_INTERIORS.md](docs/gameplay/BUILDINGS_AND_INTERIORS.md)

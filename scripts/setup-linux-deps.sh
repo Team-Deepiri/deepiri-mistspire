@@ -42,12 +42,12 @@ else
 fi
 
 echo ""
-echo "==> Unreal Engine 5.5+"
+echo "==> Unreal Engine 5.8+"
 echo "    Install via Epic Launcher (Linux). Open: $ROOT/game/Mistspire.uproject"
 echo ""
 echo "==> WSL note"
 echo "    WSL2 is OK for editing and xr-sandbox builds."
 echo "    USB HMD VR playtests: use native Linux or Windows — not WSL."
-echo "    See: $ROOT/docs/PCVR_DEV_SETUP.md"
+echo "    See: $ROOT/docs/setup/PCVR_DEV_SETUP.md"
 echo ""
 echo "==> Next: ./scripts/verify-openxr-runtime.sh"

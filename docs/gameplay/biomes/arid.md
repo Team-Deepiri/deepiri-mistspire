@@ -1,10 +1,10 @@
 # Biome: Arid
 
-**Altitude Range:** 500m - 1500m
+**Altitude Range:** 1000m - 3000m
 **World Partition Layer:** `DL_PCG_Biome_Arid`
 
 ## Overview
-The Arid expanse is a realm of sun-bleached stone and eternal dust. Between the heights of 500 and 1500 meters, the moisture of the lower mists is stripped away, leaving behind a landscape of jagged mesas and wind-carved canyons. The air here tastes of iron and ancient heat.
+The Arid expanse is a realm of sun-bleached stone and eternal dust. Between the heights of 1000 and 3000 meters, the moisture of the lower mists is stripped away, leaving behind a landscape of jagged mesas and wind-carved canyons. The air here tastes of iron and ancient heat.
 
 ## Visual Description
 The horizon is dominated by monolithic, rust-colored plateaus that rise like the teeth of a sleeping beast. Vast plains of fine, crimson sand stretch between these spires, rippling under the relentless wind. During the "Glare" hours, the stone seems to vibrate with heat, casting long, stark shadows that provide the only refuge for the weary climber.

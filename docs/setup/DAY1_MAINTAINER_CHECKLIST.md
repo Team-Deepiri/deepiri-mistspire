@@ -2,7 +2,7 @@
 
 Use this to answer one question: **does the project compile, load, and run its core systems?**
 
-This repo ships **C++ gameplay code** but **no map or content assets**. Expect to create `Main_WP` and add minimal geometry before anything feels like a game.
+This repo ships **C++ gameplay code** plus a **Git LFS** World Partition map (`Main_WP`). Pull LFS assets before expecting the default map to open.
 
 ---
 
@@ -12,7 +12,7 @@ This repo ships **C++ gameplay code** but **no map or content assets**. Expect t
 |-------------|-------|
 | Unreal Engine **5.8+** | Must match `game/Mistspire.uproject` (`EngineAssociation: 5.8`) |
 | Visual Studio 2022 | C++ workload + Windows SDK (for Win64 compile) |
-| Git LFS | `git lfs install` then `git lfs pull` (no assets today, but required for future pulls) |
+| Git LFS | `git lfs install` then `git lfs pull` — required for `Main_WP` and map externals |
 | VR headset + OpenXR runtime | SteamVR (Index/Vive) or Meta Link (Quest). Optional for compile-only pass |
 | GPU | Vulkan-capable; project targets high-end PCVR |
 
@@ -24,7 +24,7 @@ This repo ships **C++ gameplay code** but **no map or content assets**. Expect t
 
 Goal: confirm both C++ modules build.
 
-- [ ] Clone repo and open `game/Mistspire.uproject`
+- [ ] Clone repo, run `git lfs pull`, open `game/Mistspire.uproject`
 - [ ] When prompted, allow **Generate Visual Studio project files** and **compile**
 - [ ] Confirm modules compile without errors:
   - `Mistspire`
@@ -44,43 +44,32 @@ Goal: confirm both C++ modules build.
 
 ---
 
-## Phase 2 — Create a playable map
+## Phase 2 — Load Main_WP
 
-`DefaultEngine.ini` points at `/Game/Maps/Main_WP`, which **does not exist in git**. The editor will warn or fail to load the default map until you create it.
+`DefaultEngine.ini` points at `/Game/Maps/Main_WP`, which **is committed via Git LFS**.
 
-### Option A — Manual (recommended for day 1)
+- [ ] Confirm `game/Content/Maps/Main_WP.umap` is a real binary (not a tiny LFS pointer text file)
+- [ ] Open `/Game/Maps/Main_WP` in the editor
+- [ ] **Window → World Settings** — Game Mode Override / default game mode is **MistspireGameMode**
+- [ ] Confirm a **PlayerStart** exists (add one near `(0, 0, 200)` if missing)
 
-- [ ] **File → New Level → Empty Open World**
-- [ ] **File → Save Current Level As…** → `Content/Maps/Main_WP`
-- [ ] **Window → World Settings**
-  - Game Mode Override: **MistspireGameMode** (C++ class under Mistspire)
-  - Enable **World Partition** if not already on
-- [ ] Place a **PlayerStart** near `(0, 0, 200)` (200 cm above origin)
-- [ ] Save map
+### If Main_WP is missing or corrupt
 
-### Option B — Python script (may need fixes)
+Use [`game/Content/Maps/README.md`](../../game/Content/Maps/README.md) → **"Recreate or expand Main_WP"** for the full LFS-safe recreate + data-layer setup.
 
-`tools/pipeline/step_01_create_map.py` can auto-create the map, but it references a Blueprint game mode asset that may not exist:
+After recreating, re-check:
+- **Game Mode Override** is `MistspireGameMode`
+- A **PlayerStart** exists near `(0, 0, 200)`
 
-```
-/Game/Mistspire/MistspireGameMode.MistspireGameMode_C
-```
-
-If the script errors, fall back to **Option A** and set game mode manually to the C++ `MistspireGameMode`.
-
-- [ ] **Tools → Execute Python Script** → select `tools/pipeline/step_01_create_map.py`
-- [ ] Verify `Content/Maps/Main_WP` appears in Content Browser
-- [ ] Set game mode to C++ `MistspireGameMode` if script didn't
-
-**Pass:** Double-clicking `Main_WP` opens a level with a PlayerStart and no missing-map errors.
+**Pass:** Double-clicking `Main_WP` opens a World Partition level without missing-map errors.
 
 ---
 
-## Phase 3 — Minimum geometry (5 minutes)
+## Phase 3 — Minimum geometry (if map is empty)
 
-You need *something* to stand on and climb. Without this, VR Preview spawns in empty space.
+Committed `Main_WP` may still need platforms for climb tests. Without collision under the pawn, VR Preview spawns in empty space.
 
-- [ ] Add a **Landscape** *or* a few **Cube** static meshes scaled as platforms
+- [ ] Add a **Landscape** *or* a few **Cube** static meshes scaled as platforms if none exist
 - [ ] Minimum viable setup:
   - Ground plane at Z ≈ 0 (e.g. 20×20 m cube, scale Z = 0.2)
   - One vertical wall or stacked cubes for climb testing
@@ -207,7 +196,7 @@ Use console locomotion for all other tests if sticks don't respond.
 
 | Tier | Criteria |
 |------|----------|
-| **Minimum pass** | Project compiles; `Main_WP` created; VR Preview launches; `mistspire.AltitudeStats` and `TeleportUp` work |
+| **Minimum pass** | Project compiles; `Main_WP` loads (LFS); VR Preview launches; `mistspire.AltitudeStats` and `TeleportUp` work |
 | **Good pass** | Above + on-screen HUD + save/load + weather + district teleport + runtime markers visible |
 | **Full pass** | Above + controller locomotion + summit reached + interior teleport |
 
@@ -217,7 +206,7 @@ Use console locomotion for all other tests if sticks don't respond.
 
 | Gap | Impact |
 |-----|--------|
-| No `.umap` / `.uasset` in repo | Must create map and geometry yourself |
+| Sparse authored geometry / meshes | Map may load but still need platforms for climb tests |
 | OpenXR JSON bindings not loaded at runtime | Controller input may be dead; C++ action set exists |
 | No sound cues in Content | Audio subsystem runs but stays silent |
 | No hand/body meshes assigned | Invisible or default VR hands |
@@ -234,7 +223,7 @@ Use console locomotion for all other tests if sticks don't respond.
 |---------|-------------|
 | Won't open project | UE version 5.8; regenerate VS files |
 | Compile error | Output Log; build `Mistspire` and `MistspireOpenXRNative` in VS |
-| Missing map on open | Create `Main_WP` (Phase 2) |
+| Missing / corrupt map | `git lfs pull`; see [Maps README](../../game/Content/Maps/README.md) |
 | VR Preview black screen | OpenXR runtime active; try non-VR Play first |
 | HUD missing | `mistspire.ShowAltitudeHUD 1` |
 | Commands unknown | Module didn't load — recompile, restart editor |
@@ -246,6 +235,6 @@ Use console locomotion for all other tests if sticks don't respond.
 ## Related docs
 
 - [PCVR_DEV_SETUP.md](PCVR_DEV_SETUP.md) — platform setup
-- [ARCHITECTURE.md](ARCHITECTURE.md) — module overview
-- [game/Content/Maps/README.md](../game/Content/Maps/README.md) — full map authoring
-- [IMMERSION.md](IMMERSION.md) — feature list vs console commands
+- [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) — module overview
+- [game/Content/Maps/README.md](../../game/Content/Maps/README.md) — map authoring + LFS
+- [IMMERSION.md](../gameplay/IMMERSION.md) — feature list vs console commands
