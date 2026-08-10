@@ -1,14 +1,23 @@
 #!/usr/bin/env bash
-# Mistspire — launch game (VR Preview via editor, or packaged build)
+# Mistspire — launch game (VR Preview via editor, or packaged build) on Linux.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
+# shellcheck source=scripts/lib/ue-paths.sh
+source "$ROOT/scripts/lib/ue-paths.sh"
+
+if mistspire_is_windows_shell; then
+  echo "On Windows (Git Bash), use: powershell -File run.ps1"
+  echo "See: docs/setup/PLATFORMS.md"
+  exit 0
+fi
+
 MODE="${1:-editor}"   # "editor" (VR Preview) or "packaged"
 
 echo "============================================"
-echo "  Mistspire — Launch"
+echo "  Mistspire — Launch (Linux)"
 echo "============================================"
 
 # ── Verify OpenXR runtime ──────────────────────
@@ -17,33 +26,10 @@ echo "==> Checking OpenXR runtime..."
 ./scripts/verify-openxr-runtime.sh || true
 
 # ── Locate UE editor ────────────────────────────
-UE_EDITOR=""
-CANDIDATES=(
-  "$HOME/UnrealEngine/5.8/Engine/Binaries/Linux/UnrealEditor"
-  "$HOME/UE_5.8/Engine/Binaries/Linux/UnrealEditor"
-  "/opt/unreal-engine/Engine/Binaries/Linux/UnrealEditor"
-  "/usr/local/unreal-engine/Engine/Binaries/Linux/UnrealEditor"
-)
-
-for cand in "${CANDIDATES[@]}"; do
-  if [[ -x "$cand" ]]; then
-    UE_EDITOR="$cand"
-    UE_ROOT="$(dirname "$(dirname "$(dirname "$cand")")")"
-    break
-  fi
-done
-
-if [[ -z "$UE_EDITOR" && -n "${UE_DOXY_ENGINE_ROOT:-}" && -x "$UE_DOXY_ENGINE_ROOT/Engine/Binaries/Linux/UnrealEditor" ]]; then
-  UE_EDITOR="$UE_DOXY_ENGINE_ROOT/Engine/Binaries/Linux/UnrealEditor"
-  UE_ROOT="$UE_DOXY_ENGINE_ROOT"
-elif [[ -z "$UE_EDITOR" && -n "${UE_ROOT:-}" && -x "$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" ]]; then
-  UE_EDITOR="$UE_ROOT/Engine/Binaries/Linux/UnrealEditor"
-fi
-
-if [[ -z "$UE_EDITOR" ]]; then
+if ! mistspire_find_ue_linux "$ROOT"; then
   echo "!! Unreal Engine 5.8 not found."
   echo "   Set UE_ROOT=/path/to/UE_5.8 or install via Epic Launcher."
-  echo "   Then open game/Mistspire.uproject manually."
+  echo "   Windows: powershell -File setup.ps1"
   exit 1
 fi
 
@@ -64,7 +50,7 @@ elif [[ "$MODE" == "packaged" ]]; then
     "$PACKAGE_DIR/Mistspire.sh" -vr 2>&1
   else
     echo "!! No packaged build found at $PACKAGE_DIR"
-    echo "   Package first, or use 'editor' mode."
+    echo "   Package first — see scripts/package_linux.sh"
     exit 1
   fi
 else

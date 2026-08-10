@@ -1,12 +1,34 @@
 #!/usr/bin/env bash
-# Mistspire — one-command setup: install everything, then launch UE editor.
+# Mistspire — one-command setup: install everything, then launch UE editor (Linux native).
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
+# shellcheck source=scripts/lib/ue-paths.sh
+source "$ROOT/scripts/lib/ue-paths.sh"
+
+if mistspire_is_windows_shell; then
+  echo "============================================"
+  echo "  Mistspire — Windows detected (Git Bash)"
+  echo "============================================"
+  echo ""
+  echo "  Use PowerShell setup instead:"
+  echo "    powershell -File setup.ps1"
+  echo ""
+  echo "  See: docs/setup/PLATFORMS.md"
+  exit 0
+fi
+
+if mistspire_is_wsl; then
+  echo "[WSL] Native Linux path — USB HMD VR playtests may not work in WSL."
+  echo "      Use Windows (setup.ps1) or native Linux for headset testing."
+  echo "      See: docs/setup/PLATFORMS.md"
+  echo ""
+fi
+
 echo "============================================"
-echo "  Mistspire — Full Setup"
+echo "  Mistspire — Full Setup (Linux)"
 echo "============================================"
 FAILED=0
 
@@ -41,37 +63,15 @@ fi
 # ── 3. UE5 engine detection ─────────────────────
 echo ""
 echo "==> [3/6] Locating Unreal Engine 5.8..."
-UE_EDITOR=""
-CANDIDATES=(
-  "$HOME/UnrealEngine/5.8/Engine/Binaries/Linux/UnrealEditor"
-  "$HOME/UE_5.8/Engine/Binaries/Linux/UnrealEditor"
-  "/opt/unreal-engine/Engine/Binaries/Linux/UnrealEditor"
-  "/usr/local/unreal-engine/Engine/Binaries/Linux/UnrealEditor"
-)
-
-for cand in "${CANDIDATES[@]}"; do
-  if [[ -x "$cand" ]]; then
-    UE_EDITOR="$cand"
-    UE_ROOT="$(dirname "$(dirname "$(dirname "$cand")")")"
-    break
-  fi
-done
-
-if [[ -z "$UE_EDITOR" && -n "${UE_DOXY_ENGINE_ROOT:-}" && -x "$UE_DOXY_ENGINE_ROOT/Engine/Binaries/Linux/UnrealEditor" ]]; then
-  UE_EDITOR="$UE_DOXY_ENGINE_ROOT/Engine/Binaries/Linux/UnrealEditor"
-  UE_ROOT="$UE_DOXY_ENGINE_ROOT"
-elif [[ -z "$UE_EDITOR" && -n "${UE_ROOT:-}" && -x "$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" ]]; then
-  UE_EDITOR="$UE_ROOT/Engine/Binaries/Linux/UnrealEditor"
-fi
-
-if [[ -z "$UE_EDITOR" ]]; then
+SKIP_UE_LAUNCH=1
+if mistspire_find_ue_linux "$ROOT"; then
+  echo "   Found: $UE_EDITOR"
+  SKIP_UE_LAUNCH=0
+else
   echo "!! Could not find Unreal Engine 5.8."
   echo "   Set UE_ROOT=/path/to/UE_5.8 or install via Epic Launcher."
   echo "   Open manually: game/Mistspire.uproject"
-  SKIP_UE_LAUNCH=1
-else
-  echo "   Found: $UE_EDITOR"
-  SKIP_UE_LAUNCH=0
+  echo "   Windows: powershell -File setup.ps1"
 fi
 
 # ── 4. OpenXR verification ──────────────────────
@@ -139,7 +139,8 @@ echo "============================================"
 echo "  Setup complete."
 echo "============================================"
 echo ""
-echo "  ./run.sh              Launch game"
+echo "  ./run.sh              Launch game (Linux)"
+echo "  docs/setup/DEV_BOOTSTRAP.md"
 echo "  mistspire.TeleportUp 5000   (in-game)"
 echo ""
 exit $FAILED

@@ -1,16 +1,24 @@
 # PCVR Development Setup
 
-Hub for getting Mistspire running in **VR Preview**. For headset-specific steps, use the guides under [setup/headsets/](headsets/README.md).
+Hub for getting Mistspire running in **VR Preview**. For headset-specific steps, use [headsets/README.md](headsets/README.md).
 
-**Primary OpenXR runtime:** SteamVR OpenXR (unless your connection path requires Meta Link or VDXR — see your headset page).
+**Primary OpenXR runtime:** SteamVR OpenXR (unless your connection path requires Meta Link or VDXR).
 
-## Platforms
+## Platforms and bootstrap
 
-| Environment | Use |
-|-------------|-----|
-| Linux native | UE editor, Vulkan, SteamVR / Monado / WiVRn |
-| WSL2 | Code, git, `xr-sandbox` — **no HMD** |
-| Windows | Meta Link, SteamVR, Virtual Desktop, Oasis/WMR |
+| Doc | Purpose |
+|-----|---------|
+| [PLATFORMS.md](PLATFORMS.md) | Linux vs Windows vs WSL — what runs where |
+| [DEV_BOOTSTRAP.md](DEV_BOOTSTRAP.md) | One-run setup flow per OS |
+| [setup.ps1](../../setup.ps1) / [setup.sh](../../setup.sh) | Automated repo setup |
+
+## Platforms (summary)
+
+| Environment | Setup script | VR playtest |
+|-------------|--------------|-------------|
+| Linux native | `./setup.sh` | Yes |
+| Windows native | `.\setup.ps1` | Yes |
+| WSL2 | git/LFS only | **No HMD** |
 
 ## Flow
 

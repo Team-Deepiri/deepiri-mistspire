@@ -6,21 +6,22 @@ This repo ships **C++ gameplay code** plus a **Git LFS** World Partition map (`M
 
 ---
 
-## Before you start
+## Before you start `[Both]`
 
 | Requirement | Notes |
 |-------------|-------|
 | Unreal Engine **5.8+** | Must match `game/Mistspire.uproject` (`EngineAssociation: 5.8`) |
-| Visual Studio 2022 | C++ workload + Windows SDK (for Win64 compile) |
-| Git LFS | `git lfs install` then `git lfs pull` — required for `Main_WP` and map externals |
-| VR headset + OpenXR runtime | SteamVR (Index/Vive) or Meta Link (Quest). Optional for compile-only pass |
+| Visual Studio 2022 `[Win]` | C++ workload + Windows SDK (for Win64 compile) |
+| Linux build deps `[Linux]` | `./scripts/setup-linux-deps.sh` or `./setup.sh` |
+| Git LFS | `git lfs install` then `git lfs pull` — required for `Main_WP` |
+| VR headset + OpenXR runtime | Optional for compile-only pass |
 | GPU | Vulkan-capable; project targets high-end PCVR |
 
 **Repo entry point:** `game/Mistspire.uproject`
 
 ---
 
-## Phase 1 — Compile check (no VR)
+## Phase 1 — Compile check (no VR) `[Both]`
 
 Goal: confirm both C++ modules build.
 
@@ -81,7 +82,7 @@ Committed `Main_WP` may still need platforms for climb tests. Without collision 
 
 ---
 
-## Phase 4 — VR Preview smoke test
+## Phase 4 — VR Preview smoke test `[Both]` (headset required)
 
 Set up your headset first: [headsets/README.md](headsets/README.md) → your device guide → [OPENXR_DEV_COMMON.md](OPENXR_DEV_COMMON.md).
 
@@ -239,7 +240,9 @@ Use console locomotion for all other tests if sticks don't respond.
 
 ## Related docs
 
-- [PCVR_DEV_SETUP.md](PCVR_DEV_SETUP.md) — platform + headset guides ([headsets/](headsets/README.md))
+- [PLATFORMS.md](PLATFORMS.md) — Linux vs Windows scripts
+- [DEV_BOOTSTRAP.md](DEV_BOOTSTRAP.md) — one-run setup flow
+- [PCVR_DEV_SETUP.md](PCVR_DEV_SETUP.md) — PCVR hub + [headsets/](headsets/README.md)
 - [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) — module overview
 - [game/Content/Maps/README.md](../../game/Content/Maps/README.md) — map authoring + LFS
 - [IMMERSION.md](../gameplay/IMMERSION.md) — feature list vs console commands
