@@ -83,13 +83,18 @@ Committed `Main_WP` may still need platforms for climb tests. Without collision 
 
 ## Phase 4 — VR Preview smoke test
 
-### Windows OpenXR prep
+Set up your headset first: [headsets/README.md](headsets/README.md) → your device guide → [OPENXR_DEV_COMMON.md](OPENXR_DEV_COMMON.md).
 
-- [ ] Put on headset; confirm it tracks in SteamVR or Meta Link
-- [ ] Set active OpenXR runtime:
-  - **SteamVR:** Settings → Developer → set SteamVR as OpenXR runtime
-  - **Meta Quest Link:** Meta Quest Developer Hub → OpenXR runtime
-- [ ] Close other VR apps that might hold the runtime
+**Primary runtime:** SteamVR OpenXR unless your path requires Meta Link or VDXR.
+
+### OpenXR prep
+
+- [ ] Put on headset; confirm tracking (SteamVR, Link, Virtual Desktop, or streamer)
+- [ ] Set active OpenXR runtime for **your connection path**:
+  - **SteamVR / Steam Link / PICO Connect / Oasis:** SteamVR → Settings → OpenXR → set SteamVR as runtime — see [OPENXR_DEV_COMMON.md](OPENXR_DEV_COMMON.md)
+  - **Meta Quest Link:** Meta Horizon Link → Settings → General → set Link as runtime — [meta_quest.md](headsets/meta_quest.md)
+  - **Virtual Desktop (VDXR):** streamer Options → VDXR — [streaming_options.md](headsets/streaming_options.md)
+- [ ] Close other VR apps that might hold the wrong runtime
 
 ### Launch
 
@@ -234,7 +239,7 @@ Use console locomotion for all other tests if sticks don't respond.
 
 ## Related docs
 
-- [PCVR_DEV_SETUP.md](PCVR_DEV_SETUP.md) — platform setup
+- [PCVR_DEV_SETUP.md](PCVR_DEV_SETUP.md) — platform + headset guides ([headsets/](headsets/README.md))
 - [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) — module overview
 - [game/Content/Maps/README.md](../../game/Content/Maps/README.md) — map authoring + LFS
 - [IMMERSION.md](../gameplay/IMMERSION.md) — feature list vs console commands

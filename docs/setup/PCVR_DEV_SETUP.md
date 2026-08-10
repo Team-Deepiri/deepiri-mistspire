@@ -1,12 +1,23 @@
 # PCVR Development Setup
 
+Hub for getting Mistspire running in **VR Preview**. For headset-specific steps, use the guides under [setup/headsets/](headsets/README.md).
+
+**Primary OpenXR runtime:** SteamVR OpenXR (unless your connection path requires Meta Link or VDXR — see your headset page).
+
 ## Platforms
 
 | Environment | Use |
 |-------------|-----|
-| Linux native | Primary: UE editor, Vulkan, Monado/SteamVR |
+| Linux native | UE editor, Vulkan, SteamVR / Monado / WiVRn |
 | WSL2 | Code, git, `xr-sandbox` — **no HMD** |
-| Windows | Meta Link, SteamVR when Linux path fails |
+| Windows | Meta Link, SteamVR, Virtual Desktop, Oasis/WMR |
+
+## Flow
+
+1. **Project** — steps below (UE, LFS, plugins).
+2. **Headset** — [headsets/README.md](headsets/README.md) → pick your device and connection path.
+3. **VR session** — [OPENXR_DEV_COMMON.md](OPENXR_DEV_COMMON.md) (runtime, VR Preview, console).
+4. **Validation** — [DAY1_MAINTAINER_CHECKLIST.md](DAY1_MAINTAINER_CHECKLIST.md).
 
 ## First open
 
@@ -16,17 +27,27 @@
 4. Build **Mistspire** + **MistspireOpenXRNative** when prompted.
 5. Confirm plugins: OpenXR, MistspireOpenXRNative (OpenXRHandTracking optional).
 
-## VR Preview
+## VR Preview (summary)
 
-1. `./scripts/verify-openxr-runtime.sh`
-2. Wear headset, set active OpenXR runtime for your device.
-3. Editor → **Play** → **VR Preview**.
+1. Complete headset setup for your path ([headsets/](headsets/README.md)).
+2. Set the correct OpenXR runtime ([OPENXR_DEV_COMMON.md](OPENXR_DEV_COMMON.md)).
+3. Linux: `./scripts/verify-openxr-runtime.sh` (optional).
+4. Editor → **Play** → **VR Preview** on `Main_WP`.
 
-## Headsets (agnostic actions)
+## Headsets
 
-See [`interaction_profiles/openxr/README.md`](../../interaction_profiles/openxr/README.md) for the binding-file → device mapping for `mistspire_gameplay`.
+| Guide | Devices |
+|-------|---------|
+| [meta_quest.md](headsets/meta_quest.md) | Quest; Rift legacy |
+| [steamvr_lighthouse.md](headsets/steamvr_lighthouse.md) | Index, Vive tethered |
+| [htc_vive_focus.md](headsets/htc_vive_focus.md) | Focus 3, XR Elite |
+| [windows_mixed_reality.md](headsets/windows_mixed_reality.md) | WMR, HP Reverb (Oasis) |
+| [pico.md](headsets/pico.md) | Pico 4 / Neo / Ultra |
+| [steam_frame.md](headsets/steam_frame.md) | Steam Frame (upcoming) |
+| [generic.md](headsets/generic.md) | Other |
+| [streaming_options.md](headsets/streaming_options.md) | Virtual Desktop, Steam Link, WiVRn |
 
-Runtime maps hardware → `mistspire_gameplay` actions.
+Bindings (authoring): [`interaction_profiles/openxr/README.md`](../../interaction_profiles/openxr/README.md) — runtime maps hardware → `mistspire_gameplay` actions.
 
 ## Debug
 
@@ -38,8 +59,6 @@ mistspire.ShowWristAltimeter 1  # alias
 ```
 
 Full console commands: [docs/gameplay/IMMERSION.md](../gameplay/IMMERSION.md).
-
-Day-1 smoke path: [DAY1_MAINTAINER_CHECKLIST.md](DAY1_MAINTAINER_CHECKLIST.md).
 
 ## Packaging (later)
 

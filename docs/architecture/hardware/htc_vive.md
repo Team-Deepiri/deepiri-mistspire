@@ -1,3 +1,3 @@
-# HTC Vive
+# HTC Vive (tethered)
 
-SteamVR OpenXR. Runtime and profile path: [OPENXR_RUNTIMES.md](../OPENXR_RUNTIMES.md). Bindings: [`bindings_htc_vive.json`](../../../interaction_profiles/openxr/bindings_htc_vive.json) — see [openxr README](../../../interaction_profiles/openxr/README.md).
+PCVR setup: [steamvr_lighthouse.md](../../setup/headsets/steamvr_lighthouse.md). Bindings: [`bindings_htc_vive.json`](../../../interaction_profiles/openxr/bindings_htc_vive.json).

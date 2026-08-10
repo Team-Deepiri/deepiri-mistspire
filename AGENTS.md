@@ -12,7 +12,7 @@
 | `game/Source/Mistspire/` | Game module (pawn, altitude, summits) |
 | `game/Plugins/MistspireOpenXRNative/` | OpenXR native bridge |
 | `interaction_profiles/openxr/` | Controller bindings (Meta, Valve, HTC) |
-| `docs/setup/PCVR_DEV_SETUP.md` | Linux / WSL / Windows VR dev |
+| `docs/setup/PCVR_DEV_SETUP.md` | PCVR hub; per-headset guides under `docs/setup/headsets/` |
 
 ## Rules for agents
 
