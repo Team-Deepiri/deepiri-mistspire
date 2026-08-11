@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/ue-paths.sh
+# shellcheck disable=SC1091  # dynamic ROOT; path given above for shellcheck -x
 source "$ROOT/scripts/lib/ue-paths.sh"
 
 echo "==> Mistspire dev setup (root: $ROOT)"
