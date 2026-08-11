@@ -23,7 +23,7 @@ for lib in libopenxr_loader.so libopenxr_loader.so.1; do
   fi
 done
 if [[ $loader_ok -eq 0 ]]; then
-  echo "[!!] OpenXR loader not found in ldconfig cache — install libopenxr-dev / openxr-loader"
+  echo "[!!] OpenXR loader not found in ldconfig cache — install libopenxr-dev (Debian), openxr (Arch), or openxr-loader-devel (Fedora)"
   ok=1
 fi
 

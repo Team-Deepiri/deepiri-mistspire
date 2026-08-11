@@ -1,4 +1,4 @@
-# Mistspire — Windows development dependency checks (verify, do not silently install).
+# Mistspire - Windows development dependency checks (verify, do not silently install).
 #Requires -Version 5.1
 $ErrorActionPreference = "Continue"
 
@@ -16,18 +16,18 @@ Write-Host "==> Git"
 if (Test-CommandExists git) {
   Write-Host "[ok] git: $(git --version)"
 } else {
-  Write-Host "[!!] git not found — install Git for Windows"
+  Write-Host '[!!] git not found - install Git for Windows'
   $ok = 1
 }
 
 Write-Host "==> Git LFS"
 if (Test-CommandExists git-lfs) {
-  Write-Host "[ok] git-lfs present"
+  Write-Host '[ok] git-lfs present'
   git lfs install 2>$null
 } elseif (Test-CommandExists git) {
   $lfsVer = git lfs version 2>$null
   if ($lfsVer) { Write-Host "[ok] $lfsVer" } else {
-    Write-Host "[!!] git-lfs not found — install Git LFS"
+    Write-Host '[!!] git-lfs not found - install Git LFS'
     $ok = 1
   }
 }
@@ -39,13 +39,13 @@ if (Test-Path $vswhere) {
   if ($vsPath) {
     Write-Host "[ok] VS with C++ tools: $vsPath"
   } else {
-    Write-Host "[!!] Visual Studio found but C++ workload may be missing"
-    Write-Host "     Install: Desktop development with C++ + Windows SDK"
+    Write-Host '[!!] Visual Studio found but C++ workload may be missing'
+    Write-Host '     Install: Desktop development with C++ + Windows SDK'
     $ok = 1
   }
 } else {
-  Write-Host "[--] vswhere not found — install Visual Studio 2022 with C++ workload manually"
-  Write-Host "     Required for Win64 compile from game/Mistspire.uproject"
+  Write-Host '[--] vswhere not found - install Visual Studio 2022 with C++ workload manually'
+  Write-Host '     Required for Win64 compile from game/Mistspire.uproject'
 }
 
 Write-Host "==> Unreal Engine 5.8"
@@ -65,16 +65,16 @@ foreach ($c in $ueCandidates) {
   }
 }
 if (-not $foundUe) {
-  Write-Host "[!!] UE 5.8 not found — install via Epic Launcher or set UE_ROOT"
+  Write-Host '[!!] UE 5.8 not found - install via Epic Launcher or set UE_ROOT'
   $ok = 1
 }
 
 Write-Host "==> Steam / SteamVR (PCVR)"
 $steam = "${env:ProgramFiles(x86)}\Steam\steam.exe"
 if (Test-Path $steam) {
-  Write-Host "[ok] Steam installed"
+  Write-Host '[ok] Steam installed'
 } else {
-  Write-Host "[--] Steam not found — needed for SteamVR / Steam Link / Oasis"
+  Write-Host '[--] Steam not found - needed for SteamVR / Steam Link / Oasis'
 }
 
 Write-Host ""

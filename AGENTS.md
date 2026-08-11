@@ -26,8 +26,8 @@
 
 | OS | Command |
 |----|---------|
-| Linux | `./setup.sh` then `./run.sh` |
-| Windows | `powershell -File setup.ps1` then `.\run.ps1` |
+| Linux | `./setup.sh` then `./run.sh` (headset prompts; `--non-interactive` for CI) |
+| Windows | `powershell -File setup.ps1` then `.\run.ps1` (`-NonInteractive` for CI) |
 
 Platform matrix: [docs/setup/PLATFORMS.md](docs/setup/PLATFORMS.md). Bootstrap: [docs/setup/DEV_BOOTSTRAP.md](docs/setup/DEV_BOOTSTRAP.md).
 

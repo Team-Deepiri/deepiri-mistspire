@@ -5,8 +5,8 @@ Onboarding for Mistspire contributors — project bootstrap, headset PCVR setup,
 ## Quick path
 
 1. **Platform** — [PLATFORMS.md](PLATFORMS.md) (Linux vs Windows vs WSL); [DEV_BOOTSTRAP.md](DEV_BOOTSTRAP.md) (one-run flow).
-2. **Scripts** — Windows: `setup.ps1` / `run.ps1` — Linux: `setup.sh` / `run.sh`.
-3. **Headset** — [headsets/README.md](headsets/README.md).
+2. **Scripts** — Windows: `setup.ps1` / `run.ps1` — Linux: `setup.sh` / `run.sh` (interactive headset walkthrough before deps; `-NonInteractive` / `--non-interactive` to skip).
+3. **Headset** — [headsets/README.md](headsets/README.md) (also offered by setup when you have an HMD).
 4. **VR session** — [OPENXR_DEV_COMMON.md](OPENXR_DEV_COMMON.md).
 5. **Smoke test** — [DAY1_MAINTAINER_CHECKLIST.md](DAY1_MAINTAINER_CHECKLIST.md).
 

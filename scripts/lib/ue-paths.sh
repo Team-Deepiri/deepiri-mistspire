@@ -52,3 +52,35 @@ mistspire_is_windows_shell() {
 mistspire_is_wsl() {
   grep -qi microsoft /proc/version 2>/dev/null
 }
+
+# SteamOS (Steam Deck / holo). Check before Arch — SteamOS sets ID_LIKE=arch.
+mistspire_is_steamos() {
+  if [[ ! -f /etc/os-release ]]; then
+    return 1
+  fi
+  (
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    [[ "${ID:-}" == "steamos" ]]
+  )
+}
+
+# Arch Linux and derivatives (Manjaro, EndeavourOS, CachyOS, …). Not SteamOS.
+# Do not use `command -v pacman` — Debian ships an unrelated `pacman` game package.
+mistspire_is_arch_linux() {
+  if mistspire_is_steamos; then
+    return 1
+  fi
+  if [[ -f /etc/arch-release ]]; then
+    return 0
+  fi
+  if [[ ! -f /etc/os-release ]]; then
+    return 1
+  fi
+  # Subshell so ID/ID_LIKE from os-release do not leak into the caller.
+  (
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    [[ "${ID:-}" == "arch" || " ${ID_LIKE:-} " == *" arch "* ]]
+  )
+}

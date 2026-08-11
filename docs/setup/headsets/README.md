@@ -40,7 +40,23 @@ HP Reverb is covered under [windows_mixed_reality.md](windows_mixed_reality.md) 
 | [generic.md](generic.md) | Fallback |
 | [streaming_options.md](streaming_options.md) | VD, Steam Link, WiVRn |
 
-## Script hints (future bootstrap)
+## Setup script menu (`setup.sh` / `setup.ps1`)
+
+Interactive walkthrough before dependency install. Menu choice → guide:
+
+| Menu | Guide |
+|------|-------|
+| Meta Quest / Oculus Rift | [meta_quest.md](meta_quest.md) |
+| Valve Index / HTC Vive (Lighthouse) | [steamvr_lighthouse.md](steamvr_lighthouse.md) |
+| HTC Vive Focus / XR Elite | [htc_vive_focus.md](htc_vive_focus.md) |
+| Windows MR / HP Reverb | [windows_mixed_reality.md](windows_mixed_reality.md) |
+| Pico | [pico.md](pico.md) |
+| Steam Frame | [steam_frame.md](steam_frame.md) |
+| Other / unsure | [generic.md](generic.md) |
+
+Shared OpenXR steps: [OPENXR_DEV_COMMON.md](../OPENXR_DEV_COMMON.md). Streaming paths also get [streaming_options.md](streaming_options.md). Optional Steam install if missing (winget / distro package / Flatpak; skipped on SteamOS).
+
+Skip prompts: `./setup.sh --non-interactive` or `.\setup.ps1 -NonInteractive`.
 
 | Detect signal | Suggested runtime | Verify |
 |---------------|-------------------|--------|
