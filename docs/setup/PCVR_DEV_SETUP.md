@@ -4,9 +4,11 @@
 
 | Environment | Use |
 |-------------|-----|
-| Linux native | Primary: UE editor, Vulkan, Monado/SteamVR |
+| Linux native | Primary: UE editor, **Vulkan SM5/SM6**, SteamVR / Monado |
 | WSL2 | Code, git, `xr-sandbox` — **no HMD** |
-| Windows | Meta Link, SteamVR when Linux path fails |
+| Windows | Meta Link, SteamVR; **D3D12 SM5/SM6** (engine default RHI) |
+
+Project cook targets: **Win64 + Linux** (`game/Mistspire.uproject`). RHI lists live in `game/Config/DefaultEngine.ini`. See [ARCHITECTURE.md](../architecture/ARCHITECTURE.md#engine-targets-win64--linux).
 
 ## First open
 
@@ -45,4 +47,4 @@ Day-1 smoke path: [DAY1_MAINTAINER_CHECKLIST.md](DAY1_MAINTAINER_CHECKLIST.md).
 
 - Configuration: **Shipping**
 - Disable Live Coding
-- Win64 + Linux (map assets are in-repo via LFS)
+- Win64 + Linux (Vulkan SM5/SM6 on Linux; D3D12 SM5/SM6 on Win64; map assets via LFS)
