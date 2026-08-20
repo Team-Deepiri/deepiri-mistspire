@@ -14,7 +14,7 @@ This repo ships **C++ gameplay code** plus a **Git LFS** World Partition map (`M
 | Visual Studio 2022 | C++ workload + Windows SDK (for Win64 compile) |
 | Git LFS | `git lfs install` then `git lfs pull` — required for `Main_WP` and map externals |
 | VR headset + OpenXR runtime | SteamVR (Index/Vive) or Meta Link (Quest). Optional for compile-only pass |
-| GPU | Vulkan-capable; project targets high-end PCVR |
+| GPU | Vulkan-capable (Linux SM5/SM6) or D3D12 SM5/SM6 (Win64); high-end PCVR |
 
 **Repo entry point:** `game/Mistspire.uproject`
 

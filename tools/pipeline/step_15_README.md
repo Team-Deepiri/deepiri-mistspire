@@ -17,9 +17,17 @@ Target: **90 FPS** on high-end PCVR (RTX 3080 / RX 6800 XT)
    - `sg.TextureQuality=3` (High)
 
 ## VR-specific
-- `r.VRSmooting=1` (motion smoothing)
-- `vr.EnableFixedFoveated=1` (if headset supports)
-- `r.ScreenPercentage=80` (FSR upscale)
+
+Values in `game/Config/DefaultEngine.ini` (VR comfort):
+
+- `vr.FixedFoveation.Level=0` (raise if the headset supports foveation)
+- `vr.Swapchain.AllowTearing=0`
+- `vr.StereoViewOffset=1`
+
+Pipeline knobs (not all stored in DefaultEngine.ini):
+
+- `r.ScreenPercentage=80` (upscale; tune per GPU)
+- Motion reprojection / smoothing is a **SteamVR / runtime** setting, not an engine CVar.
 
 ## Checklist
 - [ ] HLOD generated for all biomes
