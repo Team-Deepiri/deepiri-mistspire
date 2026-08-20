@@ -12,6 +12,11 @@
 #include "MistspireWorldAtlasSubsystem.h"
 #include "MistspireNarrativeSubsystem.h"
 #include "MistspireEnvironmentSubsystem.h"
+#include "MistspireDialogueSubsystem.h"
+#include "MistspireEntitySubsystem.h"
+#include "MistspireObservationRecorder.h"
+#include "MistspireLeaderboardService.h"
+#include "MistspireAIController.h"
 
 AMistspireGameMode::AMistspireGameMode()
 {
@@ -46,6 +51,17 @@ void AMistspireGameMode::StartPlay()
 		World->GetSubsystem<UMistspireCompanionSubsystem>();
 		World->GetSubsystem<UMistspireGhostClimberSubsystem>();
 		World->GetSubsystem<UMistspireAmbienceSubsystem>();
+		World->GetSubsystem<UMistspireDialogueSubsystem>();
+		World->GetSubsystem<UMistspireEntitySubsystem>();
+		World->GetSubsystem<UMistspireObservationRecorder>();
+
+		if (UGameInstance* GI = World->GetGameInstance())
+		{
+			if (UMistspireLeaderboardService* Leaderboard = GI->GetSubsystem<UMistspireLeaderboardService>())
+			{
+				Leaderboard->RefreshLeaderboard();
+			}
+		}
 
 		UE_LOG(LogTemp, Log, TEXT("Mistspire: climb higher. mistspire.SaveProgress | SetWeather | RefillSurvival"));
 		

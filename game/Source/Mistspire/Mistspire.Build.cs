@@ -11,6 +11,7 @@ public class Mistspire : ModuleRules
 			"HeadMountedDisplay", "EnhancedInput", "MistspireOpenXRNative",
 			"OnlineSubsystem", "OnlineSubsystemUtils", "OnlineSubsystemSteam",
 			"PhysicsCore", "CableComponent", "Voice",
+			"AIModule", "GameplayTags", "NavigationSystem",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]

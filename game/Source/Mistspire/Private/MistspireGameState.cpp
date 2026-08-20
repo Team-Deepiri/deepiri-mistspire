@@ -1,5 +1,6 @@
 #include "MistspireGameState.h"
 #include "MistspirePlayerState.h"
+#include "MistspireLeaderboardService.h"
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/HUD.h"
@@ -57,6 +58,15 @@ void AMistspireGameState::NotifyAltitudeSample(const FString& PlayerName, float 
 
 	// Sort leaderboard periodically or on significant change
 	Leaderboard.Sort();
+
+	// Persist through the pluggable leaderboard service (local save / online backend).
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UMistspireLeaderboardService* Service = GameInstance->GetSubsystem<UMistspireLeaderboardService>())
+		{
+			Service->SubmitAltitude(PlayerName, CurrentAltitudeCm, MaxAltitudeCm);
+		}
+	}
 }
 
 void AMistspireGameState::BroadcastSocialAchievement(const FString& Message)

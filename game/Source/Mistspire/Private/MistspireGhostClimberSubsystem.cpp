@@ -1,6 +1,7 @@
 #include "MistspireGhostClimberSubsystem.h"
 #include "MistspireGhostPillar.h"
 #include "MistspireGameState.h"
+#include "MistspireEntitySubsystem.h"
 #include "Kismet/GameplayStatics.h"
 
 TStatId UMistspireGhostClimberSubsystem::GetStatId() const
@@ -54,6 +55,17 @@ void UMistspireGhostClimberSubsystem::RefreshGhosts()
 			Pillar->Configure(FVector(GhostBase.X, GhostBase.Y, Entry.CurrentAltitudeCm), Entry.CurrentAltitudeCm, Entry.PlayerName);
 			GhostActors.Add(Pillar);
 			++Spawned;
+
+			// Register in the entity store so AI/RL systems can query climber ghosts.
+			if (UMistspireEntitySubsystem* Entities = GetWorld()->GetSubsystem<UMistspireEntitySubsystem>())
+			{
+				const int32 EntityId = Entities->SpawnEntity(TEXT("GhostPillar"), Pillar->GetActorLocation(), Pillar);
+				if (EntityId != INDEX_NONE)
+				{
+					Entities->SetEntityFloat(EntityId, TEXT("AltitudeCm"), Entry.CurrentAltitudeCm);
+					Entities->SetEntityTag(EntityId, TEXT("ClimberName"), FName(*Entry.PlayerName));
+				}
+			}
 		}
 	}
 }

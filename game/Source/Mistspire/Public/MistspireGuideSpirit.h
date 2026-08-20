@@ -6,6 +6,7 @@
 
 class UStaticMeshComponent;
 class UPointLightComponent;
+class UMistspireSteeringComponent;
 
 /** Floating companion that drifts toward the next summit beacon. */
 UCLASS()
@@ -31,11 +32,18 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UPointLightComponent> GlowLight;
 
+	/** Steering behaviors blend the shoulder orbit with beacon hints. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Guide|AI")
+	TObjectPtr<UMistspireSteeringComponent> Steering;
+
 	UPROPERTY(EditAnywhere, Category = "Mistspire|Guide")
 	float OrbitRadiusCm = 55.f;
 
 	UPROPERTY(EditAnywhere, Category = "Mistspire|Guide")
 	float FollowSpeed = 420.f;
+
+	UPROPERTY(EditAnywhere, Category = "Mistspire|Guide")
+	float SteeringBlend = 0.35f;
 
 private:
 	TWeakObjectPtr<AActor> FollowTarget;

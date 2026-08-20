@@ -6,7 +6,15 @@
 #include "MistspireInteriorSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "MistspireAudioSubsystem.h"
+#include "MistspireDialogueSubsystem.h"
+#include "MistspireObservationRecorder.h"
+#include "MistspireEntitySubsystem.h"
+#include "MistspireStateMachine.h"
+#include "MistspireAIController.h"
+#include "MistspireGOAP.h"
+#include "MistspireWanderingGhost.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "HAL/IConsoleManager.h"
 
@@ -228,3 +236,223 @@ static FAutoConsoleCommand CmdMistspireAudioDebug(
 	TEXT("mistspire.DebugAudioStats"),
 	TEXT("Log all audio bus states (volume, pitch, mute, filter)."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireAudioDebug));
+
+// ---------------------------------------------------------------------------
+// AI / Dialogue / RL debug
+// ---------------------------------------------------------------------------
+
+static void MistspireAIThink(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	AMistspireAIController* First = nullptr;
+	for (TActorIterator<AMistspireAIController> It(GWorld); It; ++It)
+	{
+		First = *It;
+		break;
+	}
+	if (!First)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Mistspire AI: no AMistspireAIController in the world. Spawn one or use SpawnGhostSim."));
+		return;
+	}
+
+	FMistspireAIWorldState State;
+	const APawn* Pawn = GWorld->GetFirstPlayerController() ? GWorld->GetFirstPlayerController()->GetPawn() : nullptr;
+	if (Pawn)
+	{
+		State.AltitudeCm = Pawn->GetActorLocation().Z;
+	}
+	if (const AMistspireVRPawn* VRPawn = Cast<AMistspireVRPawn>(Pawn))
+	{
+		State.Oxygen01 = VRPawn->GetOxygenPercent();
+		State.Stamina01 = VRPawn->GetStaminaPercent();
+	}
+	First->UpdateWorldState(State);
+	const FMistspireUtilityDecision Decision = First->RunUtilityDecision();
+	UE_LOG(LogTemp, Log, TEXT("Mistspire AI: utility decision = %s (%.2f)"),
+		Decision.bValid ? *Decision.DecisionName.ToString() : TEXT("none"), Decision.Score);
+}
+
+static FAutoConsoleCommand CmdMistspireAIThink(
+	TEXT("mistspire.AIThink"),
+	TEXT("Run one utility-AI + GOAP decision for the first AI controller."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireAIThink));
+
+static void MistspireGOAPPlan(const TArray<FString>& Args)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+
+	FMistspireGOAPState Goal;
+	if (Args.Num() > 0)
+	{
+		Goal.Facts.FindOrAdd(FName(*Args[0])) = true;
+	}
+	else
+	{
+		Goal.Facts.FindOrAdd(TEXT("BeaconReached")) = true;
+	}
+
+	FMistspireAIWorldState State;
+	const APawn* Pawn = GWorld->GetFirstPlayerController() ? GWorld->GetFirstPlayerController()->GetPawn() : nullptr;
+	if (Pawn)
+	{
+		State.AltitudeCm = Pawn->GetActorLocation().Z;
+	}
+	if (const AMistspireVRPawn* VRPawn = Cast<AMistspireVRPawn>(Pawn))
+	{
+		State.Oxygen01 = VRPawn->GetOxygenPercent();
+		State.Stamina01 = VRPawn->GetStaminaPercent();
+	}
+
+	FMistspireGOAPState Start;
+	Start.Facts.FindOrAdd(TEXT("HasOxygen")) = State.Oxygen01 > 0.1f;
+	Start.Facts.FindOrAdd(TEXT("HasStamina")) = State.Stamina01 > 0.1f;
+	Start.Facts.FindOrAdd(TEXT("CanisterNearby")) = true;
+	Start.Facts.FindOrAdd(TEXT("ShelterKnown")) = true;
+
+	const TArray<FMistspireGOAPAction> Actions = UMistspireGOAPPlanner::BuildMistspireActionLibrary();
+	TArray<FMistspireGOAPAction> Plan;
+	if (UMistspireGOAPPlanner::Plan(Start, Goal, Actions, Plan))
+	{
+		FString PlanText;
+		for (const FMistspireGOAPAction& Action : Plan)
+		{
+			if (!PlanText.IsEmpty())
+			{
+				PlanText += TEXT(" -> ");
+			}
+			PlanText += Action.ActionName.ToString();
+		}
+		UE_LOG(LogTemp, Log, TEXT("Mistspire GOAP: plan [%s] -> %s"), *PlanText,
+			PlanText.IsEmpty() ? TEXT("(goal already satisfied)") : *PlanText);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("Mistspire GOAP: no plan found for goal '%s'"), *Goal.ToKeyString());
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireGOAPPlan(
+	TEXT("mistspire.GOAPPlan"),
+	TEXT("Print the GOAP plan for a goal fact. Usage: mistspire.GOAPPlan BeaconReached"),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireGOAPPlan));
+
+static void MistspireSpeak(const TArray<FString>& Args)
+{
+	if (!GWorld || Args.Num() < 1)
+	{
+		return;
+	}
+	if (UMistspireDialogueSubsystem* Dialogue = GWorld->GetSubsystem<UMistspireDialogueSubsystem>())
+	{
+		Dialogue->Speak(FName(*Args[0]));
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireSpeak(
+	TEXT("mistspire.Speak"),
+	TEXT("Play a dialogue line by id. Usage: mistspire.Speak companion_greeting"),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireSpeak));
+
+static void MistspireObservationStart(const TArray<FString>& Args)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	if (UMistspireObservationRecorder* Recorder = GWorld->GetSubsystem<UMistspireObservationRecorder>())
+	{
+		float Interval = 1.f;
+		if (Args.Num() > 0)
+		{
+			Interval = FCString::Atof(*Args[0]);
+		}
+		Recorder->StartRecording(Interval);
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireObservationStart(
+	TEXT("mistspire.ObservationStart"),
+	TEXT("Start RL observation CSV recording. Usage: mistspire.ObservationStart [intervalSeconds=1]"),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireObservationStart));
+
+static void MistspireObservationStop(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	if (UMistspireObservationRecorder* Recorder = GWorld->GetSubsystem<UMistspireObservationRecorder>())
+	{
+		Recorder->StopRecording();
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireObservationStop(
+	TEXT("mistspire.ObservationStop"),
+	TEXT("Stop RL observation CSV recording."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireObservationStop));
+
+static void MistspireSpawnGhostSim(const TArray<FString>& Args)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	FVector SpawnLocation = FVector::ZeroVector;
+	const APawn* Pawn = GWorld->GetFirstPlayerController() ? GWorld->GetFirstPlayerController()->GetPawn() : nullptr;
+	if (Pawn)
+	{
+		SpawnLocation = Pawn->GetActorLocation() + FVector(400.f, 400.f, 1200.f);
+	}
+	if (Args.Num() >= 3)
+	{
+		SpawnLocation = FVector(FCString::Atof(*Args[0]), FCString::Atof(*Args[1]), FCString::Atof(*Args[2]));
+	}
+
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AMistspireWanderingGhost* Ghost = GWorld->SpawnActor<AMistspireWanderingGhost>(SpawnLocation, FRotator::ZeroRotator, Params);
+	if (Ghost)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Mistspire AI: spawned wandering ghost at %s"),
+			*SpawnLocation.ToString());
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireSpawnGhostSim(
+	TEXT("mistspire.SpawnGhostSim"),
+	TEXT("Spawn a steering+FSM ghost at the player or [x y z]."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireSpawnGhostSim));
+
+static void MistspireStateMachineDebug(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	TArray<UActorComponent*> Components = GWorld->GetComponentsByClass(UMistspireStateMachineComponent::StaticClass());
+	int32 Count = 0;
+	for (const UActorComponent* Component : Components)
+	{
+		const UMistspireStateMachineComponent* FSM = Cast<UMistspireStateMachineComponent>(Component);
+		if (FSM)
+		{
+			UE_LOG(LogTemp, Log, TEXT("Mistspire FSM: %s.%s = %s"),
+				*GetNameSafe(FSM->GetOwner()), *FSM->GetName(), *FSM->GetCurrentState().ToString());
+			++Count;
+		}
+	}
+	UE_LOG(LogTemp, Log, TEXT("Mistspire FSM: %d active state machines."), Count);
+}
+
+static FAutoConsoleCommand CmdMistspireStateMachineDebug(
+	TEXT("mistspire.StateMachineDebug"),
+	TEXT("Log active state of every Mistspire state machine component."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireStateMachineDebug));
