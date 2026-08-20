@@ -72,4 +72,4 @@ Full console commands: [docs/gameplay/IMMERSION.md](../gameplay/IMMERSION.md).
 
 - Configuration: **Shipping**
 - Disable Live Coding
-- Win64 + Linux (map assets are in-repo via LFS)
+- Win64 + Linux (Vulkan SM5/SM6 on Linux; D3D12 SM5/SM6 on Win64; map assets via LFS)

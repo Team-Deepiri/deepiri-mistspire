@@ -13,6 +13,8 @@
 | `game/Plugins/MistspireOpenXRNative/` | OpenXR native bridge |
 | `interaction_profiles/openxr/` | Controller bindings (Meta, Valve, HTC) |
 | `docs/setup/PCVR_DEV_SETUP.md` | PCVR hub; per-headset guides under `docs/setup/headsets/` |
+| `game/Config/DefaultEngine.ini` | Linux Vulkan SM5/SM6 + Win64 D3D12 SM5/SM6 |
+| `docs/setup/PCVR_DEV_SETUP.md` | Linux / WSL / Windows VR dev |
 
 ## Rules for agents
 

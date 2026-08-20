@@ -60,6 +60,19 @@ flowchart TB
 
 Canonical agent rules (no second session / no shipping `xrWaitFrame` / action set `mistspire_gameplay`): [AGENTS.md](../../AGENTS.md). Binding JSON index: [interaction_profiles/openxr/](../../interaction_profiles/openxr/). Runtime notes: [OPENXR_RUNTIMES.md](OPENXR_RUNTIMES.md).
 
+## Engine targets (Win64 / Linux)
+
+`game/Mistspire.uproject` `TargetPlatforms` is **Linux** and **Win64** only (not Mac, not Android).
+
+| Platform | RHI / shader models | Config |
+|----------|---------------------|--------|
+| Linux | Vulkan **SM5 + SM6** | `[/Script/LinuxTargetPlatform.LinuxTargetSettings]` in `game/Config/DefaultEngine.ini` |
+| Win64 | D3D12 **SM5 + SM6** (D3D11 SM5 retained); default graphics RHI left at engine default | `[/Script/WindowsTargetPlatform.WindowsTargetSettings]` |
+
+Texture streaming pool is **16000** MB (`r.Streaming.PoolSize` under RendererSettings). OpenXR stays enabled via `[/Script/OpenXRHMD.OpenXRSettings]`.
+
+Hosted GitHub runners still do not cook Unreal; local editor/cook on Windows or native Linux is required to validate RHIs.
+
 ## Scoring
 
 - **Personal best:** max world-space Z of the VR pawn root (centimeters).
