@@ -12,6 +12,7 @@
 | `game/Source/Mistspire/` | Game module (pawn, altitude, summits) |
 | `game/Plugins/MistspireOpenXRNative/` | OpenXR native bridge |
 | `interaction_profiles/openxr/` | Controller bindings (Meta, Valve, HTC) |
+| `docs/setup/PCVR_DEV_SETUP.md` | PCVR hub; per-headset guides under `docs/setup/headsets/` |
 | `game/Config/DefaultEngine.ini` | Linux Vulkan SM5/SM6 + Win64 D3D12 SM5/SM6 |
 | `docs/setup/PCVR_DEV_SETUP.md` | Linux / WSL / Windows VR dev |
 
@@ -25,12 +26,14 @@
 6. Keep project docs in sync with code: when adding or changing features, update the matching files under `docs/` (`gameplay/`, `architecture/`, `setup/`) and this `AGENTS.md` when paths, rules, systems, or setup steps change.
 ## Quick start
 
-```bash
-./setup.sh          # Install deps + compile + launch editor
-./run.sh            # Launch VR preview or packaged build
-```
+| OS | Command |
+|----|---------|
+| Linux | `./setup.sh` then `./run.sh` (headset prompts; `--non-interactive` for CI) |
+| Windows | `powershell -File setup.ps1` then `.\run.ps1` (`-NonInteractive` for CI) |
 
-Manual / platform notes: [docs/setup/PCVR_DEV_SETUP.md](docs/setup/PCVR_DEV_SETUP.md).
+Platform matrix: [docs/setup/PLATFORMS.md](docs/setup/PLATFORMS.md). Bootstrap: [docs/setup/DEV_BOOTSTRAP.md](docs/setup/DEV_BOOTSTRAP.md).
+
+Manual / PCVR: [docs/setup/PCVR_DEV_SETUP.md](docs/setup/PCVR_DEV_SETUP.md).
 
 ## Manual build
 

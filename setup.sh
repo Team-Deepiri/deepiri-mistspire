@@ -1,18 +1,59 @@
 #!/usr/bin/env bash
-# Mistspire — one-command setup: install everything, then launch UE editor.
+# Mistspire — one-command setup: install everything, then launch UE editor (Linux native).
+# Usage: ./setup.sh [--non-interactive]
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
+NON_INTERACTIVE=0
+for arg in "$@"; do
+  case "$arg" in
+    --non-interactive|-y|--yes) NON_INTERACTIVE=1 ;;
+    -h|--help)
+      echo "Usage: ./setup.sh [--non-interactive]"
+      echo "  Interactive headset walkthrough, then deps / LFS / UE / OpenXR / build / launch."
+      exit 0
+      ;;
+  esac
+done
+
+# shellcheck source=scripts/lib/ue-paths.sh
+source "$ROOT/scripts/lib/ue-paths.sh"
+# shellcheck source=scripts/lib/headset-walkthrough.sh
+source "$ROOT/scripts/lib/headset-walkthrough.sh"
+
+if mistspire_is_windows_shell; then
+  echo "============================================"
+  echo "  Mistspire — Windows detected (Git Bash)"
+  echo "============================================"
+  echo ""
+  echo "  Use PowerShell setup instead:"
+  echo "    powershell -File setup.ps1"
+  echo ""
+  echo "  See: docs/setup/PLATFORMS.md"
+  exit 0
+fi
+
+if mistspire_is_wsl; then
+  echo "[WSL] Native Linux path — USB HMD VR playtests may not work in WSL."
+  echo "      Use Windows (setup.ps1) or native Linux for headset testing."
+  echo "      See: docs/setup/PLATFORMS.md"
+  echo ""
+fi
+
 echo "============================================"
-echo "  Mistspire — Full Setup"
+echo "  Mistspire — Full Setup (Linux)"
 echo "============================================"
 FAILED=0
+MISTSPIRE_VR_MODE=0
 
-# ── 0. Git Hooks ────────────────────────────────
+# ── 0. Headset / VR walkthrough ─────────────────
+mistspire_headset_walkthrough "$NON_INTERACTIVE"
+
+# ── 1. Git Hooks ────────────────────────────────
 echo ""
-echo "==> [0/6] Configuring git hooks..."
+echo "==> [1/7] Configuring git hooks..."
 if [ -d ".git-hooks" ]; then
     git config core.hooksPath .git-hooks
     echo "   Git hooks configured (core.hooksPath = .git-hooks)"
@@ -20,101 +61,85 @@ else
     echo "   No .git-hooks directory found, skipping hooks setup"
 fi
 
-# ── 1. System dependencies ──────────────────────
+# ── 2. System dependencies ──────────────────────
 echo ""
-echo "==> [1/6] Installing system dependencies..."
+echo "==> [2/7] Installing system dependencies..."
 if bash ./scripts/setup-linux-deps.sh; then
   echo "   Dependencies installed."
 else
   echo "   Warning: dep install had issues (non-fatal)."
 fi
 
-# ── 2. Git LFS ──────────────────────────────────
+# ── 3. Git LFS ──────────────────────────────────
 echo ""
-echo "==> [2/6] Pulling Git LFS assets..."
+echo "==> [3/7] Pulling Git LFS assets..."
 if command -v git-lfs &>/dev/null || git lfs version &>/dev/null; then
   git lfs pull 2>/dev/null && echo "   LFS pulled." || echo "   No LFS assets (fine)."
 else
   echo "   git-lfs not installed — skip LFS pull."
 fi
 
-# ── 3. UE5 engine detection ─────────────────────
+# ── 4. UE5 engine detection ─────────────────────
 echo ""
-echo "==> [3/6] Locating Unreal Engine 5.8..."
-UE_EDITOR=""
-CANDIDATES=(
-  "$HOME/UnrealEngine/5.8/Engine/Binaries/Linux/UnrealEditor"
-  "$HOME/UE_5.8/Engine/Binaries/Linux/UnrealEditor"
-  "/opt/unreal-engine/Engine/Binaries/Linux/UnrealEditor"
-  "/usr/local/unreal-engine/Engine/Binaries/Linux/UnrealEditor"
-)
-
-for cand in "${CANDIDATES[@]}"; do
-  if [[ -x "$cand" ]]; then
-    UE_EDITOR="$cand"
-    UE_ROOT="$(dirname "$(dirname "$(dirname "$cand")")")"
-    break
-  fi
-done
-
-if [[ -z "$UE_EDITOR" && -n "${UE_DOXY_ENGINE_ROOT:-}" && -x "$UE_DOXY_ENGINE_ROOT/Engine/Binaries/Linux/UnrealEditor" ]]; then
-  UE_EDITOR="$UE_DOXY_ENGINE_ROOT/Engine/Binaries/Linux/UnrealEditor"
-  UE_ROOT="$UE_DOXY_ENGINE_ROOT"
-elif [[ -z "$UE_EDITOR" && -n "${UE_ROOT:-}" && -x "$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" ]]; then
-  UE_EDITOR="$UE_ROOT/Engine/Binaries/Linux/UnrealEditor"
-fi
-
-if [[ -z "$UE_EDITOR" ]]; then
+echo "==> [4/7] Locating Unreal Engine 5.8..."
+SKIP_UE_LAUNCH=1
+if mistspire_find_ue_linux; then
+  echo "   Found: $UE_EDITOR"
+  SKIP_UE_LAUNCH=0
+else
   echo "!! Could not find Unreal Engine 5.8."
   echo "   Set UE_ROOT=/path/to/UE_5.8 or install via Epic Launcher."
   echo "   Open manually: game/Mistspire.uproject"
-  SKIP_UE_LAUNCH=1
-else
-  echo "   Found: $UE_EDITOR"
-  SKIP_UE_LAUNCH=0
+  echo "   Windows: powershell -File setup.ps1"
 fi
 
-# ── 4. OpenXR verification ──────────────────────
+# ── 5. OpenXR verification ──────────────────────
 echo ""
-echo "==> [4/6] Verifying OpenXR runtime..."
+echo "==> [5/7] Verifying OpenXR runtime..."
+if [[ "${MISTSPIRE_VR_MODE:-0}" -eq 0 ]]; then
+  echo "   Skipped VR walkthrough — OpenXR check is informational only."
+fi
 bash ./scripts/verify-openxr-runtime.sh 2>/dev/null && echo "   OpenXR OK." || echo "   (OpenXR check non-fatal)"
 
-# ── 5. Build C++ modules ────────────────────────
+# ── 6. Build C++ modules ────────────────────────
 echo ""
-echo "==> [5/6] Building C++ game modules..."
+echo "==> [6/7] Building C++ game modules..."
 UPROJECT="$ROOT/game/Mistspire.uproject"
+
+# Run a build command; show a short tail on success, keep full log path on failure.
+mistspire_run_build() {
+  local label="$1"
+  shift
+  local log
+  log="$(mktemp "${TMPDIR:-/tmp}/mistspire-build.XXXXXX.log")"
+  echo "   Building via $label..."
+  if "$@" >"$log" 2>&1; then
+    tail -n 20 "$log" || true
+    echo "   Build succeeded."
+    rm -f "$log"
+    return 0
+  fi
+  echo "   Build FAILED — last 40 lines:"
+  tail -n 40 "$log" || true
+  echo "   Full log: $log"
+  return 1
+}
 
 if [[ "$SKIP_UE_LAUNCH" -eq 0 ]]; then
   BUILD_SH="$UE_ROOT/Engine/Build/BatchFiles/Linux/Build.sh"
   UBT_DLL="$UE_ROOT/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
   UBT_BIN="$UE_ROOT/Engine/Binaries/Linux/UnrealBuildTool"
-  BUILT=0
 
   if [[ -x "$BUILD_SH" ]]; then
-    echo "   Building via Build.sh..."
-    if "$BUILD_SH" MistspireEditor Linux Development "$UPROJECT" -Progress 2>&1 | tail -20; then
-      echo "   Build succeeded."
-      BUILT=1
-    else
-      echo "   Build FAILED — check errors above."
+    if ! mistspire_run_build "Build.sh" "$BUILD_SH" MistspireEditor Linux Development "$UPROJECT" -Progress; then
       FAILED=1
     fi
   elif [[ -f "$UBT_DLL" ]] && command -v dotnet &>/dev/null; then
-    echo "   Building via dotnet UBT..."
-    if dotnet "$UBT_DLL" MistspireEditor Linux Development -Project="$UPROJECT" -Progress 2>&1 | tail -20; then
-      echo "   Build succeeded."
-      BUILT=1
-    else
-      echo "   Build FAILED — check errors above."
+    if ! mistspire_run_build "dotnet UBT" dotnet "$UBT_DLL" MistspireEditor Linux Development -Project="$UPROJECT" -Progress; then
       FAILED=1
     fi
   elif [[ -x "$UBT_BIN" ]]; then
-    echo "   Building via native UBT..."
-    if "$UBT_BIN" MistspireEditor Linux Development -Project="$UPROJECT" -Progress 2>&1 | tail -20; then
-      echo "   Build succeeded."
-      BUILT=1
-    else
-      echo "   Build FAILED — check errors above."
+    if ! mistspire_run_build "native UBT" "$UBT_BIN" MistspireEditor Linux Development -Project="$UPROJECT" -Progress; then
       FAILED=1
     fi
   else
@@ -122,14 +147,20 @@ if [[ "$SKIP_UE_LAUNCH" -eq 0 ]]; then
   fi
 fi
 
-# ── 6. Launch editor ────────────────────────────
+# ── 7. Launch editor ────────────────────────────
 echo ""
-echo "==> [6/6] Launching Unreal Editor..."
+echo "==> [7/7] Launching Unreal Editor..."
 if [[ "$SKIP_UE_LAUNCH" -eq 0 ]] && [[ "$FAILED" -eq 0 ]]; then
   echo "   Opening Mistspire.uproject..."
-  "$UE_EDITOR" "$ROOT/game/Mistspire.uproject" &
-  echo "   Editor launching (PID $!)"
-  echo "   Once loaded: Play -> VR Preview to test"
+  # Detach from this shell so closing the terminal does not kill the editor.
+  nohup "$UE_EDITOR" "$ROOT/game/Mistspire.uproject" >/dev/null 2>&1 &
+  disown $! 2>/dev/null || true
+  echo "   Editor launching (detached)"
+  if [[ "${MISTSPIRE_VR_MODE:-0}" -eq 1 ]]; then
+    echo "   Once loaded: Play -> VR Preview to test"
+  else
+    echo "   VR Preview optional — no headset walkthrough this run."
+  fi
 else
   echo "   Open manually: game/Mistspire.uproject"
 fi
@@ -139,7 +170,12 @@ echo "============================================"
 echo "  Setup complete."
 echo "============================================"
 echo ""
-echo "  ./run.sh              Launch game"
-echo "  mistspire.TeleportUp 5000   (in-game)"
+echo "  ./run.sh              Launch game (Linux)"
+echo "  docs/setup/DEV_BOOTSTRAP.md"
+if [[ "${MISTSPIRE_VR_MODE:-0}" -eq 1 ]]; then
+  echo "  mistspire.TeleportUp 5000   (in-game)"
+else
+  echo "  Headset guides (later): docs/setup/headsets/README.md"
+fi
 echo ""
 exit $FAILED

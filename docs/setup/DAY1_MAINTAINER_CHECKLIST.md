@@ -6,21 +6,22 @@ This repo ships **C++ gameplay code** plus a **Git LFS** World Partition map (`M
 
 ---
 
-## Before you start
+## Before you start `[Both]`
 
 | Requirement | Notes |
 |-------------|-------|
 | Unreal Engine **5.8+** | Must match `game/Mistspire.uproject` (`EngineAssociation: 5.8`) |
-| Visual Studio 2022 | C++ workload + Windows SDK (for Win64 compile) |
-| Git LFS | `git lfs install` then `git lfs pull` — required for `Main_WP` and map externals |
-| VR headset + OpenXR runtime | SteamVR (Index/Vive) or Meta Link (Quest). Optional for compile-only pass |
-| GPU | Vulkan-capable (Linux SM5/SM6) or D3D12 SM5/SM6 (Win64); high-end PCVR |
+| Visual Studio 2022 `[Win]` | C++ workload + Windows SDK (for Win64 compile) |
+| Linux build deps `[Linux]` | `./scripts/setup-linux-deps.sh` or `./setup.sh` |
+| Git LFS | `git lfs install` then `git lfs pull` — required for `Main_WP` |
+| VR headset + OpenXR runtime | Optional for compile-only pass |
+| GPU | Vulkan-capable; project targets high-end PCVR |
 
 **Repo entry point:** `game/Mistspire.uproject`
 
 ---
 
-## Phase 1 — Compile check (no VR)
+## Phase 1 — Compile check (no VR) `[Both]`
 
 Goal: confirm both C++ modules build.
 
@@ -81,15 +82,20 @@ Committed `Main_WP` may still need platforms for climb tests. Without collision 
 
 ---
 
-## Phase 4 — VR Preview smoke test
+## Phase 4 — VR Preview smoke test `[Both]` (headset required)
 
-### Windows OpenXR prep
+Set up your headset first: [headsets/README.md](headsets/README.md) → your device guide → [OPENXR_DEV_COMMON.md](OPENXR_DEV_COMMON.md).
 
-- [ ] Put on headset; confirm it tracks in SteamVR or Meta Link
-- [ ] Set active OpenXR runtime:
-  - **SteamVR:** Settings → Developer → set SteamVR as OpenXR runtime
-  - **Meta Quest Link:** Meta Quest Developer Hub → OpenXR runtime
-- [ ] Close other VR apps that might hold the runtime
+**Primary runtime:** SteamVR OpenXR unless your path requires Meta Link or VDXR.
+
+### OpenXR prep
+
+- [ ] Put on headset; confirm tracking (SteamVR, Link, Virtual Desktop, or streamer)
+- [ ] Set active OpenXR runtime for **your connection path**:
+  - **SteamVR / Steam Link / PICO Connect / Oasis:** SteamVR → Settings → OpenXR → set SteamVR as runtime — see [OPENXR_DEV_COMMON.md](OPENXR_DEV_COMMON.md)
+  - **Meta Quest Link:** Meta Horizon Link → Settings → General → set Link as runtime — [meta_quest.md](headsets/meta_quest.md)
+  - **Virtual Desktop (VDXR):** streamer Options → VDXR — [streaming_options.md](headsets/streaming_options.md)
+- [ ] Close other VR apps that might hold the wrong runtime
 
 ### Launch
 
@@ -234,7 +240,9 @@ Use console locomotion for all other tests if sticks don't respond.
 
 ## Related docs
 
-- [PCVR_DEV_SETUP.md](PCVR_DEV_SETUP.md) — platform setup
+- [PLATFORMS.md](PLATFORMS.md) — Linux vs Windows scripts
+- [DEV_BOOTSTRAP.md](DEV_BOOTSTRAP.md) — one-run setup flow
+- [PCVR_DEV_SETUP.md](PCVR_DEV_SETUP.md) — PCVR hub + [headsets/](headsets/README.md)
 - [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) — module overview
 - [game/Content/Maps/README.md](../../game/Content/Maps/README.md) — map authoring + LFS
 - [IMMERSION.md](../gameplay/IMMERSION.md) — feature list vs console commands

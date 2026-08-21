@@ -2,18 +2,34 @@
 
 Mistspire uses abstract actions in `mistspire_gameplay`. The active runtime maps them to device hardware.
 
-## Headsets
+**Primary runtime for Mistspire:** **SteamVR OpenXR** unless a connection path requires a vendor or VDXR runtime. See [setup/headsets/README.md](../setup/headsets/README.md).
+
+## Headsets (interaction profiles)
 
 | Device | Interaction profile | Typical runtime |
 |--------|---------------------|-----------------|
-| Meta Quest (Link) | `/interaction_profiles/oculus/touch_controller` | Oculus OpenXR |
+| Meta Quest (Link) | `/interaction_profiles/oculus/touch_controller` | Meta Horizon Link; or SteamVR (Steam Link) |
 | Valve Index | `/interaction_profiles/valve/index_controller` | SteamVR OpenXR |
 | HTC Vive | `/interaction_profiles/htc/vive_controller` | SteamVR OpenXR |
-| Generic | `/interaction_profiles/khr/simple_controller` | Any |
+| Pico / WMR / Focus / generic | `/interaction_profiles/khr/simple_controller` | SteamVR OpenXR (preferred) |
 
-Binding files: [interaction_profiles/openxr/](../../interaction_profiles/openxr/) — Meta Quest uses `bindings_meta_quest.json` (OpenXR path `/interaction_profiles/oculus/touch_controller`).
+Binding files: [interaction_profiles/openxr/](../../interaction_profiles/openxr/). Per-headset setup: [setup/headsets/](../setup/headsets/).
 
-## Linux (Monado)
+## Windows
+
+Set the active runtime per your connection path before UE VR Preview:
+
+- **SteamVR** (Index, Vive, Steam Link, PICO Connect, Oasis/WMR): SteamVR → Settings → OpenXR
+- **Meta Quest Link:** Meta Horizon Link → Settings → General
+- **Virtual Desktop:** VDXR in streamer Options, or SteamVR
+
+Details: [setup/OPENXR_DEV_COMMON.md](../setup/OPENXR_DEV_COMMON.md).
+
+## Linux
+
+**SteamVR + Steam Link** are supported on Linux with current Steam and GPU drivers — same SteamVR OpenXR setting as Windows.
+
+**Monado** (tethered PCVR without SteamVR):
 
 ```bash
 export XR_RUNTIME_JSON=/usr/share/openxr/openxr_monado.json
@@ -21,9 +37,7 @@ export XR_RUNTIME_JSON=/usr/share/openxr/openxr_monado.json
 ./native/xr-sandbox/build/mistspire_xr_sandbox   # after cmake build
 ```
 
-## Windows
-
-Set active runtime in SteamVR or Meta Quest Developer Hub before launching UE VR Preview.
+**WiVRn** (standalone headset streaming from Linux PC): see [setup/headsets/streaming_options.md](../setup/headsets/streaming_options.md).
 
 ## UE integration
 

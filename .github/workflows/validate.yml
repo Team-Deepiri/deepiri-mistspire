@@ -19,7 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: shellcheck scripts/*.sh
+      # -x follows `# shellcheck source=` includes (e.g. scripts/lib/ue-paths.sh).
+      - run: shellcheck -x scripts/*.sh
 
   python-lint:
     name: Python lint (ruff)
