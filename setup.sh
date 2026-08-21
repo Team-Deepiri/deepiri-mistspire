@@ -106,37 +106,40 @@ echo ""
 echo "==> [6/7] Building C++ game modules..."
 UPROJECT="$ROOT/game/Mistspire.uproject"
 
+# Run a build command; show a short tail on success, keep full log path on failure.
+mistspire_run_build() {
+  local label="$1"
+  shift
+  local log
+  log="$(mktemp "${TMPDIR:-/tmp}/mistspire-build.XXXXXX.log")"
+  echo "   Building via $label..."
+  if "$@" >"$log" 2>&1; then
+    tail -n 20 "$log" || true
+    echo "   Build succeeded."
+    rm -f "$log"
+    return 0
+  fi
+  echo "   Build FAILED — last 40 lines:"
+  tail -n 40 "$log" || true
+  echo "   Full log: $log"
+  return 1
+}
+
 if [[ "$SKIP_UE_LAUNCH" -eq 0 ]]; then
   BUILD_SH="$UE_ROOT/Engine/Build/BatchFiles/Linux/Build.sh"
   UBT_DLL="$UE_ROOT/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
   UBT_BIN="$UE_ROOT/Engine/Binaries/Linux/UnrealBuildTool"
 
-  # Use PIPESTATUS[0] so tail does not mask UBT failure (pipefail is set).
   if [[ -x "$BUILD_SH" ]]; then
-    echo "   Building via Build.sh..."
-    "$BUILD_SH" MistspireEditor Linux Development "$UPROJECT" -Progress 2>&1 | tail -20
-    if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
-      echo "   Build succeeded."
-    else
-      echo "   Build FAILED — check errors above."
+    if ! mistspire_run_build "Build.sh" "$BUILD_SH" MistspireEditor Linux Development "$UPROJECT" -Progress; then
       FAILED=1
     fi
   elif [[ -f "$UBT_DLL" ]] && command -v dotnet &>/dev/null; then
-    echo "   Building via dotnet UBT..."
-    dotnet "$UBT_DLL" MistspireEditor Linux Development -Project="$UPROJECT" -Progress 2>&1 | tail -20
-    if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
-      echo "   Build succeeded."
-    else
-      echo "   Build FAILED — check errors above."
+    if ! mistspire_run_build "dotnet UBT" dotnet "$UBT_DLL" MistspireEditor Linux Development -Project="$UPROJECT" -Progress; then
       FAILED=1
     fi
   elif [[ -x "$UBT_BIN" ]]; then
-    echo "   Building via native UBT..."
-    "$UBT_BIN" MistspireEditor Linux Development -Project="$UPROJECT" -Progress 2>&1 | tail -20
-    if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
-      echo "   Build succeeded."
-    else
-      echo "   Build FAILED — check errors above."
+    if ! mistspire_run_build "native UBT" "$UBT_BIN" MistspireEditor Linux Development -Project="$UPROJECT" -Progress; then
       FAILED=1
     fi
   else
@@ -149,8 +152,10 @@ echo ""
 echo "==> [7/7] Launching Unreal Editor..."
 if [[ "$SKIP_UE_LAUNCH" -eq 0 ]] && [[ "$FAILED" -eq 0 ]]; then
   echo "   Opening Mistspire.uproject..."
-  "$UE_EDITOR" "$ROOT/game/Mistspire.uproject" &
-  echo "   Editor launching (PID $!)"
+  # Detach from this shell so closing the terminal does not kill the editor.
+  nohup "$UE_EDITOR" "$ROOT/game/Mistspire.uproject" >/dev/null 2>&1 &
+  disown $! 2>/dev/null || true
+  echo "   Editor launching (detached)"
   if [[ "${MISTSPIRE_VR_MODE:-0}" -eq 1 ]]; then
     echo "   Once loaded: Play -> VR Preview to test"
   else
