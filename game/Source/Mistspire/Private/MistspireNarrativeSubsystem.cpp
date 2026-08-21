@@ -11,22 +11,22 @@ void UMistspireNarrativeSubsystem::Initialize(FSubsystemCollectionBase& Collecti
 
 	if (UMistspireZoneSubsystem* Zone = GetWorld()->GetSubsystem<UMistspireZoneSubsystem>())
 	{
-		ZoneHandle = Zone->OnZoneChanged.AddUObject(this, &UMistspireNarrativeSubsystem::HandleZoneChanged);
+		Zone->OnZoneChanged.AddDynamic(this, &UMistspireNarrativeSubsystem::HandleZoneChanged);
 	}
 
 	if (UMistspireAltitudeSubsystem* Alt = GetWorld()->GetSubsystem<UMistspireAltitudeSubsystem>())
 	{
-		AltitudeHandle = Alt->OnAltitudeRecord.AddUObject(this, &UMistspireNarrativeSubsystem::HandleAltitudeRecord);
+		Alt->OnAltitudeRecord.AddDynamic(this, &UMistspireNarrativeSubsystem::HandleAltitudeRecord);
 	}
 
 	if (UMistspireSummitRegistry* Registry = GetWorld()->GetSubsystem<UMistspireSummitRegistry>())
 	{
-		Registry->OnSummitReached.AddUObject(this, &UMistspireNarrativeSubsystem::OnSummitReached);
+		Registry->OnSummitReached.AddDynamic(this, &UMistspireNarrativeSubsystem::OnSummitReached);
 	}
 
 	if (UMistspireWorldAtlasSubsystem* Atlas = GetWorld()->GetSubsystem<UMistspireWorldAtlasSubsystem>())
 	{
-		DistrictHandle = Atlas->OnDistrictEntered.AddUObject(this, &UMistspireNarrativeSubsystem::HandleDistrictChanged);
+		Atlas->OnDistrictEntered.AddDynamic(this, &UMistspireNarrativeSubsystem::HandleDistrictChanged);
 	}
 }
 
@@ -36,15 +36,19 @@ void UMistspireNarrativeSubsystem::Deinitialize()
 	{
 		if (UMistspireZoneSubsystem* Zone = World->GetSubsystem<UMistspireZoneSubsystem>())
 		{
-			Zone->OnZoneChanged.Remove(ZoneHandle);
+			Zone->OnZoneChanged.RemoveDynamic(this, &UMistspireNarrativeSubsystem::HandleZoneChanged);
 		}
 		if (UMistspireAltitudeSubsystem* Alt = World->GetSubsystem<UMistspireAltitudeSubsystem>())
 		{
-			Alt->OnAltitudeRecord.Remove(AltitudeHandle);
+			Alt->OnAltitudeRecord.RemoveDynamic(this, &UMistspireNarrativeSubsystem::HandleAltitudeRecord);
+		}
+		if (UMistspireSummitRegistry* Registry = World->GetSubsystem<UMistspireSummitRegistry>())
+		{
+			Registry->OnSummitReached.RemoveDynamic(this, &UMistspireNarrativeSubsystem::OnSummitReached);
 		}
 		if (UMistspireWorldAtlasSubsystem* Atlas = World->GetSubsystem<UMistspireWorldAtlasSubsystem>())
 		{
-			Atlas->OnDistrictEntered.Remove(DistrictHandle);
+			Atlas->OnDistrictEntered.RemoveDynamic(this, &UMistspireNarrativeSubsystem::HandleDistrictChanged);
 		}
 	}
 	Super::Deinitialize();
@@ -59,7 +63,7 @@ void UMistspireNarrativeSubsystem::PushLine(const FText& Line, float DisplaySeco
 	{
 		GEngine->AddOnScreenDebugMessage(
 			-1, DisplaySeconds, FColor::Silver,
-			FString::Printf(TEXT("◆ %s"), *Line.ToString()));
+			FString::Printf(TEXT("> %s"), *Line.ToString()));
 	}
 }
 

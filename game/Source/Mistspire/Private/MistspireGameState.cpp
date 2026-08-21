@@ -10,9 +10,9 @@ AMistspireGameState::AMistspireGameState()
 	bReplicates = true;
 }
 
-void AMistspireGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutReplicatedProps) const
+void AMistspireGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	Super::GetLifetimeReplicatedProps(OutReplicatedProps);
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMistspireGameState, SessionBestAltitudeCm);
 	DOREPLIFETIME(AMistspireGameState, Leaderboard);
@@ -23,6 +23,17 @@ void AMistspireGameState::NotifyAltitudeSample(float CurrentAltitudeCm, float Ma
 {
 	if (!HasAuthority()) return;
 	if (AMistspirePlayerState* PS = GetPlayerState<AMistspirePlayerState>())
+	{
+		NotifyAltitudeSample(PS->GetPlayerName(), CurrentAltitudeCm, MaxAltitudeCm);
+	}
+}
+
+void AMistspireGameState::NotifyLocalAltitudeSample(float CurrentAltitudeCm, float MaxAltitudeCm)
+{
+	if (!HasAuthority()) return;
+
+	APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	if (AMistspirePlayerState* PS = PC ? PC->GetPlayerState<AMistspirePlayerState>() : nullptr)
 	{
 		NotifyAltitudeSample(PS->GetPlayerName(), CurrentAltitudeCm, MaxAltitudeCm);
 	}

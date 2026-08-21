@@ -33,6 +33,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|AI|GOAP")
 	TArray<FMistspireGOAPAction> ActionLibrary;
 
+	/** Weights for the default climber utility options (Rest / ClimbOn / FindShelter), applied when the evaluator is built. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|AI|Utility")
+	FMistspireUtilityClimberTuning ClimberTuning;
+
 	/** Pushes a fresh snapshot of survival/position inputs into the evaluator. */
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|AI")
 	void UpdateWorldState(const FMistspireAIWorldState& NewState);
@@ -45,6 +49,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|AI|GOAP")
 	bool PlanGOAP(const FMistspireGOAPState& Goal, TArray<FMistspireGOAPAction>& OutPlan, int32 MaxDepth = 12);
 
+	/** Steer the pawn to a location. Uses the pawn's movement component when present; free-flight pawns without one are moved directly (no physics sweeps). */
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|AI|Movement")
 	void MoveSteeredTo(const FVector& WorldLocation);
 

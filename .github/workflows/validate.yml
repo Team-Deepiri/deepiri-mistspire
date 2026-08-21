@@ -2,7 +2,47 @@ name: validate
 on: [push, pull_request]
 jobs:
   lint:
+    name: Project structure
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: test -f game/Mistspire.uproject
+      - name: Validate JSON config files
+        run: |
+          set -euo pipefail
+          for f in game/Mistspire.uproject interaction_profiles/openxr/*.json; do
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
+          done
+
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # -x follows `# shellcheck source=` includes (e.g. scripts/lib/ue-paths.sh).
+      - run: shellcheck -x scripts/*.sh
+
+  python-lint:
+    name: Python lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "ruff==0.16.0"
+      - run: ruff check scripts/*.py
+
+  xr-sandbox-build:
+    name: Build xr-sandbox (native, no Unreal Editor)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OpenXR dev headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenxr-dev pkg-config
+      - name: Configure
+        run: cmake -B native/xr-sandbox/build -S native/xr-sandbox -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build native/xr-sandbox/build

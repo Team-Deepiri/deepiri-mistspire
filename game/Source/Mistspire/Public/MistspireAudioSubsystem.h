@@ -56,6 +56,7 @@ class MISTSPIRE_API UMistspireAudioSubsystem : public UWorldSubsystem
 
 public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize(FSubsystemCollectionBase& Collection) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Audio")
 	void SetChannelVolume(EMistspireAudioChannel Channel, float Volume);
@@ -104,6 +105,11 @@ public:
 
 private:
 	FMistspireAudioBusState& GetBus(EMistspireAudioChannel Channel);
+	UAudioComponent* AcquireOneShotComponent();
+	void ResetOneShotComponent(UAudioComponent* Component);
+
+	/** Max pooled one-shot components before the oldest playing voice is recycled. */
+	static constexpr int32 MaxOneShotComponents = 12;
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Mistspire|Audio")
 	FMistspireAudioBusState BusStates[6];
@@ -129,6 +135,10 @@ private:
 	UPROPERTY(VisibleInstanceOnly, Category = "Mistspire|Audio")
 	float TensionLevel = 0.f;
 
+	/** Biome whose ambience is currently playing (prevents per-tick restarts). */
+	UPROPERTY(VisibleInstanceOnly, Category = "Mistspire|Audio")
+	FName CurrentAmbienceBiome;
+
 	UPROPERTY(VisibleInstanceOnly, Category = "Mistspire|Audio")
 	UAudioComponent* AmbienceComponent = nullptr;
 
@@ -137,4 +147,11 @@ private:
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Mistspire|Audio")
 	UAudioComponent* PhysiologyComponent = nullptr;
+
+	/** Reusable one-shot components (round-robin pool; oldest voice recycled when full). */
+	UPROPERTY(VisibleInstanceOnly, Category = "Mistspire|Audio")
+	TArray<TObjectPtr<UAudioComponent>> OneShotPool;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Mistspire|Audio")
+	int32 NextOneShotIndex = 0;
 };

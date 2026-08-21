@@ -8,9 +8,9 @@ AMistspirePlayerState::AMistspirePlayerState()
 	NetUpdateFrequency = 5.f; // Low frequency for player state stats
 }
 
-void AMistspirePlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutReplicatedProps) const
+void AMistspirePlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	Super::GetLifetimeReplicatedProps(OutReplicatedProps);
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AMistspirePlayerState, MaxAltitudeCm);
 	DOREPLIFETIME(AMistspirePlayerState, CurrentAltitudeCm);

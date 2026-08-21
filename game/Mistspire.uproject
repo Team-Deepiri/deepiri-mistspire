@@ -1,7 +1,8 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "5.5",
-	"Description": "Mistspire — mist + spire. Vertical VR exploration.",
+	"EngineAssociation": "5.8",
+	"Category": "",
+	"Description": "Mistspire - mist + spire. Vertical VR exploration.",
 	"Modules": [
 		{
 			"Name": "Mistspire",
@@ -10,10 +11,30 @@
 		}
 	],
 	"Plugins": [
-		{ "Name": "OpenXR", "Enabled": true },
-		{ "Name": "OpenXRCore", "Enabled": true },
-		{ "Name": "OpenXRHandTracking", "Enabled": true, "Optional": true },
-		{ "Name": "MistspireOpenXRNative", "Enabled": true }
+		{
+			"Name": "OpenXR",
+			"Enabled": true
+		},
+		{
+			"Name": "OpenXRHandTracking",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "CableComponent",
+			"Enabled": true
+		},
+		{
+			"Name": "OnlineSubsystemSteam",
+			"Enabled": true
+		},
+		{
+			"Name": "MistspireOpenXRNative",
+			"Enabled": true
+		}
 	],
-	"TargetPlatforms": [ "Linux", "Win64" ]
+	"TargetPlatforms": [
+		"Linux",
+		"Win64"
+	]
 }

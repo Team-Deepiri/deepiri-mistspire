@@ -47,7 +47,7 @@ void AMistspirePhysicalButton::BeginPlay()
 	
 	// Spring to return button
 	PhysicsConstraint->SetLinearDriveParams(500.0f, 50.0f, 0.0f);
-	PhysicsConstraint->SetLinearZDrive(true);
+	PhysicsConstraint->SetLinearPositionDrive(false, false, true);
 }
 
 void AMistspirePhysicalButton::Tick(float DeltaTime)

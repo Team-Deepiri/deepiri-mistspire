@@ -1,6 +1,6 @@
-# deepiri-mistspire
+# Project Mistspire
 
-**Mistspire** A PCVR vertical exploration game: traverse a massive World Partition map and reach the **highest altitude** you can find.
+**Project Mistspire** is an experimental PCVR vertical exploration game: traverse a massive World Partition map and reach the **highest altitude** you can find.
 
 ```
   valley ──► red mesas ──► cloud forests ──► sky islands ──► orbital spire
@@ -10,32 +10,32 @@
 
 ## Requirements
 
-- Unreal Engine **5.5+** (Epic Launcher)
-- OpenXR runtime (SteamVR, Oculus, or Monado on Linux)
+- Unreal Engine **5.8+** (Epic Launcher) — targets **Linux + Win64**
+- Git LFS (`git lfs pull` for `Main_WP`)
+- OpenXR runtime (SteamVR primary; see [headset guides](docs/setup/headsets/README.md))
 - GPU with Vulkan 1.3 (RTX 40/50 series recommended)
 
 ## Quick start
 
-```bash
-./scripts/setup-linux-deps.sh
-./scripts/verify-openxr-runtime.sh
-```
+| OS | Setup | Launch |
+|----|-------|--------|
+| **Linux** | `./setup.sh` | `./run.sh` |
+| **Windows** | `powershell -File setup.ps1` | `.\run.ps1` |
+| **WSL** | git/LFS only — VR on Windows or native Linux | — |
 
-Open `game/Mistspire.uproject` in the UE editor, allow C++ compile, then **Play → VR Preview**.
+Full matrix: [docs/setup/PLATFORMS.md](docs/setup/PLATFORMS.md). Walkthrough: [docs/setup/DEV_BOOTSTRAP.md](docs/setup/DEV_BOOTSTRAP.md).
 
-Console (editor or PIE):
+PCVR / headset detail: [PCVR development](docs/setup/PCVR_DEV_SETUP.md).
 
-| Command | Action |
-|---------|--------|
-| `mistspire.AltitudeStats` | Log current vs personal-best altitude |
-| `mistspire.TeleportUp 5000` | Debug teleport +Z (cm) |
+Debug console cheat sheet: [docs/gameplay/IMMERSION.md](docs/gameplay/IMMERSION.md) — e.g. `mistspire.TeleportUp 5000`.
 
 ## Repository layout
 
 ```
 deepiri-mistspire/
-├── game/                         # UE5 project (Mistspire.uproject)
+├── game/                         # UE 5.8 project (Mistspire.uproject)
 │   ├── Source/Mistspire/         # Game module: pawn, altitude, summits
+│   ├── Content/Maps/             # Main_WP (Git LFS)
 │   └── Plugins/MistspireOpenXRNative/
 ├── interaction_profiles/openxr/  # Meta, Valve, HTC, KHR bindings
 ├── native/xr-sandbox/            # OpenXR loader smoke test (no UE)
@@ -43,13 +43,19 @@ deepiri-mistspire/
 └── docs/
 ```
 
+
+
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [PCVR development](docs/PCVR_DEV_SETUP.md)
-- [World design](docs/WORLD_DESIGN.md)
-- [OpenXR runtimes](docs/OPENXR_RUNTIMES.md)
-- [Build Main_WP map](game/Content/Maps/README.md)
+- [Docs index](docs/README.md)
+- [Architecture](docs/architecture/ARCHITECTURE.md)
+- [Day 1 maintainer checklist](docs/setup/DAY1_MAINTAINER_CHECKLIST.md)
+- [PCVR development](docs/setup/PCVR_DEV_SETUP.md) — [headset guides](docs/setup/headsets/README.md)
+- [World design](docs/gameplay/WORLD_DESIGN.md)
+- [OpenXR runtimes](docs/architecture/OPENXR_RUNTIMES.md)
+- [Build / edit Main_WP](game/Content/Maps/README.md)
+
+
 
 ## WSL
 

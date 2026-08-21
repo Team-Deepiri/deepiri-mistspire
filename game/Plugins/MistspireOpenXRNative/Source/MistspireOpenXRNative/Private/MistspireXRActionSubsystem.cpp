@@ -1,8 +1,11 @@
 #include "MistspireXRActionSubsystem.h"
 #include "MistspireOpenXRAccess.h"
+#include "OpenXRCore.h"
+#include "IOpenXRHMD.h"
+#include "IXRTrackingSystem.h"
+#include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
-#include <openxr/openxr.h>
 
 void UMistspireXRActionSubsystem::CopyOpenXRString(char* Dest, size_t DestSize, const char* Src)
 {
@@ -15,7 +18,12 @@ void UMistspireXRActionSubsystem::Initialize(FSubsystemCollectionBase& Collectio
 {
 	Super::Initialize(Collection);
 	if (GetWorld())
-		GetWorld()->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateUObject(this, &UMistspireXRActionSubsystem::BuildActionLayout));
+	{
+		GetWorld()->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([this]()
+		{
+			BuildActionLayout();
+		}));
+	}
 }
 
 void UMistspireXRActionSubsystem::Deinitialize()
@@ -191,8 +199,16 @@ void UMistspireXRActionSubsystem::PollHandPoses()
 	auto LocateHand = [&](XrSpace HandSpace, FTransform& OutTransform) -> bool
 	{
 		if (!HandSpace) return false;
+		XrTime DisplayTime = 0;
+		if (GEngine && GEngine->XRSystem.IsValid())
+		{
+			if (IOpenXRHMD* OpenXRHMD = GEngine->XRSystem->GetIOpenXRHMD())
+			{
+				DisplayTime = OpenXRHMD->GetDisplayTime();
+			}
+		}
 		XrSpaceLocation Loc{XR_TYPE_SPACE_LOCATION};
-		if (XR_FAILED(xrLocateSpace(HandSpace, ReferenceSpace, &Loc))) return false;
+		if (XR_FAILED(xrLocateSpace(HandSpace, ReferenceSpace, DisplayTime, &Loc))) return false;
 		if (!(Loc.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT)) return false;
 
 		const XrQuaternionf& Q = Loc.pose.orientation;

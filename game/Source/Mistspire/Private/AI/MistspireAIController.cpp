@@ -1,6 +1,7 @@
 #include "MistspireAIController.h"
 #include "MistspireStateMachine.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/PawnMovementComponent.h"
 
 AMistspireAIController::AMistspireAIController()
 {
@@ -25,7 +26,7 @@ FMistspireUtilityDecision AMistspireAIController::RunUtilityDecision()
 {
 	if (!UtilityEvaluator)
 	{
-		UtilityEvaluator = UMistspireUtilityEvaluator::MakeClimberEvaluator(this);
+		UtilityEvaluator = UMistspireUtilityEvaluator::MakeClimberEvaluator(this, ClimberTuning);
 	}
 
 	UtilityEvaluator->SetInput(TEXT("Oxygen"), WorldState.Oxygen01);
@@ -102,6 +103,18 @@ void AMistspireAIController::Tick(float DeltaTime)
 
 	const FVector Velocity = Steering->ComputeDesiredVelocity(
 		Possessed->GetActorLocation(), Possessed->GetVelocity(), DeltaTime);
-	Possessed->SetActorLocation(Possessed->GetActorLocation() + Velocity * DeltaTime);
-	Possessed->SetActorRotation(Velocity.GetSafeNormal2D().Rotation());
+
+	// Pawns with an engine movement component receive the steered velocity as
+	// movement input so collision/nav-mesh aware movement keeps working. The
+	// direct transform fallback is intended for free-flight spirit-type pawns
+	// without a movement component; it ignores physics sweeps by design.
+	if (UPawnMovementComponent* MovementComponent = Possessed->GetMovementComponent())
+	{
+		MovementComponent->AddInputVector(Velocity);
+	}
+	else
+	{
+		Possessed->SetActorLocation(Possessed->GetActorLocation() + Velocity * DeltaTime);
+		Possessed->SetActorRotation(Velocity.GetSafeNormal2D().Rotation());
+	}
 }

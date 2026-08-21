@@ -41,6 +41,22 @@ struct FMistspireUtilityOption
 	UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<UMistspireUtilityConsideration>> Considerations;
 };
 
+/** Designer-tunable weights for the built-in climber evaluator options. */
+USTRUCT(BlueprintType)
+struct FMistspireUtilityClimberTuning
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|AI|Utility")
+	float RestWeight = 1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|AI|Utility")
+	float ClimbOnWeight = 1.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|AI|Utility")
+	float FindShelterWeight = 1.5f;
+};
+
 /** Score-based decision maker: set normalized inputs, evaluate options, pick the best. */
 UCLASS(BlueprintType)
 class MISTSPIRE_API UMistspireUtilityEvaluator : public UObject
@@ -63,9 +79,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|AI|Utility")
 	float ScoreOption(FName OptionName) const;
 
-	/** Builds the default Mistspire climber evaluator (Rest / ClimbOn / FindShelter). */
+	/** Builds the default Mistspire climber evaluator (Rest / ClimbOn / FindShelter) with default weights. */
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|AI|Utility")
 	static UMistspireUtilityEvaluator* MakeClimberEvaluator(UObject* Outer);
+
+	/** Builds the default climber evaluator with designer-tunable option weights. */
+	static UMistspireUtilityEvaluator* MakeClimberEvaluator(UObject* Outer, const FMistspireUtilityClimberTuning& Tuning);
 
 private:
 	TMap<FName, float> Inputs;

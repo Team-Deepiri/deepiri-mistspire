@@ -1,16 +1,44 @@
 #include "MistspireOpenXRAccess.h"
-#include "IOpenXRCore.h"
-#include "Modules/ModuleManager.h"
+#include "IOpenXRHMD.h"
+#include "IOpenXRHMDModule.h"
+#include "IXRTrackingSystem.h"
+#include "Engine/Engine.h"
+
 bool FMistspireOpenXRAccess::IsOpenXRAvailable()
 {
-	const IOpenXRCore* C = FModuleManager::GetModulePtr<IOpenXRCore>(TEXT("OpenXRCore"));
-	return C && C->IsTrackingInitialized();
+	if (!IOpenXRHMDModule::IsAvailable())
+	{
+		return false;
+	}
+
+	if (GEngine && GEngine->XRSystem.IsValid())
+	{
+		if (IOpenXRHMD* HMD = GEngine->XRSystem->GetIOpenXRHMD())
+		{
+			return HMD->IsInitialized();
+		}
+	}
+
+	return IOpenXRHMDModule::Get().GetInstance() != XR_NULL_HANDLE;
 }
-bool FMistspireOpenXRAccess::GetNativeHandles(XrInstance& I, XrSession& S)
+
+bool FMistspireOpenXRAccess::GetNativeHandles(XrInstance& OutInstance, XrSession& OutSession)
 {
-	I = S = nullptr;
-	IOpenXRCore* C = FModuleManager::GetModulePtr<IOpenXRCore>(TEXT("OpenXRCore"));
-	if (!C || !C->IsTrackingInitialized()) return false;
-	I = C->GetInstance(); S = C->GetSession();
-	return I && S;
+	OutInstance = XR_NULL_HANDLE;
+	OutSession = XR_NULL_HANDLE;
+
+	if (!GEngine || !GEngine->XRSystem.IsValid())
+	{
+		return false;
+	}
+
+	IOpenXRHMD* HMD = GEngine->XRSystem->GetIOpenXRHMD();
+	if (!HMD || !HMD->IsInitialized())
+	{
+		return false;
+	}
+
+	OutInstance = HMD->GetInstance();
+	OutSession = HMD->GetSession();
+	return OutInstance != XR_NULL_HANDLE && OutSession != XR_NULL_HANDLE;
 }

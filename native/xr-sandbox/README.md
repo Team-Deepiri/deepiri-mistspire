@@ -5,14 +5,14 @@ Standalone OpenXR loader test (no Unreal). Validates your Linux dev environment 
 ## Build
 
 ```bash
-./scripts/setup-linux-deps.sh   # installs libopenxr-dev
+./scripts/setup-linux-deps.sh   # OpenXR loader + Vulkan (apt / pacman / SteamOS / dnf)
 cd native/xr-sandbox
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ./build/mistspire_xr_sandbox
 ```
 
-Uses **pkg-config** (`openxr`) on Debian/Ubuntu; falls back to `find_package(OpenXR)` elsewhere.
+Uses **pkg-config** (`openxr`) when available (Debian/Ubuntu, Arch, SteamOS, Fedora); falls back to `find_package(OpenXR)` elsewhere.
 
 ## Expected output
 

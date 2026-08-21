@@ -1,11 +1,14 @@
 #include "MistspireAltitudeDebugSubsystem.h"
 #include "MistspireAltitudeSubsystem.h"
 #include "MistspireEnvironmentSubsystem.h"
+#include "MistspireVisualEnhancementSubsystem.h"
 #include "MistspireProgressSubsystem.h"
 #include "MistspireWorldAtlasSubsystem.h"
 #include "MistspireInteriorSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "MistspireAudioSubsystem.h"
+#include "MistspireLog.h"
+#include "Components/TextRenderComponent.h"
 #include "MistspireDialogueSubsystem.h"
 #include "MistspireObservationRecorder.h"
 #include "MistspireEntitySubsystem.h"
@@ -218,10 +221,34 @@ static void MistspireShowAltitudeHUD(const TArray<FString>& Args)
 	}
 }
 
-static FAutoConsoleCommand CmdMistspireShowAltitudeHUD(
-	TEXT("mistspire.ShowAltitudeHUD"),
-	TEXT("Toggle altitude HUD visibility: 0=hide, 1=show."),
-	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireShowAltitudeHUD));
+static void RegisterMistspireAltitudeHudCommands()
+{
+	IConsoleManager& CM = IConsoleManager::Get();
+
+	// Register an alias for maintainers + saved console workflows.
+	if (!CM.FindConsoleObject(TEXT("mistspire.ShowAltitudeHUD")))
+	{
+		CM.RegisterConsoleCommand(
+			TEXT("mistspire.ShowAltitudeHUD"),
+			TEXT("Toggle wrist altimeter text visibility: 0=hide, 1=show."),
+			FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireShowAltitudeHUD));
+	}
+
+	// New preferred name (kept for clarity).
+	if (!CM.FindConsoleObject(TEXT("mistspire.ShowWristAltimeter")))
+	{
+		CM.RegisterConsoleCommand(
+			TEXT("mistspire.ShowWristAltimeter"),
+			TEXT("Toggle wrist altimeter text visibility: 0=hide, 1=show."),
+			FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireShowAltitudeHUD));
+	}
+}
+
+struct FMistspireRegisterAltitudeHudCommands
+{
+	FMistspireRegisterAltitudeHudCommands() { RegisterMistspireAltitudeHudCommands(); }
+};
+static FMistspireRegisterAltitudeHudCommands GRegisterMistspireAltitudeHudCommands;
 
 static void MistspireAudioDebug(const TArray<FString>&)
 {
@@ -456,3 +483,66 @@ static FAutoConsoleCommand CmdMistspireStateMachineDebug(
 	TEXT("mistspire.StateMachineDebug"),
 	TEXT("Log active state of every Mistspire state machine component."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireStateMachineDebug));
+static void MistspireVisualDebug(const TArray<FString>&)
+{
+	if (!GWorld) return;
+	if (UMistspireVisualEnhancementSubsystem* Vis = GWorld->GetSubsystem<UMistspireVisualEnhancementSubsystem>())
+	{
+		FMistspireBiomeVisuals V = Vis->GetCurrentVisuals();
+		UE_LOG(LogMistspire, Log, TEXT("--- Visual Debug ---"));
+		UE_LOG(LogMistspire, Log, TEXT("Biome: %d"), (int32)Vis->GetCurrentBiome());
+		UE_LOG(LogMistspire, Log, TEXT("Bloom: %.2f (threshold %.2f)"), V.BloomIntensity, V.BloomThreshold);
+		UE_LOG(LogMistspire, Log, TEXT("AO: %.2f | FogDensity: %.2f | FogColor: %.2f %.2f %.2f"),
+			V.AmbientOcclusionIntensity, V.VolumetricFogDensity,
+			V.VolumetricFogColor.R, V.VolumetricFogColor.G, V.VolumetricFogColor.B);
+		UE_LOG(LogMistspire, Log, TEXT("ColorTemp: %.0fK | Sat: %.2f | Contrast: %.2f | Gamma: %.2f"),
+			V.ColorTemperature, V.Saturation, V.Contrast, V.Gamma);
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireVisualDebug(
+	TEXT("mistspire.VisualDebug"),
+	TEXT("Log current visual enhancement state."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireVisualDebug));
+
+static void MistspireForceBiomeVisuals(const TArray<FString>& Args)
+{
+	if (!GWorld) return;
+	if (UMistspireVisualEnhancementSubsystem* Vis = GWorld->GetSubsystem<UMistspireVisualEnhancementSubsystem>())
+	{
+		if (Args.Num() < 1)
+		{
+			Vis->ClearForcedBiome();
+			UE_LOG(LogMistspire, Log, TEXT("Cleared forced biome visuals."));
+			return;
+		}
+		int32 Idx = FCString::Atoi(*Args[0]);
+		if (Idx >= 0 && Idx <= 10)
+		{
+			Vis->ForceBiomeVisuals((EMistspireBiomeType)Idx);
+			UE_LOG(LogMistspire, Log, TEXT("Forced biome visuals to %d"), Idx);
+		}
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireForceBiomeVisuals(
+	TEXT("mistspire.ForceBiomeVisuals"),
+	TEXT("Force biome visual preset (0-10). No arg to clear."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireForceBiomeVisuals));
+
+static void MistspireVisualIntensity(const TArray<FString>& Args)
+{
+	if (!GWorld) return;
+	if (UMistspireVisualEnhancementSubsystem* Vis = GWorld->GetSubsystem<UMistspireVisualEnhancementSubsystem>())
+	{
+		float Val = 1.f;
+		if (Args.Num() > 0) Val = FCString::Atof(*Args[0]);
+		Vis->SetOverrideIntensity(Val);
+		UE_LOG(LogMistspire, Log, TEXT("Visual override intensity set to %.2f"), Val);
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireVisualIntensity(
+	TEXT("mistspire.VisualIntensity"),
+	TEXT("Set visual effects intensity multiplier (0-2)."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireVisualIntensity));

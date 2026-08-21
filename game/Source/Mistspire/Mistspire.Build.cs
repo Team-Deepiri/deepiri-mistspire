@@ -8,9 +8,9 @@ public class Mistspire : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core", "CoreUObject", "Engine", "InputCore",
-			"HeadMountedDisplay", "EnhancedInput", "MistspireOpenXRNative",
+			"HeadMountedDisplay", "EnhancedInput", "CableComponent", "MistspireOpenXRNative",
 			"OnlineSubsystem", "OnlineSubsystemUtils", "OnlineSubsystemSteam",
-			"PhysicsCore", "CableComponent", "Voice",
+			"PhysicsCore", "Voice",
 			"AIModule", "GameplayTags", "NavigationSystem",
 		});
 

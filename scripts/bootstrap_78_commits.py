@@ -36,7 +36,7 @@ def expand_files() -> None:
 
     for i in range(1, 31):
         write(
-            f"docs/chapters/chapter_{i:02d}_ascent.md",
+            f"docs/gameplay/chapters/chapter_{i:02d}_ascent.md",
             f"# Ascent chapter {i}\n\nStratum notes for Mistspire vertical slice segment {i}.\n\n"
             f"- Target altitude band: {i * 250}–{(i + 1) * 250} m\n"
             f"- PCG layer: `DL_PCG_Biome_{biomes[i % len(biomes)].title()}`\n"
@@ -45,7 +45,7 @@ def expand_files() -> None:
 
     for b in biomes:
         write(
-            f"docs/biomes/{b}.md",
+            f"docs/gameplay/biomes/{b}.md",
             f"# Biome: {b}\n\nMistspire World Partition data layer `DL_PCG_Biome_{b.title()}`.\n",
         )
         write(
@@ -55,7 +55,7 @@ def expand_files() -> None:
 
     for sid, title, alt in summits:
         write(
-            f"docs/summits/{sid}.md",
+            f"docs/gameplay/summits/{sid}.md",
             f"# Summit: {sid}\n\n**{title}** — official altitude ~{alt} m.\n\nMarker: `AMistspireSummitMarker` with `SummitId=summit_{sid}`.\n",
         )
         write(
@@ -65,7 +65,7 @@ def expand_files() -> None:
 
     for h in headsets:
         write(
-            f"docs/hardware/{h}.md",
+            f"docs/architecture/hardware/{h}.md",
             f"# {h.replace('_', ' ').title()}\n\nSee `interaction_profiles/openxr/` bindings.\n",
         )
 
@@ -101,8 +101,8 @@ def expand_files() -> None:
             f"# Manual test {n}\n\n- [ ] VR Preview launches\n- [ ] Altitude HUD updates\n- [ ] Summit {n} reachable\n",
         )
 
-    write("docs/api/README.md", "# Mistspire API docs\n\nNative and Blueprint surfaces.\n")
-    write("docs/design/lore.md", "# Lore\n\nThe world is mist between spires. Climb to see what the sky hides.\n")
+    write("docs/architecture/api/README.md", "# Mistspire API docs\n\nNative and Blueprint surfaces.\n")
+    write("docs/gameplay/design/lore.md", "# Lore\n\nThe world is mist between spires. Climb to see what the sky hides.\n")
     write(".github/workflows/validate.yml", "name: validate\non: [push, pull_request]\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - run: test -f game/Mistspire.uproject\n")
     write(".github/PULL_REQUEST_TEMPLATE.md", "## Summary\n\n## Test plan\n")
     write(".github/ISSUE_TEMPLATE/bug_report.md", "---\nname: Bug\n---\n## Steps\n")

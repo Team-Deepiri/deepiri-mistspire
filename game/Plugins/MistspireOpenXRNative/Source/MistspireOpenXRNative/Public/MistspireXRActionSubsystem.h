@@ -3,9 +3,10 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "MistspireXRActionSubsystem.generated.h"
 
-struct XrActionSet_T; struct XrAction_T;
+struct XrActionSet_T; struct XrAction_T; struct XrSpace_T;
 typedef struct XrActionSet_T* XrActionSet;
 typedef struct XrAction_T* XrAction;
+typedef struct XrSpace_T* XrSpace;
 
 USTRUCT(BlueprintType)
 struct FMistspireXRInputState

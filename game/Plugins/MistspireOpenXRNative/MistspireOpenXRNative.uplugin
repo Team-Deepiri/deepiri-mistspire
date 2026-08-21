@@ -1,14 +1,30 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
+	"VersionName": "1.0",
 	"FriendlyName": "Mistspire OpenXR Native",
-	"Description": "OpenXR bridge for Mistspire",
+	"Description": "OpenXR bridge for Mistspire — uses UE OpenXRHMD session handles (no parallel XrInstance).",
 	"Category": "Virtual Reality",
 	"CreatedBy": "Team Deepiri",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EnabledByDefault": true,
 	"CanContainContent": false,
-	"Modules": [{ "Name": "MistspireOpenXRNative", "Type": "Runtime", "LoadingPhase": "Default" }],
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "MistspireOpenXRNative",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
 	"Plugins": [
-		{ "Name": "OpenXR", "Enabled": true },
-		{ "Name": "OpenXRCore", "Enabled": true }
+		{
+			"Name": "OpenXR",
+			"Enabled": true
+		}
 	]
 }

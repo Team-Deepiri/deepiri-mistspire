@@ -22,12 +22,17 @@
         },
         {
           "inputs": { "position": true },
-          "path": "/user/hand/left/input/trackpad",
+          "path": "/user/hand/left/input/trackpad/y",
           "action": "move"
         },
         {
           "inputs": { "position": true },
-          "path": "/user/hand/right/input/trackpad",
+          "path": "/user/hand/left/input/trackpad/x",
+          "action": "strafe"
+        },
+        {
+          "inputs": { "position": true },
+          "path": "/user/hand/right/input/trackpad/x",
           "action": "turn"
         },
         {

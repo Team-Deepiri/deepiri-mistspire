@@ -72,6 +72,11 @@ FMistspireUtilityDecision UMistspireUtilityEvaluator::EvaluateBest() const
 
 UMistspireUtilityEvaluator* UMistspireUtilityEvaluator::MakeClimberEvaluator(UObject* Outer)
 {
+	return MakeClimberEvaluator(Outer, FMistspireUtilityClimberTuning());
+}
+
+UMistspireUtilityEvaluator* UMistspireUtilityEvaluator::MakeClimberEvaluator(UObject* Outer, const FMistspireUtilityClimberTuning& Tuning)
+{
 	UMistspireUtilityEvaluator* Evaluator = NewObject<UMistspireUtilityEvaluator>(Outer);
 	Evaluator->Options.SetNum(3);
 
@@ -79,7 +84,7 @@ UMistspireUtilityEvaluator* UMistspireUtilityEvaluator::MakeClimberEvaluator(UOb
 	{
 		FMistspireUtilityOption& Rest = Evaluator->Options[0];
 		Rest.Name = TEXT("Rest");
-		Rest.Weight = 1.f;
+		Rest.Weight = Tuning.RestWeight;
 		Rest.Considerations.SetNum(2);
 		Rest.Considerations[0] = NewObject<UMistspireUtilityConsideration>(Evaluator);
 		Rest.Considerations[0]->InputName = TEXT("Stamina");
@@ -93,7 +98,7 @@ UMistspireUtilityEvaluator* UMistspireUtilityEvaluator::MakeClimberEvaluator(UOb
 	{
 		FMistspireUtilityOption& Climb = Evaluator->Options[1];
 		Climb.Name = TEXT("ClimbOn");
-		Climb.Weight = 1.2f;
+		Climb.Weight = Tuning.ClimbOnWeight;
 		Climb.Considerations.SetNum(2);
 		Climb.Considerations[0] = NewObject<UMistspireUtilityConsideration>(Evaluator);
 		Climb.Considerations[0]->InputName = TEXT("Stamina");
@@ -105,7 +110,7 @@ UMistspireUtilityEvaluator* UMistspireUtilityEvaluator::MakeClimberEvaluator(UOb
 	{
 		FMistspireUtilityOption& Shelter = Evaluator->Options[2];
 		Shelter.Name = TEXT("FindShelter");
-		Shelter.Weight = 1.5f;
+		Shelter.Weight = Tuning.FindShelterWeight;
 		Shelter.Considerations.SetNum(2);
 		Shelter.Considerations[0] = NewObject<UMistspireUtilityConsideration>(Evaluator);
 		Shelter.Considerations[0]->InputName = TEXT("Exposure");

@@ -12,7 +12,11 @@ enum class EMistspireBiomeType : uint8
 	Forest,
 	Ember,
 	Crystal,
-	Void
+	Void,
+	Tundra,
+	Aether,
+	Sanctum,
+	Pinnacle
 };
 
 UENUM(BlueprintType)
@@ -25,7 +29,11 @@ enum class EMistspireBiomeHazard : uint8
 	LightBlindness,
 	MagmaticBurst,
 	Hypoxia,
-	ThinIce
+	ThinIce,
+	Blizzard,
+	GravityAnomaly,
+	OxygenVacuum,
+	CosmicRadiation
 };
 
 USTRUCT(BlueprintType)
