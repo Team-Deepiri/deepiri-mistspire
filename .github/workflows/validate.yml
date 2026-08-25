@@ -1,7 +1,22 @@
+on:
+  pull_request:
+    branches: [main, dev]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 name: validate
 on: [push, pull_request]
 jobs:
   lint:
+    timeout-minutes: 20
     name: Project structure
     runs-on: ubuntu-latest
     steps:
@@ -15,6 +30,7 @@ jobs:
           done
 
   shellcheck:
+    timeout-minutes: 20
     name: Shellcheck
     runs-on: ubuntu-latest
     steps:
@@ -23,6 +39,7 @@ jobs:
       - run: shellcheck -x scripts/*.sh
 
   python-lint:
+    timeout-minutes: 20
     name: Python lint (ruff)
     runs-on: ubuntu-latest
     steps:
@@ -34,6 +51,7 @@ jobs:
       - run: ruff check scripts/*.py
 
   xr-sandbox-build:
+    timeout-minutes: 20
     name: Build xr-sandbox (native, no Unreal Editor)
     runs-on: ubuntu-latest
     steps:
