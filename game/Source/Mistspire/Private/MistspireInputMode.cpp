@@ -45,18 +45,18 @@ bool FMistspireInputMode::IsNonVRMode(const UWorld* World)
 		return true;
 	}
 
+#if WITH_EDITOR
+	if (World && World->IsPlayInEditor())
+	{
+		// Plain Play = non-VR; VR Preview enables stereo rendering.
+		return !IsStereoRenderingActive();
+	}
+#endif
+
 	if (IsStereoRenderingActive())
 	{
 		return false;
 	}
-
-#if WITH_EDITOR
-	if (World && World->IsPlayInEditor())
-	{
-		// Default editor Play is non-VR; VR Preview enables stereo via IsHeadMountedDisplayEnabled above.
-		return true;
-	}
-#endif
 
 	return !UHeadMountedDisplayFunctionLibrary::IsHeadMountedDisplayConnected();
 }

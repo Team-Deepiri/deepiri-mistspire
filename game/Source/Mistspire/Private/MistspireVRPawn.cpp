@@ -26,14 +26,13 @@
 #include "IMotionController.h"
 #include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
+#include "Engine/World.h"
 
 namespace
 {
 	constexpr float MaxLocomotionRpcDeltaCm = 2500.f;
 	constexpr float MaxTeleportRpcDistanceCm = 2500.f;
 }
-#include "Net/UnrealNetwork.h"
-#include "Engine/World.h"
 
 AMistspireVRPawn::AMistspireVRPawn()
 {
@@ -603,7 +602,8 @@ void AMistspireVRPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	if (!FMistspireInputMode::IsNonVRMode(GetWorld()))
+	bNonVRMode = FMistspireInputMode::IsNonVRMode(GetWorld());
+	if (!bNonVRMode)
 	{
 		return;
 	}
