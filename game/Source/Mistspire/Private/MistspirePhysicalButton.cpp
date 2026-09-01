@@ -121,7 +121,7 @@ void AMistspirePhysicalButton::ExecuteBuiltInAction()
 	}
 }
 
-void AMistspirePhysicalButton::MistspireInteract_Implementation(AActor* Instigator)
+void AMistspirePhysicalButton::MistspireInteract_Implementation(AActor* InteractInstigator)
 {
 	if (!bIsPressed)
 	{

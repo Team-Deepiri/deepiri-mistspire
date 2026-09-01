@@ -50,6 +50,12 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ApplyTeleport(const FVector& TargetLocation);
 
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Narrative")
+	void DeliverLoreShard(const FText& Title, const FText& Body);
+
+	UFUNCTION(Client, Reliable)
+	void ClientReceiveLoreShard(FText Title, FText Body);
+
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void TeleportForward(float DistanceCm = 800.f);
 
@@ -213,6 +219,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float JumpImpulseCmPerSec = 450.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRJumpImpulseCmPerSec = 650.f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float TeleportForwardCm = 800.f;
 
@@ -298,6 +307,8 @@ private:
 	void TryGrappleShot();
 	void TryMantle(float DeltaTime);
 	void UpdateBeaconPulseHaptics();
+	void ReceiveLoreShardLocal(const FText& Title, const FText& Body);
+	bool IsGrounded() const;
 	UFUNCTION()
 	void HandleSummitReached(FName SummitId);
 
@@ -319,4 +330,6 @@ private:
 	float GliderBoostMultiplier = 1.65f;
 	bool bGrappleHeld = false;
 	float NotificationTimer = 0.f;
+	float HeartbeatTimer = 0.f;
+	float PhysTimer = 0.f;
 };

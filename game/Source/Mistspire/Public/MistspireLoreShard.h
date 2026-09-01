@@ -17,7 +17,7 @@ class MISTSPIRE_API AMistspireLoreShard : public AActor, public IMistspireIntera
 public:
 	AMistspireLoreShard();
 
-	virtual void MistspireInteract_Implementation(AActor* Instigator) override;
+	virtual void MistspireInteract_Implementation(AActor* InteractInstigator) override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -27,6 +27,10 @@ protected:
 		int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	void CollectShard(AMistspireVRPawn* Pawn);
+	void ApplyCollection(AMistspireVRPawn* Pawn);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerCollectShard(AMistspireVRPawn* CollectingPawn);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Lore")
 	FText LoreTitle;

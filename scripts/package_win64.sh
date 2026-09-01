@@ -27,7 +27,10 @@ fi
 
 UAT="$UE_ROOT/Engine/Build/BatchFiles/RunUAT.sh"
 if [[ ! -x "$UAT" ]]; then
-  UAT="$UE_ROOT/Engine/Build/BatchFiles/RunUAT.bat"
+  echo "Linux RunUAT not found at $UAT."
+  echo "On Windows, package from UE Editor (Platforms -> Windows -> Package Project)"
+  echo "or set UE_ROOT to a Linux engine install for this script."
+  exit 1
 fi
 
 echo "==> Cooking and packaging Mistspire Win64..."

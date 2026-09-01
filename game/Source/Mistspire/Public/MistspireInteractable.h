@@ -17,5 +17,5 @@ class MISTSPIRE_API IMistspireInteractable
 public:
 	/** Keyboard/mouse Use (E) or VR proximity activate. */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Mistspire|Interaction")
-	void MistspireInteract(AActor* Instigator);
+	void MistspireInteract(AActor* InteractInstigator);
 };

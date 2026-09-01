@@ -63,12 +63,12 @@ mistspire.RefillSurvival
 | Editor **Play** | Non-VR (keyboard/mouse) |
 | Editor **VR Preview** | VR (OpenXR controllers) |
 | `-nonvr` or `-demoflat` CLI flag | Force non-VR |
-| `-forcvr` CLI flag | Force VR input |
+| `-forcvr` or `-forcevr` CLI flag | Force VR input |
 | Packaged, no HMD connected | Non-VR |
 
 ## World bootstrap
 
-On non-VR start, if there is **no ground** under `PlayerStart`, the game spawns a fallback floor (400 m) and stepping platforms. If `Main_WP` already has landscape, it uses the map as-is.
+On non-VR start, after a short delay (to allow World Partition to stream), if there is **no ground** under `PlayerStart`, the game spawns a fallback floor (400 m) and stepping platforms. If `Main_WP` already has landscape, it uses the map as-is.
 
 Atlas door/POI markers are **not** spawned in non-VR by default (set `bSpawnAtlasMarkersInNonVR` on `MistspireGameMode` to enable).
 

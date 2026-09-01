@@ -10,18 +10,22 @@ echo "  Mistspire — Non-VR Mode"
 echo "============================================"
 echo ""
 echo "Once the editor loads, click Play (NOT VR Preview)."
+echo "Note: -nonvr disables VR Preview for this editor session until restart."
 echo "Controls: docs/setup/NONVR_MODE.md"
 echo ""
 
 UE_EDITOR=""
-CANDIDATES=(
-  "${UE_ROOT:-}/Engine/Binaries/Linux/UnrealEditor"
+CANDIDATES=()
+if [[ -n "${UE_ROOT:-}" ]]; then
+  CANDIDATES+=("$UE_ROOT/Engine/Binaries/Linux/UnrealEditor")
+fi
+CANDIDATES+=(
   "$HOME/UE_5.8/Engine/Binaries/Linux/UnrealEditor"
   "$HOME/UE_5.5/Engine/Binaries/Linux/UnrealEditor"
 )
 
 for cand in "${CANDIDATES[@]}"; do
-  if [[ -n "$cand" && -x "$cand" ]]; then
+  if [[ -x "$cand" ]]; then
     UE_EDITOR="$cand"
     break
   fi

@@ -29,7 +29,7 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Mistspire|Interaction")
 	FOnButtonPressed OnButtonPressed;
 
-	virtual void MistspireInteract_Implementation(AActor* Instigator) override;
+	virtual void MistspireInteract_Implementation(AActor* InteractInstigator) override;
 
 protected:
 	virtual void BeginPlay() override;

@@ -6,7 +6,7 @@ Prerequisites: compile C++ module; open `Main_WP`; click **Play** (not VR Previe
 
 - [ ] WASD moves the pawn on the ground or fallback floor
 - [ ] Mouse look rotates the camera
-- [ ] Space jumps; gravity returns pawn to ground
+- [ ] Space jumps only when grounded; gravity returns pawn to ground
 
 ## Traversal
 
@@ -19,6 +19,7 @@ Prerequisites: compile C++ module; open `Main_WP`; click **Play** (not VR Previe
 ## Systems
 
 - [ ] On-screen HUD shows altitude, stamina, O₂, weather, biome
+- [ ] `mistspire.ShowControls 1` shows control hints without `mistspire.ShowAltitudeHUD 1`
 - [ ] `mistspire.TeleportUp 5000` raises altitude; HUD updates
 - [ ] `mistspire.AltitudeStats` logs to output log
 - [ ] Walking into rest shelter / oxygen canister overlap refills (if placed)
@@ -32,7 +33,11 @@ Prerequisites: compile C++ module; open `Main_WP`; click **Play** (not VR Previe
 
 - [ ] `Mistspire.exe -nonvr` launches without OpenXR runtime
 - [ ] Keyboard/mouse controls work in packaged build
+- [ ] With a headset connected, `-nonvr` still forces keyboard/mouse mode
+- [ ] Without a headset, `-forcvr` / `-forcevr` attempts VR (may fail gracefully)
 
 ## VR regression
 
-- [ ] VR Preview still uses controller input (`-forcvr` if testing packaged)
+- [ ] VR Preview still uses controller input
+- [ ] Packaged `-forcvr` forces VR when a runtime is available
+- [ ] VR jump (controller) still works; desktop keys do not interrupt VR climb

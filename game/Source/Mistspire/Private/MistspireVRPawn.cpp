@@ -26,6 +26,13 @@
 #include "IMotionController.h"
 #include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
+
+namespace
+{
+	constexpr float MaxLocomotionRpcDeltaCm = 2500.f;
+	constexpr float MaxTeleportRpcDistanceCm = 2500.f;
+}
+#include "Net/UnrealNetwork.h"
 #include "Engine/World.h"
 
 AMistspireVRPawn::AMistspireVRPawn()
@@ -539,7 +546,6 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		}
 
 		// Adrenaline & Heartbeat Haptics (Scale with Exhaustion, Hypoxia, and Panic)
-		static float HeartbeatTimer = 0.f;
 		HeartbeatTimer += DeltaTime;
 		
 		float SpeedFactor = GliderVelocity.Size() / 3000.f;
@@ -782,7 +788,10 @@ void AMistspireVRPawn::ApplySmoothLocomotion(FVector2D MoveInput, float DeltaTim
 	}
 }
 
-bool AMistspireVRPawn::Server_ApplySmoothLocomotion_Validate(FVector Delta) { return true; }
+bool AMistspireVRPawn::Server_ApplySmoothLocomotion_Validate(FVector Delta)
+{
+	return Delta.SizeSquared() <= FMath::Square(MaxLocomotionRpcDeltaCm);
+}
 void AMistspireVRPawn::Server_ApplySmoothLocomotion_Implementation(FVector Delta)
 {
 	AddActorWorldOffset(Delta, true);
@@ -1063,7 +1072,6 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 	}
 
 	// Physiology sounds (timered to avoid spam)
-	static float PhysTimer = 0.f;
 	PhysTimer += DeltaTime;
 	if (AudioSys && PhysTimer >= 2.f)
 	{
@@ -1471,7 +1479,10 @@ void AMistspireVRPawn::ApplyTeleport(const FVector& TargetLocation)
 	}
 }
 
-bool AMistspireVRPawn::Server_ApplyTeleport_Validate(const FVector& TargetLocation) { return true; }
+bool AMistspireVRPawn::Server_ApplyTeleport_Validate(const FVector& TargetLocation)
+{
+	return FVector::DistSquared(GetActorLocation(), TargetLocation) <= FMath::Square(MaxTeleportRpcDistanceCm);
+}
 void AMistspireVRPawn::Server_ApplyTeleport_Implementation(const FVector& TargetLocation)
 {
 	SetActorLocation(TargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
@@ -1479,8 +1490,60 @@ void AMistspireVRPawn::Server_ApplyTeleport_Implementation(const FVector& Target
 
 void AMistspireVRPawn::TeleportForward(float DistanceCm)
 {
-	const FVector Target = GetActorLocation() + VRCamera->GetForwardVector() * DistanceCm;
+	const float ClampedDistance = FMath::Clamp(DistanceCm, 0.f, TeleportForwardCm);
+	const FVector Target = GetActorLocation() + VRCamera->GetForwardVector() * ClampedDistance;
 	ApplyTeleport(Target);
+}
+
+bool AMistspireVRPawn::IsGrounded() const
+{
+	const UWorld* World = GetWorld();
+	if (!World || !Capsule)
+	{
+		return false;
+	}
+
+	const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+	const FVector TraceStart = GetActorLocation();
+	const FVector TraceEnd = TraceStart - FVector(0.f, 0.f, HalfHeight + 30.f);
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(NonVRGrounded), false, this);
+	return World->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params) && Hit.bBlockingHit;
+}
+
+void AMistspireVRPawn::ReceiveLoreShardLocal(const FText& Title, const FText& Body)
+{
+	if (UMistspireNarrativeSubsystem* Narr = GetWorld()->GetSubsystem<UMistspireNarrativeSubsystem>())
+	{
+		Narr->PushLine(FText::Format(
+			NSLOCTEXT("Mistspire", "LoreShard", "{0} — {1}"),
+			Title, Body), 8.f);
+	}
+
+	if (!bNonVRMode)
+	{
+		if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+		{
+			XR->TriggerHapticVibration(true, 0.2f, 0.08f, 110.f);
+		}
+	}
+}
+
+void AMistspireVRPawn::DeliverLoreShard(const FText& Title, const FText& Body)
+{
+	if (IsLocallyControlled())
+	{
+		ReceiveLoreShardLocal(Title, Body);
+	}
+	else if (GetNetMode() != NM_Client)
+	{
+		ClientReceiveLoreShard(Title, Body);
+	}
+}
+
+void AMistspireVRPawn::ClientReceiveLoreShard_Implementation(FText Title, FText Body)
+{
+	ReceiveLoreShardLocal(Title, Body);
 }
 
 void AMistspireVRPawn::StartClimb()
@@ -1567,7 +1630,19 @@ void AMistspireVRPawn::Server_ToggleGlider_Implementation(bool bEnable) { bGlide
 
 void AMistspireVRPawn::TryJump()
 {
-	VerticalVelocityCmPerSec = JumpImpulseCmPerSec;
+	if (bNonVRMode)
+	{
+		if (!IsGrounded() || VerticalVelocityCmPerSec > 0.f)
+		{
+			return;
+		}
+		VerticalVelocityCmPerSec = NonVRJumpImpulseCmPerSec;
+	}
+	else
+	{
+		VerticalVelocityCmPerSec = JumpImpulseCmPerSec;
+	}
+
 	if (GetLocalRole() < ROLE_Authority)
 	{
 		Server_TryJump();

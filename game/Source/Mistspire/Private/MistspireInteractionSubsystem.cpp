@@ -6,12 +6,6 @@
 #include "Kismet/GameplayStatics.h"
 #include "Components/PrimitiveComponent.h"
 
-void UMistspireInteractionSubsystem::OnWorldBeginPlay(UWorld& InWorld)
-{
-	Super::OnWorldBeginPlay(InWorld);
-	bCachedNonVRMode = FMistspireInputMode::IsNonVRMode(&InWorld);
-}
-
 void UMistspireInteractionSubsystem::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -23,12 +17,13 @@ void UMistspireInteractionSubsystem::Tick(float DeltaTime)
 		return;
 	}
 
-	TArray<FVector> ProximityPoints;
-	GatherProximityPoints(VRPawn, ProximityPoints);
+	const bool bNonVR = FMistspireInputMode::IsNonVRMode(GetWorld());
 
-	const float ProximityCm = bCachedNonVRMode ? 120.f : 35.f;
+	TArray<FVector> ProximityPoints;
+	GatherProximityPoints(VRPawn, ProximityPoints, bNonVR);
+
+	const float ProximityCm = bNonVR ? 120.f : 35.f;
 	UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>();
-	const bool bNonVR = bCachedNonVRMode;
 
 	for (AActor* Actor : InteractiveActors)
 	{
@@ -70,7 +65,7 @@ void UMistspireInteractionSubsystem::Tick(float DeltaTime)
 
 void UMistspireInteractionSubsystem::TryInteractFromPawn(AMistspireVRPawn* Pawn)
 {
-	if (!Pawn || !bCachedNonVRMode)
+	if (!Pawn || !FMistspireInputMode::IsNonVRMode(GetWorld()))
 	{
 		return;
 	}
@@ -90,13 +85,14 @@ void UMistspireInteractionSubsystem::TryInteractFromPawn(AMistspireVRPawn* Pawn)
 	}
 }
 
-void UMistspireInteractionSubsystem::GatherProximityPoints(AMistspireVRPawn* Pawn, TArray<FVector>& OutPoints) const
+void UMistspireInteractionSubsystem::GatherProximityPoints(
+	AMistspireVRPawn* Pawn, TArray<FVector>& OutPoints, bool bNonVRMode) const
 {
 	OutPoints.Reset();
 	OutPoints.Add(Pawn->GetActorLocation());
 	OutPoints.Add(Pawn->GetLeftHandWorldLocation());
 	OutPoints.Add(Pawn->GetRightHandWorldLocation());
-	if (bCachedNonVRMode)
+	if (bNonVRMode)
 	{
 		OutPoints.Add(Pawn->GetInteractionTraceEnd(80.f));
 	}

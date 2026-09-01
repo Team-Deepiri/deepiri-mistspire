@@ -10,6 +10,7 @@
 AMistspireLoreShard::AMistspireLoreShard()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
 
 	ShardSphere = CreateDefaultSubobject<USphereComponent>(TEXT("ShardSphere"));
 	SetRootComponent(ShardSphere);
@@ -40,9 +41,9 @@ void AMistspireLoreShard::OnShardOverlap(UPrimitiveComponent* Overlapped, AActor
 	}
 }
 
-void AMistspireLoreShard::MistspireInteract_Implementation(AActor* Instigator)
+void AMistspireLoreShard::MistspireInteract_Implementation(AActor* InteractInstigator)
 {
-	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(Instigator))
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(InteractInstigator))
 	{
 		CollectShard(Pawn);
 	}
@@ -50,26 +51,40 @@ void AMistspireLoreShard::MistspireInteract_Implementation(AActor* Instigator)
 
 void AMistspireLoreShard::CollectShard(AMistspireVRPawn* Pawn)
 {
-	if (bCollected || !Pawn || !Pawn->IsLocallyControlled())
+	if (bCollected || !Pawn)
 	{
 		return;
 	}
+
+	if (HasAuthority())
+	{
+		ApplyCollection(Pawn);
+	}
+	else if (Pawn->IsLocallyControlled())
+	{
+		ServerCollectShard(Pawn);
+	}
+}
+
+bool AMistspireLoreShard::ServerCollectShard_Validate(AMistspireVRPawn* CollectingPawn)
+{
+	return CollectingPawn != nullptr && !bCollected;
+}
+
+void AMistspireLoreShard::ServerCollectShard_Implementation(AMistspireVRPawn* CollectingPawn)
+{
+	ApplyCollection(CollectingPawn);
+}
+
+void AMistspireLoreShard::ApplyCollection(AMistspireVRPawn* Pawn)
+{
+	if (bCollected || !Pawn)
+	{
+		return;
+	}
+
 	bCollected = true;
-
-	if (UMistspireNarrativeSubsystem* Narr = GetWorld()->GetSubsystem<UMistspireNarrativeSubsystem>())
-	{
-		Narr->PushLine(FText::Format(
-			NSLOCTEXT("Mistspire", "LoreShard", "{0} — {1}"),
-			LoreTitle, LoreBody), 8.f);
-	}
-
-	if (!FMistspireInputMode::IsNonVRMode(GetWorld()))
-	{
-		if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
-		{
-			XR->TriggerHapticVibration(true, 0.2f, 0.08f, 110.f);
-		}
-	}
+	Pawn->DeliverLoreShard(LoreTitle, LoreBody);
 
 	if (UMistspireInteractionSubsystem* Sub = GetWorld()->GetSubsystem<UMistspireInteractionSubsystem>())
 	{

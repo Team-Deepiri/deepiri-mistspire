@@ -17,7 +17,6 @@ class MISTSPIRE_API UMistspireInteractionSubsystem : public UTickableWorldSubsys
 public:
 	virtual void Tick(float DeltaTime) override;
 	virtual TStatId GetStatId() const override;
-	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
 
 	void RegisterInteractiveActor(AActor* Actor);
 	void UnregisterInteractiveActor(AActor* Actor);
@@ -26,13 +25,11 @@ public:
 	void TryInteractFromPawn(AMistspireVRPawn* Pawn);
 
 private:
-	void GatherProximityPoints(AMistspireVRPawn* Pawn, TArray<FVector>& OutPoints) const;
+	void GatherProximityPoints(AMistspireVRPawn* Pawn, TArray<FVector>& OutPoints, bool bNonVRMode) const;
 
 	UPROPERTY()
 	TArray<TObjectPtr<AActor>> InteractiveActors;
 
 	UPROPERTY()
 	TMap<TObjectPtr<AActor>, bool> HighlightStates;
-
-	bool bCachedNonVRMode = false;
 };
