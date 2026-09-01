@@ -14,7 +14,14 @@ public:
 
 	virtual void StartPlay() override;
 
+	/** When false, atlas door/POI markers are not spawned in non-VR (reduces clutter). */
+	UPROPERTY(EditDefaultsOnly, Category = "Mistspire|NonVR")
+	bool bSpawnAtlasMarkersInNonVR = false;
+
 protected:
 	void SeedDefaultSummits();
 	void SeedWorldAtlas();
+	void EnsureNonVRPlayground();
+	bool HasGroundUnderLocation(const FVector& Location) const;
+	FVector ResolveNonVRSpawnLocation() const;
 };

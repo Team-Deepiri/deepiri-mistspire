@@ -12,6 +12,8 @@
 #include "MistspireWorldAtlasSubsystem.h"
 #include "MistspireInteriorSubsystem.h"
 #include "MistspireAudioSubsystem.h"
+#include "MistspireInputMode.h"
+#include "MistspireInteractionSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -149,10 +151,16 @@ void AMistspireVRPawn::BeginPlay()
 {
 	Super::BeginPlay();
 	LocomotionSpeedCmPerSec = DefaultLocomotionSpeedCmPerSec;
+	bNonVRMode = FMistspireInputMode::IsNonVRMode(GetWorld());
 
 	if (Capsule)
 	{
 		Capsule->SetGenerateOverlapEvents(true);
+	}
+
+	if (bNonVRMode)
+	{
+		ConfigureNonVRMode();
 	}
 
 	if (UWorld* World = GetWorld())
@@ -161,6 +169,115 @@ void AMistspireVRPawn::BeginPlay()
 		{
 			Registry->OnSummitReached.AddDynamic(this, &AMistspireVRPawn::HandleSummitReached);
 		}
+	}
+}
+
+void AMistspireVRPawn::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	if (bNonVRMode)
+	{
+		if (APlayerController* PC = Cast<APlayerController>(NewController))
+		{
+			PC->bShowMouseCursor = false;
+			PC->SetInputMode(FInputModeGameOnly());
+		}
+	}
+}
+
+void AMistspireVRPawn::ConfigureNonVRMode()
+{
+	bUseControllerRotationYaw = true;
+
+	if (VRCamera)
+	{
+		VRCamera->bUsePawnControlRotation = true;
+		VRCamera->SetRelativeLocation(FVector(0.f, 0.f, NonVREyeHeightCm));
+	}
+
+	if (VisualLeftHand) VisualLeftHand->SetHiddenInGame(true);
+	if (VisualRightHand) VisualRightHand->SetHiddenInGame(true);
+	if (FullBodyMesh) FullBodyMesh->SetHiddenInGame(true);
+	if (LeftHandController) LeftHandController->SetHiddenInGame(true);
+	if (RightHandController) RightHandController->SetHiddenInGame(true);
+
+	ShowNotification(
+		TEXT("WASD move | Mouse look | Shift climb/sprint | F grapple | G glider | T teleport | E interact"),
+		10.f);
+}
+
+FVector AMistspireVRPawn::GetInteractionTraceStart() const
+{
+	if (VRCamera)
+	{
+		return VRCamera->GetComponentLocation();
+	}
+	return GetActorLocation();
+}
+
+FVector AMistspireVRPawn::GetInteractionTraceEnd(float MaxDistanceCm) const
+{
+	const FVector Forward = VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector();
+	return GetInteractionTraceStart() + Forward * MaxDistanceCm;
+}
+
+void AMistspireVRPawn::PollNonVRInput()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	CachedMoveInput = FVector2D(NonVRMoveRight, NonVRMoveForward);
+	CachedTurnInput = 0.f;
+
+	const float BaseSpeed = DefaultLocomotionSpeedCmPerSec;
+	LocomotionSpeedCmPerSec = (bNonVRSprintHeld && !bNonVRClimbHeld && !bIsClimbing)
+		? SprintSpeedCmPerSec
+		: BaseSpeed;
+
+	if (bNonVRClimbHeld)
+	{
+		const FVector TraceStart = GetInteractionTraceStart();
+		const FVector TraceEnd = TraceStart + (VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector()) * 120.f;
+		FHitResult Hit;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(NonVRClimbTrace), false, this);
+		const bool bNearClimbable = World->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params)
+			&& Hit.bBlockingHit;
+
+		if (bNearClimbable && !bIsClimbing)
+		{
+			StartClimb();
+		}
+		else if (!bNearClimbable && bIsClimbing)
+		{
+			StopClimb();
+		}
+	}
+	else if (bIsClimbing)
+	{
+		StopClimb();
+	}
+}
+
+void AMistspireVRPawn::OnClimbPressed() { bNonVRClimbHeld = true; }
+void AMistspireVRPawn::OnClimbReleased() { bNonVRClimbHeld = false; if (bIsClimbing) StopClimb(); }
+void AMistspireVRPawn::OnSprintPressed() { bNonVRSprintHeld = true; }
+void AMistspireVRPawn::OnSprintReleased() { bNonVRSprintHeld = false; }
+void AMistspireVRPawn::OnGrapplePressed() { if (bNonVRMode) TryGrappleShot(); }
+void AMistspireVRPawn::OnGliderPressed() { if (bNonVRMode) ToggleGlider(!bGliderActive); }
+void AMistspireVRPawn::OnTeleportPressed() { if (bNonVRMode) TeleportForward(TeleportForwardCm); }
+void AMistspireVRPawn::OnInteractPressed()
+{
+	if (!bNonVRMode)
+	{
+		return;
+	}
+	if (UMistspireInteractionSubsystem* Interact = GetWorld()->GetSubsystem<UMistspireInteractionSubsystem>())
+	{
+		Interact->TryInteractFromPawn(this);
 	}
 }
 
@@ -183,7 +300,14 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 	if (IsLocallyControlled())
 	{
 		UWorld* World = GetWorld();
-		PollXRInput();
+		if (bNonVRMode)
+		{
+			PollNonVRInput();
+		}
+		else
+		{
+			PollXRInput();
+		}
 		
 		if (bIsClimbing)
 		{
@@ -196,8 +320,30 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		else
 		{
 			ApplySmoothLocomotion(CachedMoveInput, DeltaTime);
-			ApplyVerticalVelocity(VerticalVelocityCmPerSec * DeltaTime);
-			VerticalVelocityCmPerSec = FMath::FInterpTo(VerticalVelocityCmPerSec, 0.f, DeltaTime, 4.f);
+			if (bNonVRMode)
+			{
+				VerticalVelocityCmPerSec -= 2400.f * DeltaTime;
+				ApplyVerticalVelocity(VerticalVelocityCmPerSec * DeltaTime);
+
+				const float HalfHeight = Capsule ? Capsule->GetScaledCapsuleHalfHeight() : 88.f;
+				const FVector TraceStart = GetActorLocation();
+				const FVector TraceEnd = TraceStart - FVector(0.f, 0.f, HalfHeight + 30.f);
+				FHitResult GroundHit;
+				FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(DemoGroundTrace), false, this);
+				if (World->LineTraceSingleByChannel(GroundHit, TraceStart, TraceEnd, ECC_Visibility, QueryParams)
+					&& GroundHit.bBlockingHit)
+				{
+					if (VerticalVelocityCmPerSec < 0.f)
+					{
+						VerticalVelocityCmPerSec = 0.f;
+					}
+				}
+			}
+			else
+			{
+				ApplyVerticalVelocity(VerticalVelocityCmPerSec * DeltaTime);
+				VerticalVelocityCmPerSec = FMath::FInterpTo(VerticalVelocityCmPerSec, 0.f, DeltaTime, 4.f);
+			}
 		}
 		
 		UpdateAltitudeTracking();
@@ -283,7 +429,9 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			}
 		}
 
-		// Physical Hand Collisions
+		// Physical Hand Collisions (VR only)
+		if (!bNonVRMode)
+		{
 		auto UpdateHandPhysics = [&](USkeletalMeshComponent* VisualHand, UMotionControllerComponent* HandController)
 		{
 			if (!VisualHand || !HandController) return;
@@ -339,6 +487,7 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 				RightHolster->SetRelativeLocation(RPos);
 				RightHolster->SetRelativeRotation(BodyRot);
 			}
+		}
 		}
 
 		// Weather-Specific Haptics (Static Electricity, Storm Turbulence)
@@ -419,6 +568,46 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 void AMistspireVRPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	PlayerInputComponent->BindAxis(TEXT("MoveForward"), this, &AMistspireVRPawn::MoveForward);
+	PlayerInputComponent->BindAxis(TEXT("MoveRight"), this, &AMistspireVRPawn::MoveRight);
+	PlayerInputComponent->BindAxis(TEXT("Turn"), this, &AMistspireVRPawn::Turn);
+	PlayerInputComponent->BindAxis(TEXT("LookUp"), this, &AMistspireVRPawn::LookUp);
+	PlayerInputComponent->BindAction(TEXT("Jump"), IE_Pressed, this, &AMistspireVRPawn::TryJump);
+	PlayerInputComponent->BindAction(TEXT("Climb"), IE_Pressed, this, &AMistspireVRPawn::OnClimbPressed);
+	PlayerInputComponent->BindAction(TEXT("Climb"), IE_Released, this, &AMistspireVRPawn::OnClimbReleased);
+	PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMistspireVRPawn::OnSprintPressed);
+	PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Released, this, &AMistspireVRPawn::OnSprintReleased);
+	PlayerInputComponent->BindAction(TEXT("Grapple"), IE_Pressed, this, &AMistspireVRPawn::OnGrapplePressed);
+	PlayerInputComponent->BindAction(TEXT("Glider"), IE_Pressed, this, &AMistspireVRPawn::OnGliderPressed);
+	PlayerInputComponent->BindAction(TEXT("Teleport"), IE_Pressed, this, &AMistspireVRPawn::OnTeleportPressed);
+	PlayerInputComponent->BindAction(TEXT("Interact"), IE_Pressed, this, &AMistspireVRPawn::OnInteractPressed);
+}
+
+void AMistspireVRPawn::MoveForward(float Value)
+{
+	NonVRMoveForward = Value;
+}
+
+void AMistspireVRPawn::MoveRight(float Value)
+{
+	NonVRMoveRight = Value;
+}
+
+void AMistspireVRPawn::Turn(float Value)
+{
+	if (bNonVRMode && !FMath::IsNearlyZero(Value))
+	{
+		AddControllerYawInput(Value);
+	}
+}
+
+void AMistspireVRPawn::LookUp(float Value)
+{
+	if (bNonVRMode && !FMath::IsNearlyZero(Value))
+	{
+		AddControllerPitchInput(Value);
+	}
 }
 
 void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -525,18 +714,28 @@ void AMistspireVRPawn::PollXRInput()
 
 void AMistspireVRPawn::ApplySmoothLocomotion(FVector2D MoveInput, float DeltaTime)
 {
-	if (MoveInput.IsNearlyZero() && FMath::IsNearlyZero(CachedTurnInput))
+	if (MoveInput.IsNearlyZero() && (!bNonVRMode && FMath::IsNearlyZero(CachedTurnInput)))
 	{
 		return;
 	}
 
-	const FRotator YawRot(0.f, GetActorRotation().Yaw + CachedTurnInput * TurnRateDegPerSec * DeltaTime, 0.f);
+	const float YawDeg = bNonVRMode
+		? GetControlRotation().Yaw
+		: (GetActorRotation().Yaw + CachedTurnInput * TurnRateDegPerSec * DeltaTime);
+	const FRotator YawRot(0.f, YawDeg, 0.f);
 	const FVector Forward = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
 	const FVector Right = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
 	const FVector Delta = (Forward * MoveInput.Y + Right * MoveInput.X) * LocomotionSpeedCmPerSec * DeltaTime;
 
 	FHitResult Hit;
 	AddActorWorldOffset(Delta, true, &Hit);
+
+	if (bNonVRMode)
+	{
+		FRotator BodyRot = GetActorRotation();
+		BodyRot.Yaw = YawDeg;
+		SetActorRotation(BodyRot);
+	}
 	
 	if (GetLocalRole() < ROLE_Authority)
 	{
@@ -949,11 +1148,23 @@ void AMistspireVRPawn::UpdateAtmosphericEffects(float DeltaTime)
 
 FVector AMistspireVRPawn::GetLeftHandWorldLocation() const
 {
+	if (bNonVRMode)
+	{
+		const FVector Forward = VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector();
+		const FVector Origin = GetInteractionTraceStart();
+		return Origin + Forward * 50.f - FVector(15.f, 0.f, 0.f);
+	}
 	return LeftHandController ? LeftHandController->GetComponentLocation() : GetActorLocation();
 }
 
 FVector AMistspireVRPawn::GetRightHandWorldLocation() const
 {
+	if (bNonVRMode)
+	{
+		const FVector Forward = VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector();
+		const FVector Origin = GetInteractionTraceStart();
+		return Origin + Forward * 50.f + FVector(15.f, 0.f, 0.f);
+	}
 	return RightHandController ? RightHandController->GetComponentLocation() : GetActorLocation();
 }
 
@@ -991,26 +1202,38 @@ void AMistspireVRPawn::ApplyWindCrystalBoost(float DurationSeconds, float Stamin
 
 void AMistspireVRPawn::TryMantle(float DeltaTime)
 {
-	if (bIsClimbing || bGliderActive || !Capsule || !LeftHandController || !RightHandController)
+	if (bIsClimbing || bGliderActive || !Capsule)
 	{
 		return;
 	}
 
-	const float HandHeight = FMath::Max(
-		LeftHandController->GetRelativeLocation().Z,
-		RightHandController->GetRelativeLocation().Z);
-	if (HandHeight < Capsule->GetScaledCapsuleHalfHeight() * 0.55f)
+	float ReachHeight = Capsule->GetScaledCapsuleHalfHeight() * 0.55f;
+	if (bNonVRMode && VRCamera)
+	{
+		ReachHeight = VRCamera->GetRelativeLocation().Z;
+	}
+	else if (LeftHandController && RightHandController)
+	{
+		ReachHeight = FMath::Max(
+			LeftHandController->GetRelativeLocation().Z,
+			RightHandController->GetRelativeLocation().Z);
+	}
+
+	if (ReachHeight < Capsule->GetScaledCapsuleHalfHeight() * 0.55f)
 	{
 		return;
 	}
 
+	const FVector Forward = bNonVRMode && VRCamera
+		? VRCamera->GetForwardVector()
+		: GetActorForwardVector();
 	const FVector Start = GetActorLocation();
-	const FVector End = Start + GetActorForwardVector() * 90.f + FVector(0.f, 0.f, 130.f);
+	const FVector End = Start + Forward * 90.f + FVector(0.f, 0.f, 130.f);
 	FHitResult Hit;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(MistspireMantle), false, this);
 	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params) && Hit.bBlockingHit)
 	{
-		const FVector MantleDelta = FVector(0.f, 0.f, 95.f) + GetActorForwardVector() * 45.f;
+		const FVector MantleDelta = FVector(0.f, 0.f, 95.f) + Forward * 45.f;
 		AddActorWorldOffset(MantleDelta * FMath::Min(DeltaTime * 10.f, 1.f), true);
 	}
 }

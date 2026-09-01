@@ -3,6 +3,7 @@
 #include "MistspireInteractionSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "MistspireXRActionSubsystem.h"
+#include "MistspireInputMode.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 
@@ -33,11 +34,27 @@ void AMistspireLoreShard::BeginPlay()
 void AMistspireLoreShard::OnShardOverlap(UPrimitiveComponent* Overlapped, AActor* Other,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(Other);
-	if (!Pawn || !Pawn->IsLocallyControlled())
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(Other))
+	{
+		CollectShard(Pawn);
+	}
+}
+
+void AMistspireLoreShard::MistspireInteract_Implementation(AActor* Instigator)
+{
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(Instigator))
+	{
+		CollectShard(Pawn);
+	}
+}
+
+void AMistspireLoreShard::CollectShard(AMistspireVRPawn* Pawn)
+{
+	if (bCollected || !Pawn || !Pawn->IsLocallyControlled())
 	{
 		return;
 	}
+	bCollected = true;
 
 	if (UMistspireNarrativeSubsystem* Narr = GetWorld()->GetSubsystem<UMistspireNarrativeSubsystem>())
 	{
@@ -46,9 +63,12 @@ void AMistspireLoreShard::OnShardOverlap(UPrimitiveComponent* Overlapped, AActor
 			LoreTitle, LoreBody), 8.f);
 	}
 
-	if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+	if (!FMistspireInputMode::IsNonVRMode(GetWorld()))
 	{
-		XR->TriggerHapticVibration(true, 0.2f, 0.08f, 110.f);
+		if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+		{
+			XR->TriggerHapticVibration(true, 0.2f, 0.08f, 110.f);
+		}
 	}
 
 	Destroy();

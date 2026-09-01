@@ -1,8 +1,10 @@
 #include "MistspirePhysicalButton.h"
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireInteractionSubsystem.h"
+#include "MistspireInteractable.h"
 #include "MistspireVRPawn.h"
 #include "MistspireXRActionSubsystem.h"
+#include "MistspireInputMode.h"
 #include "MistspireNarrativeSubsystem.h"
 #include "Components/StaticMeshComponent.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
@@ -76,9 +78,12 @@ void AMistspirePhysicalButton::ExecuteBuiltInAction()
 		return;
 	}
 
-	if (UMistspireXRActionSubsystem* XR = World->GetSubsystem<UMistspireXRActionSubsystem>())
+	if (!FMistspireInputMode::IsNonVRMode(World))
 	{
-		XR->TriggerHapticVibration(true, 0.4f, 0.1f, 100.f);
+		if (UMistspireXRActionSubsystem* XR = World->GetSubsystem<UMistspireXRActionSubsystem>())
+		{
+			XR->TriggerHapticVibration(true, 0.4f, 0.1f, 100.f);
+		}
 	}
 
 	switch (BuiltInAction)
@@ -113,5 +118,15 @@ void AMistspirePhysicalButton::ExecuteBuiltInAction()
 			break;
 		default:
 			break;
+	}
+}
+
+void AMistspirePhysicalButton::MistspireInteract_Implementation(AActor* Instigator)
+{
+	if (!bIsPressed)
+	{
+		bIsPressed = true;
+		OnButtonPressed.Broadcast();
+		ExecuteBuiltInAction();
 	}
 }

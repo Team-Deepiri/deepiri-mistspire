@@ -3,8 +3,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "MistspireVRPawn.generated.h"
-
-class UCameraComponent;
 class UCapsuleComponent;
 class UMotionControllerComponent;
 class USkeletalMeshComponent;
@@ -23,9 +21,21 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void PossessedBy(AController* NewController) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	/** True when playing without a headset (editor PIE, packaged -nonvr, or no HMD). */
+	UFUNCTION(BlueprintPure, Category = "Mistspire|NonVR")
+	bool IsNonVRMode() const { return bNonVRMode; }
+
+	/** Camera-forward point used for non-VR interaction traces. */
+	UFUNCTION(BlueprintPure, Category = "Mistspire|NonVR")
+	FVector GetInteractionTraceStart() const;
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|NonVR")
+	FVector GetInteractionTraceEnd(float MaxDistanceCm = 400.f) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void ApplySmoothLocomotion(FVector2D MoveInput, float DeltaTime);
@@ -205,6 +215,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float TeleportForwardCm = 800.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVREyeHeightCm = 64.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
+	float SprintSpeedCmPerSec = 700.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|NonVR")
+	bool bNonVRMode = false;
+
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Traversal")
 	bool bIsClimbing = false;
 
@@ -253,6 +272,20 @@ public:
 	float CurrentAtmosphericPressure = 1.0f;
 
 private:
+	void ConfigureNonVRMode();
+	void PollNonVRInput();
+	void MoveForward(float Value);
+	void MoveRight(float Value);
+	void Turn(float Value);
+	void LookUp(float Value);
+	void OnClimbPressed();
+	void OnClimbReleased();
+	void OnSprintPressed();
+	void OnSprintReleased();
+	void OnGrapplePressed();
+	void OnGliderPressed();
+	void OnTeleportPressed();
+	void OnInteractPressed();
 	void PollXRInput();
 	void UpdateAltitudeTracking();
 	void ApplyVerticalVelocity(float DeltaCm);
@@ -267,7 +300,11 @@ private:
 	void HandleSummitReached(FName SummitId);
 
 	FVector2D CachedMoveInput;
+	float NonVRMoveForward = 0.f;
+	float NonVRMoveRight = 0.f;
 	float CachedTurnInput = 0.f;
+	bool bNonVRClimbHeld = false;
+	bool bNonVRSprintHeld = false;
 	float VerticalVelocityCmPerSec = 0.f;
 	bool bMenuPressedLast = false;
 	bool bMenuHeld = false;

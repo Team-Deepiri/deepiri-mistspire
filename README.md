@@ -12,7 +12,7 @@
 
 - Unreal Engine **5.8+** (Epic Launcher) — targets **Linux + Win64**
 - Git LFS (`git lfs pull` for `Main_WP`)
-- OpenXR runtime (SteamVR primary; see [headset guides](docs/setup/headsets/README.md))
+- OpenXR runtime for **VR Preview** (SteamVR primary; see [headset guides](docs/setup/headsets/README.md)) — not required for keyboard/mouse play
 - GPU with Vulkan 1.3 (RTX 40/50 series recommended)
 
 ## Quick start
@@ -24,6 +24,10 @@
 | **WSL** | git/LFS only — VR on Windows or native Linux | — |
 
 Full matrix: [docs/setup/PLATFORMS.md](docs/setup/PLATFORMS.md). Walkthrough: [docs/setup/DEV_BOOTSTRAP.md](docs/setup/DEV_BOOTSTRAP.md).
+
+Open `game/Mistspire.uproject` in the UE editor, allow C++ compile, then **Play → VR Preview** for headset testing.
+
+**Non-VR (keyboard/mouse):** click **Play** (not VR Preview), or run `.\run-nonvr.ps1` / `./run-nonvr.sh`. See [docs/setup/NONVR_MODE.md](docs/setup/NONVR_MODE.md).
 
 PCVR / headset detail: [PCVR development](docs/setup/PCVR_DEV_SETUP.md).
 
@@ -51,11 +55,10 @@ deepiri-mistspire/
 - [Architecture](docs/architecture/ARCHITECTURE.md)
 - [Day 1 maintainer checklist](docs/setup/DAY1_MAINTAINER_CHECKLIST.md)
 - [PCVR development](docs/setup/PCVR_DEV_SETUP.md) — [headset guides](docs/setup/headsets/README.md)
+- [Non-VR mode](docs/setup/NONVR_MODE.md)
 - [World design](docs/gameplay/WORLD_DESIGN.md)
 - [OpenXR runtimes](docs/architecture/OPENXR_RUNTIMES.md)
 - [Build / edit Main_WP](game/Content/Maps/README.md)
-
-
 
 ## WSL
 

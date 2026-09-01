@@ -4,7 +4,10 @@
 #include "MistspireZoneSubsystem.h"
 #include "MistspireWorldAtlasSubsystem.h"
 #include "MistspireInteriorSubsystem.h"
+#include "MistspireBeaconSubsystem.h"
 #include "MistspireVRPawn.h"
+#include "MistspireInputMode.h"
+#include "MistspireWorldTypes.h"
 #include "Engine/Engine.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
@@ -13,6 +16,12 @@ static TAutoConsoleVariable<int32> CVarMistspireShowAltitudeHud(
 	TEXT("mistspire.ShowAltitudeHUD"),
 	1,
 	TEXT("Draw immersive survival HUD on screen (0=off, 1=on)."),
+	ECVF_Default);
+
+static TAutoConsoleVariable<int32> CVarMistspireShowControls(
+	TEXT("mistspire.ShowControls"),
+	1,
+	TEXT("Draw non-VR control hints on screen (0=off, 1=on)."),
 	ECVF_Default);
 
 static TAutoConsoleVariable<int32> CVarMistspireAltitudeLogInterval(
@@ -57,6 +66,7 @@ void UMistspireAltitudeDebugSubsystem::Tick(float DeltaTime)
 
 	const float CurrentM = Alt->GetCurrentAltitudeCm() / 100.f;
 	const float BestM = Alt->GetPersonalBestAltitudeCm() / 100.f;
+	const bool bNonVR = FMistspireInputMode::IsNonVRMode(World);
 
 	if (IsHudEnabled() && GEngine)
 	{
@@ -87,9 +97,25 @@ void UMistspireAltitudeDebugSubsystem::Tick(float DeltaTime)
 
 		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
 		{
-			GEngine->AddOnScreenDebugMessage(
-				1, 0.f, FColor::Silver,
-				FString::Printf(TEXT("Weather: %s"), *Env->GetWeatherDisplayName().ToString()));
+			FString WeatherLine = FString::Printf(TEXT("Weather: %s"), *Env->GetWeatherDisplayName().ToString());
+
+			const EMistspireBiomeType Biome = Env->GetCurrentBiome();
+			switch (Biome)
+			{
+				case EMistspireBiomeType::Mist: WeatherLine += TEXT("   Biome: MIST"); break;
+				case EMistspireBiomeType::Arid: WeatherLine += TEXT("   Biome: ARID"); break;
+				case EMistspireBiomeType::Forest: WeatherLine += TEXT("   Biome: FOREST"); break;
+				case EMistspireBiomeType::Ember: WeatherLine += TEXT("   Biome: EMBER"); break;
+				case EMistspireBiomeType::Crystal: WeatherLine += TEXT("   Biome: CRYSTAL"); break;
+				case EMistspireBiomeType::Void: WeatherLine += TEXT("   Biome: VOID"); break;
+				case EMistspireBiomeType::Tundra: WeatherLine += TEXT("   Biome: TUNDRA"); break;
+				case EMistspireBiomeType::Aether: WeatherLine += TEXT("   Biome: AETHER"); break;
+				case EMistspireBiomeType::Sanctum: WeatherLine += TEXT("   Biome: SANCTUM"); break;
+				case EMistspireBiomeType::Pinnacle: WeatherLine += TEXT("   Biome: PINNACLE"); break;
+				default: break;
+			}
+
+			GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::Silver, WeatherLine);
 		}
 
 		if (APlayerController* PC = World->GetFirstPlayerController())
@@ -102,7 +128,26 @@ void UMistspireAltitudeDebugSubsystem::Tick(float DeltaTime)
 						100.f * Pawn->GetStaminaPercent(),
 						100.f * Pawn->GetOxygenPercent(),
 						Pawn->GetAtmosphericPressure()));
+
+				if (UMistspireBeaconSubsystem* Beacon = World->GetSubsystem<UMistspireBeaconSubsystem>())
+				{
+					const FMistspireBeaconTarget Target = Beacon->GetCachedBeacon();
+					if (Target.bValid)
+					{
+						GEngine->AddOnScreenDebugMessage(
+							4, 0.f, FColor::Orange,
+							FString::Printf(TEXT("Beacon: %.1f km  bearing %.0f deg"),
+								Target.DistanceCm / 100000.f, Target.BearingDegrees));
+					}
+				}
 			}
+		}
+
+		if (bNonVR && CVarMistspireShowControls.GetValueOnGameThread() != 0)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				5, 0.f, FColor::White,
+				TEXT("WASD move | Mouse look | Space jump | Shift climb/sprint | F grapple | G glider | T teleport | E interact"));
 		}
 	}
 

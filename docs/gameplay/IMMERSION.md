@@ -12,6 +12,22 @@
 | Menu | Teleport blink forward |
 | Hands high + forward | **Mantle** ledge assist |
 
+## Traversal (non-VR)
+
+Editor **Play** or packaged `-nonvr`. Full table: [docs/setup/NONVR_MODE.md](setup/NONVR_MODE.md).
+
+| Input | Action |
+|-------|--------|
+| WASD | Move |
+| Mouse | Look |
+| Space | Jump |
+| Left Control (hold) | Climb |
+| Left Shift (hold) | Sprint |
+| F / Right mouse | Grapple |
+| G | Glider toggle |
+| T | Teleport blink |
+| E | Interact |
+
 ## Survival
 
 - **Stamina** drains while climbing/gliding; **electric storms** drain passively.
