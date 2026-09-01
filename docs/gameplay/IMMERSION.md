@@ -14,7 +14,7 @@
 
 ## Traversal (non-VR)
 
-Editor **Play** or packaged `-nonvr`. Full table: [docs/setup/NONVR_MODE.md](setup/NONVR_MODE.md).
+Editor **Play** or packaged `-nonvr`. Full table: [docs/setup/NONVR_MODE.md](../setup/NONVR_MODE.md).
 
 | Input | Action |
 |-------|--------|

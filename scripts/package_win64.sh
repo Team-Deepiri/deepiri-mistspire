@@ -38,6 +38,7 @@ echo "    Output:  $ARCHIVE_DIR"
   -project="$UPROJECT" \
   -platform=Win64 \
   -clientconfig=Development \
+  -build -nop4 -utf8output \
   -cook -stage -pak -archive \
   -archivedirectory="$ARCHIVE_DIR"
 

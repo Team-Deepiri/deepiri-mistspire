@@ -13,6 +13,7 @@ public:
 	AMistspireGameMode();
 
 	virtual void StartPlay() override;
+	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
 
 	/** When false, atlas door/POI markers are not spawned in non-VR (reduces clutter). */
 	UPROPERTY(EditDefaultsOnly, Category = "Mistspire|NonVR")
@@ -22,6 +23,9 @@ protected:
 	void SeedDefaultSummits();
 	void SeedWorldAtlas();
 	void EnsureNonVRPlayground();
+	void DeferredNonVRSetup();
 	bool HasGroundUnderLocation(const FVector& Location) const;
 	FVector ResolveNonVRSpawnLocation() const;
+
+	FTimerHandle NonVRPlaygroundTimerHandle;
 };

@@ -19,6 +19,7 @@
 #include "GameFramework/PlayerStart.h"
 #include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
+#include "TimerManager.h"
 
 AMistspireGameMode::AMistspireGameMode()
 {
@@ -55,20 +56,16 @@ void AMistspireGameMode::StartPlay()
 
 		if (FMistspireInputMode::IsNonVRMode(World))
 		{
-			EnsureNonVRPlayground();
-
-			if (APlayerController* PC = World->GetFirstPlayerController())
-			{
-				if (APawn* Pawn = PC->GetPawn())
-				{
-					Pawn->SetActorLocation(ResolveNonVRSpawnLocation(), false, nullptr, ETeleportType::TeleportPhysics);
-				}
-			}
+			World->GetTimerManager().SetTimer(
+				NonVRPlaygroundTimerHandle,
+				this,
+				&AMistspireGameMode::DeferredNonVRSetup,
+				0.15f,
+				false);
 
 			if (AMistspireGameState* GS = World->GetGameState<AMistspireGameState>())
 			{
-				GS->BroadcastSocialAchievement(
-					TEXT("Non-VR mode — WASD move, mouse look, Shift climb/sprint, F grapple, G glider, T teleport, E interact."));
+				GS->BroadcastSocialAchievement(FMistspireInputMode::GetNonVRControlsHint());
 			}
 		}
 		else if (AMistspireGameState* GS = World->GetGameState<AMistspireGameState>())
@@ -123,6 +120,40 @@ void AMistspireGameMode::SeedWorldAtlas()
 	}
 }
 
+void AMistspireGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer)
+{
+	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
+
+	if (!FMistspireInputMode::IsNonVRMode(GetWorld()) || !NewPlayer)
+	{
+		return;
+	}
+
+	if (APawn* Pawn = NewPlayer->GetPawn())
+	{
+		Pawn->SetActorLocation(ResolveNonVRSpawnLocation(), false, nullptr, ETeleportType::TeleportPhysics);
+	}
+}
+
+void AMistspireGameMode::DeferredNonVRSetup()
+{
+	UWorld* World = GetWorld();
+	if (!World || !FMistspireInputMode::IsNonVRMode(World))
+	{
+		return;
+	}
+
+	EnsureNonVRPlayground();
+
+	if (APlayerController* PC = World->GetFirstPlayerController())
+	{
+		if (APawn* Pawn = PC->GetPawn())
+		{
+			Pawn->SetActorLocation(ResolveNonVRSpawnLocation(), false, nullptr, ETeleportType::TeleportPhysics);
+		}
+	}
+}
+
 bool AMistspireGameMode::HasGroundUnderLocation(const FVector& Location) const
 {
 	const UWorld* World = GetWorld();
@@ -135,7 +166,11 @@ bool AMistspireGameMode::HasGroundUnderLocation(const FVector& Location) const
 	const FVector TraceEnd = Location - FVector(0.f, 0.f, 5000.f);
 	FHitResult Hit;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(NonVRGroundCheck), false);
-	return World->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params) && Hit.bBlockingHit;
+	if (const APawn* Pawn = UGameplayStatics::GetPlayerPawn(World, 0))
+	{
+		Params.AddIgnoredActor(Pawn);
+	}
+	return World->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_WorldStatic, Params) && Hit.bBlockingHit;
 }
 
 FVector AMistspireGameMode::ResolveNonVRSpawnLocation() const
@@ -180,14 +215,31 @@ void AMistspireGameMode::EnsureNonVRPlayground()
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	if (AStaticMeshActor* Floor = World->SpawnActor<AStaticMeshActor>(FVector::ZeroVector, FRotator::ZeroRotator, Params))
+	auto SpawnPlaygroundMesh = [&](UStaticMesh* Mesh, const FVector& Location, const FVector& Scale) -> AStaticMeshActor*
 	{
-		if (UStaticMeshComponent* FloorMesh = Floor->GetStaticMeshComponent())
+		AStaticMeshActor* Actor = World->SpawnActorDeferred<AStaticMeshActor>(
+			AStaticMeshActor::StaticClass(), FTransform(Location), nullptr, nullptr,
+			Params.SpawnCollisionHandlingOverride);
+		if (!Actor)
 		{
-			FloorMesh->SetStaticMesh(PlaneMesh);
-			FloorMesh->SetMobility(EComponentMobility::Static);
+			return nullptr;
 		}
-		Floor->SetActorScale3D(FVector(400.f, 400.f, 1.f));
+		if (UStaticMeshComponent* MeshComp = Actor->GetStaticMeshComponent())
+		{
+			MeshComp->SetMobility(EComponentMobility::Movable);
+			if (Mesh)
+			{
+				MeshComp->SetStaticMesh(Mesh);
+			}
+		}
+		Actor->SetActorScale3D(Scale);
+		UGameplayStatics::FinishSpawningActor(Actor, FTransform(Location));
+		return Actor;
+	};
+
+	if (SpawnPlaygroundMesh(PlaneMesh, FVector::ZeroVector, FVector(400.f, 400.f, 1.f)))
+	{
+		// floor spawned
 	}
 
 	if (CubeMesh)
@@ -197,14 +249,9 @@ void AMistspireGameMode::EnsureNonVRPlayground()
 			const float X = 400.f * static_cast<float>(Step + 1);
 			const float Y = 250.f * FMath::Sin(static_cast<float>(Step) * 0.65f);
 			const float Z = 50.f + static_cast<float>(Step) * 120.f;
-			if (AStaticMeshActor* Platform = World->SpawnActor<AStaticMeshActor>(FVector(X, Y, Z), FRotator::ZeroRotator, Params))
+			if (SpawnPlaygroundMesh(CubeMesh, FVector(X, Y, Z), FVector(6.f, 6.f, 0.5f)))
 			{
-				if (UStaticMeshComponent* PlatformMesh = Platform->GetStaticMeshComponent())
-				{
-					PlatformMesh->SetStaticMesh(CubeMesh);
-					PlatformMesh->SetMobility(EComponentMobility::Static);
-				}
-				Platform->SetActorScale3D(FVector(6.f, 6.f, 0.5f));
+				// platform spawned
 			}
 		}
 	}

@@ -89,7 +89,7 @@ $UAT = "$env:UE_ROOT\Engine\Build\BatchFiles\RunUAT.bat"
 Launch:
 
 ```powershell
-.\game\Package\Win64\Mistspire\Binaries\Win64\Mistspire.exe -nonvr
+.\game\Package\Win64\Windows\Mistspire\Binaries\Win64\Mistspire.exe -nonvr
 ```
 
 OpenXR plugins remain enabled; they are not required when `-nonvr` is used and no headset is connected.

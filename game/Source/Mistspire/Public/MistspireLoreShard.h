@@ -7,6 +7,7 @@
 
 class UStaticMeshComponent;
 class USphereComponent;
+class AMistspireVRPawn;
 
 UCLASS()
 class MISTSPIRE_API AMistspireLoreShard : public AActor, public IMistspireInteractable

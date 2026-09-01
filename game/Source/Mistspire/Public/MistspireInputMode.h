@@ -9,6 +9,6 @@ struct MISTSPIRE_API FMistspireInputMode
 {
 	static bool IsNonVRMode(const UWorld* World);
 
-	/** @deprecated Use IsNonVRMode */
-	static bool IsNonVRMode() { return IsNonVRMode(nullptr); }
+	/** On-screen / toast hint for non-VR controls (single source of truth). */
+	static const TCHAR* GetNonVRControlsHint();
 };

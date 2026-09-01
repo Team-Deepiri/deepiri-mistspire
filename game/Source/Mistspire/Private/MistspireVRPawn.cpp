@@ -175,14 +175,26 @@ void AMistspireVRPawn::BeginPlay()
 void AMistspireVRPawn::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
+	ApplyNonVRPlayerControllerSettings();
+}
 
-	if (bNonVRMode)
+void AMistspireVRPawn::NotifyControllerChanged()
+{
+	Super::NotifyControllerChanged();
+	ApplyNonVRPlayerControllerSettings();
+}
+
+void AMistspireVRPawn::ApplyNonVRPlayerControllerSettings()
+{
+	if (!bNonVRMode)
 	{
-		if (APlayerController* PC = Cast<APlayerController>(NewController))
-		{
-			PC->bShowMouseCursor = false;
-			PC->SetInputMode(FInputModeGameOnly());
-		}
+		return;
+	}
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->bShowMouseCursor = false;
+		PC->SetInputMode(FInputModeGameOnly());
 	}
 }
 
@@ -196,15 +208,14 @@ void AMistspireVRPawn::ConfigureNonVRMode()
 		VRCamera->SetRelativeLocation(FVector(0.f, 0.f, NonVREyeHeightCm));
 	}
 
-	if (VisualLeftHand) VisualLeftHand->SetHiddenInGame(true);
-	if (VisualRightHand) VisualRightHand->SetHiddenInGame(true);
-	if (FullBodyMesh) FullBodyMesh->SetHiddenInGame(true);
-	if (LeftHandController) LeftHandController->SetHiddenInGame(true);
-	if (RightHandController) RightHandController->SetHiddenInGame(true);
+	if (VisualLeftHand) VisualLeftHand->SetHiddenInGame(true, true);
+	if (VisualRightHand) VisualRightHand->SetHiddenInGame(true, true);
+	if (FullBodyMesh) FullBodyMesh->SetHiddenInGame(true, true);
+	if (LeftHandController) LeftHandController->SetHiddenInGame(true, true);
+	if (RightHandController) RightHandController->SetHiddenInGame(true, true);
 
-	ShowNotification(
-		TEXT("WASD move | Mouse look | Shift climb/sprint | F grapple | G glider | T teleport | E interact"),
-		10.f);
+	ShowNotification(FMistspireInputMode::GetNonVRControlsHint(), 10.f);
+	ApplyNonVRPlayerControllerSettings();
 }
 
 FVector AMistspireVRPawn::GetInteractionTraceStart() const
@@ -262,10 +273,27 @@ void AMistspireVRPawn::PollNonVRInput()
 	}
 }
 
-void AMistspireVRPawn::OnClimbPressed() { bNonVRClimbHeld = true; }
-void AMistspireVRPawn::OnClimbReleased() { bNonVRClimbHeld = false; if (bIsClimbing) StopClimb(); }
-void AMistspireVRPawn::OnSprintPressed() { bNonVRSprintHeld = true; }
-void AMistspireVRPawn::OnSprintReleased() { bNonVRSprintHeld = false; }
+void AMistspireVRPawn::OnClimbPressed()
+{
+	if (!bNonVRMode) return;
+	bNonVRClimbHeld = true;
+}
+void AMistspireVRPawn::OnClimbReleased()
+{
+	if (!bNonVRMode) return;
+	bNonVRClimbHeld = false;
+	if (bIsClimbing) StopClimb();
+}
+void AMistspireVRPawn::OnSprintPressed()
+{
+	if (!bNonVRMode) return;
+	bNonVRSprintHeld = true;
+}
+void AMistspireVRPawn::OnSprintReleased()
+{
+	if (!bNonVRMode) return;
+	bNonVRSprintHeld = false;
+}
 void AMistspireVRPawn::OnGrapplePressed() { if (bNonVRMode) TryGrappleShot(); }
 void AMistspireVRPawn::OnGliderPressed() { if (bNonVRMode) ToggleGlider(!bGliderActive); }
 void AMistspireVRPawn::OnTeleportPressed() { if (bNonVRMode) TeleportForward(TeleportForwardCm); }
@@ -569,6 +597,11 @@ void AMistspireVRPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
+	if (!FMistspireInputMode::IsNonVRMode(GetWorld()))
+	{
+		return;
+	}
+
 	PlayerInputComponent->BindAxis(TEXT("MoveForward"), this, &AMistspireVRPawn::MoveForward);
 	PlayerInputComponent->BindAxis(TEXT("MoveRight"), this, &AMistspireVRPawn::MoveRight);
 	PlayerInputComponent->BindAxis(TEXT("Turn"), this, &AMistspireVRPawn::Turn);
@@ -714,8 +747,14 @@ void AMistspireVRPawn::PollXRInput()
 
 void AMistspireVRPawn::ApplySmoothLocomotion(FVector2D MoveInput, float DeltaTime)
 {
-	if (MoveInput.IsNearlyZero() && (!bNonVRMode && FMath::IsNearlyZero(CachedTurnInput)))
+	if (MoveInput.IsNearlyZero() && (bNonVRMode || FMath::IsNearlyZero(CachedTurnInput)))
 	{
+		if (bNonVRMode)
+		{
+			FRotator BodyRot = GetActorRotation();
+			BodyRot.Yaw = GetControlRotation().Yaw;
+			SetActorRotation(BodyRot);
+		}
 		return;
 	}
 
@@ -771,6 +810,28 @@ void AMistspireVRPawn::SetHandGrip(bool bIsLeft, bool bGripped)
 
 void AMistspireVRPawn::UpdateClimbingMovement(float DeltaTime)
 {
+	if (bNonVRMode)
+	{
+		const float ClimbSpeed = LocomotionSpeedCmPerSec;
+		FVector ClimbDelta(0.f, 0.f, ClimbSpeed * DeltaTime);
+
+		if (!FMath::IsNearlyZero(NonVRMoveForward, 0.01f))
+		{
+			const FVector Forward = VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector();
+			const FVector FlatFwd = FVector(Forward.X, Forward.Y, 0.f).GetSafeNormal();
+			ClimbDelta += FlatFwd * NonVRMoveForward * ClimbSpeed * 0.5f * DeltaTime;
+		}
+
+		FHitResult Hit;
+		AddActorWorldOffset(ClimbDelta, true, &Hit);
+
+		if (GetLocalRole() < ROLE_Authority)
+		{
+			Server_ApplySmoothLocomotion(ClimbDelta);
+		}
+		return;
+	}
+
 	FVector TotalDelta = FVector::ZeroVector;
 	int32 ActiveHands = 0;
 

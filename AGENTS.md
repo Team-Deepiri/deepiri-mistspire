@@ -24,7 +24,7 @@
 4. Binary `.umap` / `.uasset` — Git LFS; document map steps in `game/Content/Maps/README.md`.
 5. Repo layout is **flat** under `deepiri-mistspire/` (no nested `deepiri-cloudloom/`).
 6. Keep project docs in sync with code: when adding or changing features, update the matching files under `docs/` (`gameplay/`, `architecture/`, `setup/`) and this `AGENTS.md` when paths, rules, systems, or setup steps change.
-7. **Non-VR mode:** use `FMistspireInputMode::IsNonVRMode()`; CLI `-nonvr` (alias `-demoflat`) forces keyboard/mouse; `-forcvr` forces VR. Editor **Play** = non-VR; **VR Preview** = VR. Do not break either path when changing input or pawn code.
+7. **Non-VR mode:** use `FMistspireInputMode::IsNonVRMode(World)`; CLI `-nonvr` (alias `-demoflat`) forces keyboard/mouse; `-forcvr` or `-forcevr` forces VR. Editor **Play** = non-VR; **VR Preview** = VR. Do not break either path when changing input or pawn code.
 
 ## Quick start
 

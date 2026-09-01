@@ -22,6 +22,7 @@ public:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void PossessedBy(AController* NewController) override;
+	virtual void NotifyControllerChanged() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -273,6 +274,7 @@ public:
 
 private:
 	void ConfigureNonVRMode();
+	void ApplyNonVRPlayerControllerSettings();
 	void PollNonVRInput();
 	void MoveForward(float Value);
 	void MoveRight(float Value);

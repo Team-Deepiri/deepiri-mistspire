@@ -71,5 +71,10 @@ void AMistspireLoreShard::CollectShard(AMistspireVRPawn* Pawn)
 		}
 	}
 
+	if (UMistspireInteractionSubsystem* Sub = GetWorld()->GetSubsystem<UMistspireInteractionSubsystem>())
+	{
+		Sub->UnregisterInteractiveActor(this);
+	}
+
 	Destroy();
 }

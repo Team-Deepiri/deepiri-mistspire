@@ -7,7 +7,6 @@
 #include "MistspireBeaconSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "MistspireInputMode.h"
-#include "MistspireWorldTypes.h"
 #include "Engine/Engine.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
@@ -142,13 +141,13 @@ void UMistspireAltitudeDebugSubsystem::Tick(float DeltaTime)
 				}
 			}
 		}
+	}
 
-		if (bNonVR && CVarMistspireShowControls.GetValueOnGameThread() != 0)
-		{
-			GEngine->AddOnScreenDebugMessage(
-				5, 0.f, FColor::White,
-				TEXT("WASD move | Mouse look | Space jump | Shift climb/sprint | F grapple | G glider | T teleport | E interact"));
-		}
+	if (bNonVR && GEngine && CVarMistspireShowControls.GetValueOnGameThread() != 0)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			5, 0.f, FColor::White,
+			FMistspireInputMode::GetNonVRControlsHint());
 	}
 
 	const float Interval = static_cast<float>(CVarMistspireAltitudeLogInterval.GetValueOnGameThread());

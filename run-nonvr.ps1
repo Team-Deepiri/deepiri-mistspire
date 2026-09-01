@@ -10,6 +10,7 @@ Write-Host "  Mistspire — Non-VR Mode"
 Write-Host "============================================"
 Write-Host ""
 Write-Host "Once the editor loads, click Play (NOT VR Preview)."
+Write-Host "Note: -nonvr disables VR Preview for this editor session until you restart without the flag."
 Write-Host "Controls: docs/setup/NONVR_MODE.md"
 Write-Host ""
 
