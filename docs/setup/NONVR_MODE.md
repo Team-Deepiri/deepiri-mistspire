@@ -46,6 +46,8 @@ See [Packaging](#packaging) below for cook commands.
 | E | Interact (buttons, lore shards) |
 | `~` | Console |
 
+WASD and mouse appear under **Axis Mappings** (scroll below Action Mappings in Project Settings → Input). Jump, climb, sprint, etc. are Action Mappings.
+
 ## Console
 
 ```
@@ -55,6 +57,12 @@ mistspire.TeleportUp 5000
 mistspire.AltitudeStats
 mistspire.RefillSurvival
 ```
+
+## Troubleshooting input
+
+- **Axis Mappings missing in editor:** expand **Axis Mappings** below Action Mappings; look for `MoveForward`, `Turn`, `LookUp`.
+- **Editor overwrote config:** opening/saving Project Settings → Input can set `EnhancedPlayerInput`. Non-VR needs legacy `PlayerInput` — restore `game/Config/DefaultInput.ini` from git and restart the editor.
+- **Still no movement after Play:** click inside the PIE viewport; recompile C++ after pulling latest.
 
 ## Mode detection
 

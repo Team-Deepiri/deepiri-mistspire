@@ -11,4 +11,7 @@ struct MISTSPIRE_API FMistspireInputMode
 
 	/** On-screen / toast hint for non-VR controls (single source of truth). */
 	static const TCHAR* GetNonVRControlsHint();
+
+	/** Register WASD/mouse legacy mappings at runtime (survives editor ini overwrites). */
+	static void EnsureLegacyNonVRKeyMappings();
 };

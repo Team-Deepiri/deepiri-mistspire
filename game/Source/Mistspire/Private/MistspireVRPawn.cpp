@@ -608,6 +608,8 @@ void AMistspireVRPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		return;
 	}
 
+	FMistspireInputMode::EnsureLegacyNonVRKeyMappings();
+
 	PlayerInputComponent->BindAxis(TEXT("MoveForward"), this, &AMistspireVRPawn::MoveForward);
 	PlayerInputComponent->BindAxis(TEXT("MoveRight"), this, &AMistspireVRPawn::MoveRight);
 	PlayerInputComponent->BindAxis(TEXT("Turn"), this, &AMistspireVRPawn::Turn);
