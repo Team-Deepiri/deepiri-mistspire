@@ -32,6 +32,11 @@ struct FMistspireAIWorldState
 	UPROPERTY(BlueprintReadWrite) bool bHasOxygen = true;
 	UPROPERTY(BlueprintReadWrite) bool bHasStamina = true;
 	UPROPERTY(BlueprintReadWrite) bool bWantsRest = false;
+	UPROPERTY(BlueprintReadWrite) bool bClimbing = false;
+	UPROPERTY(BlueprintReadWrite) bool bIsSheltered = false;
+	UPROPERTY(BlueprintReadWrite) bool bCanisterNearby = true;
+	UPROPERTY(BlueprintReadWrite) bool bShelterKnown = true;
+	UPROPERTY(BlueprintReadWrite) bool bHasCrystal = false;
 };
 
 /** Result of a Utility AI evaluation. */

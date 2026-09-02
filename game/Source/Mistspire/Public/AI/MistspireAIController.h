@@ -49,6 +49,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|AI|GOAP")
 	bool PlanGOAP(const FMistspireGOAPState& Goal, TArray<FMistspireGOAPAction>& OutPlan, int32 MaxDepth = 12);
 
+	/** Builds a GOAP start state from the latest world-state snapshot. */
+	UFUNCTION(BlueprintPure, Category = "Mistspire|AI|GOAP")
+	static FMistspireGOAPState BuildGOAPStartState(const FMistspireAIWorldState& WorldState);
+
+	/** Samples survival/position facts from the local player pawn. */
+	UFUNCTION(BlueprintPure, Category = "Mistspire|AI")
+	static FMistspireAIWorldState SnapshotFromPawn(const APawn* SourcePawn, const UWorld* World);
+
 	/** Steer the pawn to a location. Uses the pawn's movement component when present; free-flight pawns without one are moved directly (no physics sweeps). */
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|AI|Movement")
 	void MoveSteeredTo(const FVector& WorldLocation);

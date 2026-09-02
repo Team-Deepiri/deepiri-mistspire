@@ -11,6 +11,15 @@ TStatId UMistspireGhostClimberSubsystem::GetStatId() const
 
 void UMistspireGhostClimberSubsystem::RefreshGhosts()
 {
+	if (UMistspireEntitySubsystem* Entities = GetWorld()->GetSubsystem<UMistspireEntitySubsystem>())
+	{
+		for (const int32 EntityId : GhostEntityIds)
+		{
+			Entities->DestroyEntity(EntityId);
+		}
+	}
+	GhostEntityIds.Reset();
+
 	for (AMistspireGhostPillar* Pillar : GhostActors)
 	{
 		if (Pillar)
@@ -62,6 +71,7 @@ void UMistspireGhostClimberSubsystem::RefreshGhosts()
 				const int32 EntityId = Entities->SpawnEntity(TEXT("GhostPillar"), Pillar->GetActorLocation(), Pillar);
 				if (EntityId != INDEX_NONE)
 				{
+					GhostEntityIds.Add(EntityId);
 					Entities->SetEntityFloat(EntityId, TEXT("AltitudeCm"), Entry.CurrentAltitudeCm);
 					Entities->SetEntityTag(EntityId, TEXT("ClimberName"), FName(*Entry.PlayerName));
 				}

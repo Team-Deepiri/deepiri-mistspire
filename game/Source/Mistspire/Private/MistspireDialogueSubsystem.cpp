@@ -1,9 +1,19 @@
 #include "MistspireDialogueSubsystem.h"
+#include "Misc/PackageName.h"
 
 void UMistspireDialogueSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	LoadBuiltinLines();
+
+	const FSoftObjectPath DialogueTablePath(TEXT("/Game/Data/DT_MistspireDialogue.DT_MistspireDialogue"));
+	if (FPackageName::DoesPackageExist(DialogueTablePath.GetLongPackageName()))
+	{
+		if (UDataTable* LoadedTable = Cast<UDataTable>(DialogueTablePath.TryLoad()))
+		{
+			SetDialogueTable(LoadedTable);
+		}
+	}
 }
 
 void UMistspireDialogueSubsystem::LoadBuiltinLines()
@@ -39,7 +49,7 @@ const FDialogueLine* UMistspireDialogueSubsystem::FindLine(FName LineId) const
 {
 	if (DialogueTable)
 	{
-		if (const FDialogueLine* Row = DialogueTable->FindRow<FDialogueLine>(LineId, TEXT("MistspireDialogue")))
+		if (const FDialogueLine* Row = DialogueTable->FindRow<FDialogueLine>(LineId, TEXT("MistspireDialogue"), false))
 		{
 			return Row;
 		}

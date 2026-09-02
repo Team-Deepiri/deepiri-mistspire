@@ -1,4 +1,4 @@
-#include "MistspireUtilityAI.h"
+#include "AI/MistspireUtilityAI.h"
 #include "Curves/CurveFloat.h"
 
 float UMistspireUtilityConsideration::Score(float InputValue) const

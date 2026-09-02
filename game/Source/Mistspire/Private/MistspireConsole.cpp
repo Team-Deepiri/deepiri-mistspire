@@ -12,10 +12,10 @@
 #include "MistspireDialogueSubsystem.h"
 #include "MistspireObservationRecorder.h"
 #include "MistspireEntitySubsystem.h"
-#include "MistspireStateMachine.h"
-#include "MistspireAIController.h"
-#include "MistspireGOAP.h"
-#include "MistspireWanderingGhost.h"
+#include "AI/MistspireStateMachine.h"
+#include "AI/MistspireAIController.h"
+#include "AI/MistspireGOAP.h"
+#include "AI/MistspireWanderingGhost.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
@@ -286,17 +286,9 @@ static void MistspireAIThink(const TArray<FString>&)
 		return;
 	}
 
-	FMistspireAIWorldState State;
-	const APawn* Pawn = GWorld->GetFirstPlayerController() ? GWorld->GetFirstPlayerController()->GetPawn() : nullptr;
-	if (Pawn)
-	{
-		State.AltitudeCm = Pawn->GetActorLocation().Z;
-	}
-	if (const AMistspireVRPawn* VRPawn = Cast<AMistspireVRPawn>(Pawn))
-	{
-		State.Oxygen01 = VRPawn->GetOxygenPercent();
-		State.Stamina01 = VRPawn->GetStaminaPercent();
-	}
+	FMistspireAIWorldState State = AMistspireAIController::SnapshotFromPawn(
+		GWorld->GetFirstPlayerController() ? GWorld->GetFirstPlayerController()->GetPawn() : nullptr,
+		GWorld);
 	First->UpdateWorldState(State);
 	const FMistspireUtilityDecision Decision = First->RunUtilityDecision();
 	UE_LOG(LogTemp, Log, TEXT("Mistspire AI: utility decision = %s (%.2f)"),
@@ -325,23 +317,10 @@ static void MistspireGOAPPlan(const TArray<FString>& Args)
 		Goal.Facts.FindOrAdd(TEXT("BeaconReached")) = true;
 	}
 
-	FMistspireAIWorldState State;
-	const APawn* Pawn = GWorld->GetFirstPlayerController() ? GWorld->GetFirstPlayerController()->GetPawn() : nullptr;
-	if (Pawn)
-	{
-		State.AltitudeCm = Pawn->GetActorLocation().Z;
-	}
-	if (const AMistspireVRPawn* VRPawn = Cast<AMistspireVRPawn>(Pawn))
-	{
-		State.Oxygen01 = VRPawn->GetOxygenPercent();
-		State.Stamina01 = VRPawn->GetStaminaPercent();
-	}
-
-	FMistspireGOAPState Start;
-	Start.Facts.FindOrAdd(TEXT("HasOxygen")) = State.Oxygen01 > 0.1f;
-	Start.Facts.FindOrAdd(TEXT("HasStamina")) = State.Stamina01 > 0.1f;
-	Start.Facts.FindOrAdd(TEXT("CanisterNearby")) = true;
-	Start.Facts.FindOrAdd(TEXT("ShelterKnown")) = true;
+	const FMistspireAIWorldState State = AMistspireAIController::SnapshotFromPawn(
+		GWorld->GetFirstPlayerController() ? GWorld->GetFirstPlayerController()->GetPawn() : nullptr,
+		GWorld);
+	const FMistspireGOAPState Start = AMistspireAIController::BuildGOAPStartState(State);
 
 	const TArray<FMistspireGOAPAction> Actions = UMistspireGOAPPlanner::BuildMistspireActionLibrary();
 	TArray<FMistspireGOAPAction> Plan;
@@ -464,17 +443,18 @@ static void MistspireStateMachineDebug(const TArray<FString>&)
 	{
 		return;
 	}
-	TArray<UActorComponent*> Components = GWorld->GetComponentsByClass(UMistspireStateMachineComponent::StaticClass());
 	int32 Count = 0;
-	for (const UActorComponent* Component : Components)
+	for (TObjectIterator<UMistspireStateMachineComponent> It; It; ++It)
 	{
-		const UMistspireStateMachineComponent* FSM = Cast<UMistspireStateMachineComponent>(Component);
-		if (FSM)
+		if (It->GetWorld() != GWorld)
 		{
-			UE_LOG(LogTemp, Log, TEXT("Mistspire FSM: %s.%s = %s"),
-				*GetNameSafe(FSM->GetOwner()), *FSM->GetName(), *FSM->GetCurrentState().ToString());
-			++Count;
+			continue;
 		}
+
+		const UMistspireStateMachineComponent* FSM = *It;
+		UE_LOG(LogTemp, Log, TEXT("Mistspire FSM: %s.%s = %s"),
+			*GetNameSafe(FSM->GetOwner()), *FSM->GetName(), *FSM->GetCurrentState().ToString());
+		++Count;
 	}
 	UE_LOG(LogTemp, Log, TEXT("Mistspire FSM: %d active state machines."), Count);
 }

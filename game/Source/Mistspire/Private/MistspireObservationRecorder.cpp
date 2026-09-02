@@ -49,7 +49,7 @@ void UMistspireObservationRecorder::EnsureFileOpen()
 void UMistspireObservationRecorder::StartRecording(float SampleIntervalSeconds)
 {
 	bRecording = true;
-	this->SampleIntervalSeconds = FMath::Max(SampleIntervalSeconds, 0.05f);
+	this->RecordingIntervalSeconds = FMath::Max(SampleIntervalSeconds, 0.05f);
 	Accumulator = 0.f;
 	RowsWritten = 0;
 	EnsureFileOpen();
@@ -147,7 +147,7 @@ void UMistspireObservationRecorder::Tick(float DeltaTime)
 		return;
 	}
 	Accumulator += DeltaTime;
-	if (Accumulator >= SampleIntervalSeconds)
+	if (Accumulator >= RecordingIntervalSeconds)
 	{
 		Accumulator = 0.f;
 		SampleNow();

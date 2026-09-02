@@ -16,7 +16,7 @@
 #include "MistspireEntitySubsystem.h"
 #include "MistspireObservationRecorder.h"
 #include "MistspireLeaderboardService.h"
-#include "MistspireAIController.h"
+#include "AI/MistspireAIController.h"
 
 AMistspireGameMode::AMistspireGameMode()
 {

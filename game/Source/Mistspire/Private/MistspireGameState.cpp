@@ -3,7 +3,6 @@
 #include "MistspireLeaderboardService.h"
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/PlayerController.h"
-#include "GameFramework/HUD.h"
 
 AMistspireGameState::AMistspireGameState()
 {
@@ -17,15 +16,6 @@ void AMistspireGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(AMistspireGameState, SessionBestAltitudeCm);
 	DOREPLIFETIME(AMistspireGameState, Leaderboard);
 	DOREPLIFETIME(AMistspireGameState, CurrentWeatherIndex);
-}
-
-void AMistspireGameState::NotifyAltitudeSample(float CurrentAltitudeCm, float MaxAltitudeCm)
-{
-	if (!HasAuthority()) return;
-	if (AMistspirePlayerState* PS = GetPlayerState<AMistspirePlayerState>())
-	{
-		NotifyAltitudeSample(PS->GetPlayerName(), CurrentAltitudeCm, MaxAltitudeCm);
-	}
 }
 
 void AMistspireGameState::NotifyLocalAltitudeSample(float CurrentAltitudeCm, float MaxAltitudeCm)

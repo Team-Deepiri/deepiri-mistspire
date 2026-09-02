@@ -1,10 +1,10 @@
-#include "MistspireWanderingGhost.h"
+#include "AI/MistspireWanderingGhost.h"
 #include "Components/StaticMeshComponent.h"
-#include "MistspireSteering.h"
-#include "MistspireStateMachine.h"
+#include "AI/MistspireSteering.h"
+#include "AI/MistspireStateMachine.h"
 #include "MistspireEntitySubsystem.h"
 #include "MistspireDialogueSubsystem.h"
-#include "MistspireAITypes.h"
+#include "AI/MistspireAITypes.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMistspireWanderingGhost::AMistspireWanderingGhost()

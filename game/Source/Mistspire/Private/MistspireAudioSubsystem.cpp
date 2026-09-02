@@ -1,8 +1,8 @@
 #include "MistspireAudioSubsystem.h"
 #include "MistspireLog.h"
-#include "MistspireEnvironmentSubsystem.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundAttenuation.h"
 #include "AudioDevice.h"
 
 void UMistspireAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -24,7 +24,7 @@ void UMistspireAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	}
 }
 
-void UMistspireAudioSubsystem::Deinitialize(FSubsystemCollectionBase& Collection)
+void UMistspireAudioSubsystem::Deinitialize()
 {
 	if (AmbienceComponent)
 	{
@@ -50,7 +50,7 @@ void UMistspireAudioSubsystem::Deinitialize(FSubsystemCollectionBase& Collection
 	}
 	OneShotPool.Empty();
 
-	Super::Deinitialize(Collection);
+	Super::Deinitialize();
 }
 
 void UMistspireAudioSubsystem::ResetOneShotComponent(UAudioComponent* Component)
@@ -59,7 +59,7 @@ void UMistspireAudioSubsystem::ResetOneShotComponent(UAudioComponent* Component)
 	Component->SetPitchMultiplier(1.0f);
 	Component->bIsUISound = true;
 	Component->bOverrideAttenuation = false;
-	Component->AttenuationOverrides = FAttenuationSettings();
+	Component->AttenuationOverrides = FSoundAttenuationSettings();
 	if (!Component->IsRegistered())
 	{
 		Component->RegisterComponent();
@@ -129,7 +129,11 @@ void UMistspireAudioSubsystem::PlayBiomeAmbience(FName BiomeName, float Crossfad
 	USoundCue** FoundCue = BiomeAmbienceMap.Find(BiomeName);
 	if (!FoundCue || !*FoundCue)
 	{
-		UE_LOG(LogMistspire, Warning, TEXT("PlayBiomeAmbience: no sound cue for biome '%s'"), *BiomeName.ToString());
+		if (!WarnedMissingBiomeCues.Contains(BiomeName))
+		{
+			WarnedMissingBiomeCues.Add(BiomeName);
+			UE_LOG(LogMistspire, Warning, TEXT("PlayBiomeAmbience: no sound cue for biome '%s'"), *BiomeName.ToString());
+		}
 		return;
 	}
 
@@ -163,7 +167,12 @@ void UMistspireAudioSubsystem::PlayPhysiologySound(EPhysiologySoundType Type, fl
 	USoundCue** FoundCue = PhysiologySoundMap.Find(Type);
 	if (!FoundCue || !*FoundCue)
 	{
-		UE_LOG(LogMistspire, Warning, TEXT("PlayPhysiologySound: no sound cue for type %d"), static_cast<int32>(Type));
+		const int32 TypeKey = static_cast<int32>(Type);
+		if (!WarnedMissingPhysiologyCues.Contains(TypeKey))
+		{
+			WarnedMissingPhysiologyCues.Add(TypeKey);
+			UE_LOG(LogMistspire, Warning, TEXT("PlayPhysiologySound: no sound cue for type %d"), TypeKey);
+		}
 		return;
 	}
 
@@ -186,23 +195,46 @@ void UMistspireAudioSubsystem::PlayWeatherSound(EMistspireWeatherType Weather, f
 	USoundCue** FoundCue = WeatherSoundMap.Find(Weather);
 	if (!FoundCue || !*FoundCue)
 	{
-		UE_LOG(LogMistspire, Warning, TEXT("PlayWeatherSound: no sound cue for weather %d"), static_cast<int32>(Weather));
+		const int32 WeatherKey = static_cast<int32>(Weather);
+		if (!WarnedMissingWeatherCues.Contains(WeatherKey))
+		{
+			WarnedMissingWeatherCues.Add(WeatherKey);
+			UE_LOG(LogMistspire, Warning, TEXT("PlayWeatherSound: no sound cue for weather %d"), WeatherKey);
+		}
+		return;
+	}
+
+	const float BusVolume = GetBus(EMistspireAudioChannel::Weather).bMuted ? 0.f : BusStates[static_cast<int32>(EMistspireAudioChannel::Weather)].VolumeMultiplier;
+	const float TargetVolume = BusVolume * FMath::Clamp(Intensity, 0.0f, 1.5f);
+
+	// Already playing this weather: only refresh volume so per-tick callers
+	// do not restart the loop.
+	if (bHasCurrentWeather && Weather == CurrentWeather && WeatherComponent && WeatherComponent->IsPlaying())
+	{
+		WeatherComponent->SetVolumeMultiplier(TargetVolume);
 		return;
 	}
 
 	if (!WeatherComponent)
 	{
+		APlayerController* PlayerController = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+		if (!PlayerController)
+		{
+			return;
+		}
+
 		WeatherComponent = NewObject<UAudioComponent>(this);
 		WeatherComponent->bAutoDestroy = false;
 		WeatherComponent->bAllowAnyoneToDestroyMe = true;
-		WeatherComponent->SetupAttachment(GetWorld()->GetFirstPlayerController()->GetRootComponent());
+		WeatherComponent->SetupAttachment(PlayerController->GetRootComponent());
 		WeatherComponent->RegisterComponent();
 	}
 
-	const float BusVolume = GetBus(EMistspireAudioChannel::Weather).bMuted ? 0.f : BusStates[static_cast<int32>(EMistspireAudioChannel::Weather)].VolumeMultiplier;
 	WeatherComponent->SetSound(*FoundCue);
-	WeatherComponent->SetVolumeMultiplier(BusVolume * FMath::Clamp(Intensity, 0.0f, 1.5f));
+	WeatherComponent->SetVolumeMultiplier(TargetVolume);
 	WeatherComponent->Play();
+	CurrentWeather = Weather;
+	bHasCurrentWeather = true;
 }
 
 void UMistspireAudioSubsystem::PlaySurfaceContactSound(float ImpactForce, bool bIsStone)

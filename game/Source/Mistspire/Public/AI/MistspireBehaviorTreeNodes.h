@@ -35,6 +35,15 @@ public:
 	virtual EBTNodeResult::Type AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 };
 
+/** Mistspire: Move To Location task instance memory. */
+struct FBTMoveToLocationMemory
+{
+	FVector TargetLocation = FVector::ZeroVector;
+	FAIRequestID MoveRequestId;
+	bool bMoveRequested = false;
+	bool bWasMoving = false;
+};
+
 /** Moves the AI pawn to the `MoveTarget` blackboard vector via navmesh movement. */
 UCLASS()
 class MISTSPIRE_API UMistspireBTTask_MoveToLocation : public UBTTaskNode
@@ -50,6 +59,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Mistspire")
 	float AcceptanceRadiusCm = 150.f;
 
+	virtual uint16 GetInstanceMemorySize() const override;
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 	virtual void TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds) override;
 	virtual EBTNodeResult::Type AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;

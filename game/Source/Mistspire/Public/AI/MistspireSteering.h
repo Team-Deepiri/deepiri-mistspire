@@ -47,7 +47,7 @@ public:
 	float SeparationStrength = 1.2f;
 
 	/** Actors pushed away by separation (e.g. other ghosts, the player). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|AI|Steering")
+	UPROPERTY(EditAnywhere, Category = "Mistspire|AI|Steering")
 	TArray<TWeakObjectPtr<AActor>> SeparationNeighbors;
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|AI|Steering")

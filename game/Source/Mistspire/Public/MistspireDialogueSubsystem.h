@@ -47,7 +47,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Dialogue")
 	void SetDialogueTable(UDataTable* InTable);
 
-	UFUNCTION(BlueprintPure, Category = "Mistspire|Dialogue")
+	/** Looks up a line by id: DataTable row first, then the built-in line set. */
 	const FDialogueLine* FindLine(FName LineId) const;
 
 	UFUNCTION(BlueprintPure, Category = "Mistspire|Dialogue")

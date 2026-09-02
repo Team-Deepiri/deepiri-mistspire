@@ -1,4 +1,4 @@
-#include "MistspireGOAP.h"
+#include "AI/MistspireGOAP.h"
 #include "Misc/Char.h"
 
 bool FMistspireGOAPState::operator==(const FMistspireGOAPState& Other) const
@@ -131,6 +131,7 @@ FMistspireGOAPState UMistspireGOAPPlanner::MakeGoal(const TArray<FMistspireGOAPF
 
 TArray<FMistspireGOAPAction> UMistspireGOAPPlanner::BuildMistspireActionLibrary()
 {
+	// Prototype tuning constants for the default climber action set.
 	TArray<FMistspireGOAPAction> Actions;
 	Actions.SetNum(6);
 

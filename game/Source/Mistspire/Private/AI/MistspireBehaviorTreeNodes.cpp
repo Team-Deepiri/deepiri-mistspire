@@ -1,4 +1,4 @@
-#include "MistspireBehaviorTreeNodes.h"
+#include "AI/MistspireBehaviorTreeNodes.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Float.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Vector.h"
@@ -9,6 +9,14 @@
 #include "Navigation/PathFollowingComponent.h"
 #include "MistspireDialogueSubsystem.h"
 #include "MistspireVRPawn.h"
+
+namespace MistspireBTMoveToLocation
+{
+	static bool IsWithinAcceptanceRadius(const FVector& Location, const FVector& Target, float RadiusCm)
+	{
+		return FVector::DistSquared2D(Location, Target) <= FMath::Square(RadiusCm);
+	}
+}
 
 // ---------------------------------------------------------------------------
 // ClimbToAltitude
@@ -84,8 +92,21 @@ UMistspireBTTask_MoveToLocation::UMistspireBTTask_MoveToLocation()
 	bNotifyTick = true;
 }
 
+uint16 UMistspireBTTask_MoveToLocation::GetInstanceMemorySize() const
+{
+	return sizeof(FBTMoveToLocationMemory);
+}
+
 EBTNodeResult::Type UMistspireBTTask_MoveToLocation::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
+	FBTMoveToLocationMemory* Memory = reinterpret_cast<FBTMoveToLocationMemory*>(NodeMemory);
+	if (Memory)
+	{
+		Memory->bWasMoving = false;
+		Memory->bMoveRequested = false;
+		Memory->MoveRequestId = FAIRequestID::InvalidRequest;
+	}
+
 	const UBlackboardComponent* Blackboard = OwnerComp.GetBlackboardComponent();
 	AAIController* Controller = OwnerComp.GetAIOwner();
 	if (!Blackboard || !MoveTargetKey.IsSet() || !Controller || !Controller->GetPawn())
@@ -94,26 +115,88 @@ EBTNodeResult::Type UMistspireBTTask_MoveToLocation::ExecuteTask(UBehaviorTreeCo
 	}
 
 	const FVector Target = Blackboard->GetValue<UBlackboardKeyType_Vector>(MoveTargetKey.GetSelectedKeyID());
+	if (Memory)
+	{
+		Memory->TargetLocation = Target;
+	}
+
 	const EPathFollowingRequestResult::Type Result = Controller->MoveToLocation(
 		Target, AcceptanceRadiusCm, /*bStopOnOverlap=*/false, /*bUsePathfinding=*/true,
 		/*bProjectDestinationToNavigation=*/false, /*bCanStrafe=*/true);
-	return Result == EPathFollowingRequestResult::RequestFailed
-		? EBTNodeResult::Failed
-		: EBTNodeResult::InProgress;
+
+	if (Result == EPathFollowingRequestResult::Failed)
+	{
+		return EBTNodeResult::Failed;
+	}
+
+	if (Result == EPathFollowingRequestResult::AlreadyAtGoal)
+	{
+		return EBTNodeResult::Succeeded;
+	}
+
+	if (Memory)
+	{
+		if (UPathFollowingComponent* PathFollowing = Controller->GetPathFollowingComponent())
+		{
+			Memory->MoveRequestId = PathFollowing->GetCurrentRequestId();
+		}
+		Memory->bMoveRequested = true;
+	}
+
+	return EBTNodeResult::InProgress;
 }
 
 void UMistspireBTTask_MoveToLocation::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
+	FBTMoveToLocationMemory* Memory = reinterpret_cast<FBTMoveToLocationMemory*>(NodeMemory);
 	AAIController* Controller = OwnerComp.GetAIOwner();
-	if (!Controller)
+	APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	if (!Controller || !Pawn || !Memory)
 	{
 		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
 		return;
 	}
-	if (Controller->GetMoveStatus() == EPathFollowingStatus::Idle)
+
+	if (MistspireBTMoveToLocation::IsWithinAcceptanceRadius(
+		Pawn->GetActorLocation(), Memory->TargetLocation, AcceptanceRadiusCm))
 	{
 		FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
+		return;
 	}
+
+	UPathFollowingComponent* PathFollowing = Controller->GetPathFollowingComponent();
+	if (Memory->bMoveRequested && PathFollowing
+		&& Memory->MoveRequestId.IsValid()
+		&& PathFollowing->GetCurrentRequestId() != Memory->MoveRequestId)
+	{
+		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
+		return;
+	}
+
+	const EPathFollowingStatus::Type Status = Controller->GetMoveStatus();
+	if (Status == EPathFollowingStatus::Moving)
+	{
+		Memory->bWasMoving = true;
+		return;
+	}
+
+	if (Status == EPathFollowingStatus::Idle && Memory->bWasMoving)
+	{
+		FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
+		return;
+	}
+
+	if (Status == EPathFollowingStatus::Paused || Status == EPathFollowingStatus::Waiting)
+	{
+		return;
+	}
+
+	if (Status == EPathFollowingStatus::Idle && !Memory->bWasMoving)
+	{
+		return;
+	}
+
+	FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
 }
 
 EBTNodeResult::Type UMistspireBTTask_MoveToLocation::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)

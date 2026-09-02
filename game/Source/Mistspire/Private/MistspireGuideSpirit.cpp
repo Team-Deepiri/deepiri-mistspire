@@ -1,7 +1,7 @@
 #include "MistspireGuideSpirit.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
-#include "MistspireSteering.h"
+#include "AI/MistspireSteering.h"
 #include "UObject/ConstructorHelpers.h"
 
 AMistspireGuideSpirit::AMistspireGuideSpirit()

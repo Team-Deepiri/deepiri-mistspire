@@ -56,7 +56,7 @@ class MISTSPIRE_API UMistspireAudioSubsystem : public UWorldSubsystem
 
 public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
-	virtual void Deinitialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Audio")
 	void SetChannelVolume(EMistspireAudioChannel Channel, float Volume);
@@ -138,6 +138,17 @@ private:
 	/** Biome whose ambience is currently playing (prevents per-tick restarts). */
 	UPROPERTY(VisibleInstanceOnly, Category = "Mistspire|Audio")
 	FName CurrentAmbienceBiome;
+
+	/** Weather whose loop is currently playing (prevents per-tick restarts). */
+	UPROPERTY(VisibleInstanceOnly, Category = "Mistspire|Audio")
+	EMistspireWeatherType CurrentWeather = EMistspireWeatherType::Clear;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Mistspire|Audio")
+	bool bHasCurrentWeather = false;
+
+	TSet<FName> WarnedMissingBiomeCues;
+	TSet<int32> WarnedMissingWeatherCues;
+	TSet<int32> WarnedMissingPhysiologyCues;
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Mistspire|Audio")
 	UAudioComponent* AmbienceComponent = nullptr;

@@ -79,7 +79,7 @@ void UMistspireLeaderboardService::SubmitLocal(const FString& PlayerName, float 
 
 void UMistspireLeaderboardService::SubmitOnline(const FString& PlayerName, float CurrentAltitudeCm, float MaxAltitudeCm)
 {
-	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(STEAM_SUBSYSTEM_NAME);
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(STEAM_SUBSYSTEM);
 	if (!OnlineSub)
 	{
 		UE_LOG(LogTemp, Log, TEXT("Mistspire online: no online subsystem available; keeping local."));
@@ -98,7 +98,8 @@ void UMistspireLeaderboardService::SubmitOnline(const FString& PlayerName, float
 		return;
 	}
 
-	const FUniqueNetIdPtr PlayerId = LocalPlayer->GetPreferredUniqueNetId();
+	const FUniqueNetIdRepl NetIdRepl = LocalPlayer->GetPreferredUniqueNetId();
+	const FUniqueNetIdPtr PlayerId = NetIdRepl.IsValid() ? NetIdRepl.GetUniqueNetId() : nullptr;
 	if (!PlayerId.IsValid())
 	{
 		return;
@@ -106,7 +107,6 @@ void UMistspireLeaderboardService::SubmitOnline(const FString& PlayerName, float
 
 	FOnlineLeaderboardWrite WriteObject;
 	WriteObject.LeaderboardNames.Add(TEXT("MistspireAltitude"));
-	WriteObject.SetColumnMetadata(TEXT("AltitudeCm"), EOnlineKeyValuePairDataType::Float);
 	WriteObject.SetFloatStat(TEXT("AltitudeCm"), MaxAltitudeCm);
 
 	Leaderboards->WriteLeaderboards(TEXT("Mistspire"), *PlayerId, WriteObject);

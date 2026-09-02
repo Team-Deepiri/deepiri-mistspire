@@ -1,4 +1,4 @@
-#include "MistspireStateMachine.h"
+#include "AI/MistspireStateMachine.h"
 
 UMistspireStateMachineComponent::UMistspireStateMachineComponent()
 {

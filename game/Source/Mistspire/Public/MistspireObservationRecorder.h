@@ -44,7 +44,7 @@ private:
 	UPROPERTY(Transient)
 	bool bRecording = false;
 
-	float SampleIntervalSeconds = 1.f;
+	float RecordingIntervalSeconds = 1.f;
 	float Accumulator = 0.f;
 	int32 RowsWritten = 0;
 

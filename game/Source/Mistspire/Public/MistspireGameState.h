@@ -48,9 +48,6 @@ public:
 	void NotifyLocalAltitudeSample(float CurrentAltitudeCm, float MaxAltitudeCm);
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Score")
-	void NotifyAltitudeSample(float CurrentAltitudeCm, float MaxAltitudeCm);
-
-	UFUNCTION(BlueprintCallable, Category = "Mistspire|Score")
 	void BroadcastSocialAchievement(const FString& Message);
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Environment")
