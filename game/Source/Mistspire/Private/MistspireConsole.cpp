@@ -217,16 +217,10 @@ static void RegisterMistspireAltitudeHudCommands()
 {
 	IConsoleManager& CM = IConsoleManager::Get();
 
-	// Register an alias for maintainers + saved console workflows.
-	if (!CM.FindConsoleObject(TEXT("mistspire.ShowAltitudeHUD")))
-	{
-		CM.RegisterConsoleCommand(
-			TEXT("mistspire.ShowAltitudeHUD"),
-			TEXT("Toggle wrist altimeter text visibility: 0=hide, 1=show."),
-			FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireShowAltitudeHUD));
-	}
+	// Do not register mistspire.ShowAltitudeHUD here — it is a TAutoConsoleVariable<int32>
+	// in MistspireAltitudeDebugSubsystem.cpp. A command with the same name fatals on load
+	// when static init order registers the command first.
 
-	// New preferred name (kept for clarity).
 	if (!CM.FindConsoleObject(TEXT("mistspire.ShowWristAltimeter")))
 	{
 		CM.RegisterConsoleCommand(

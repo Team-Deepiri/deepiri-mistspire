@@ -82,7 +82,7 @@ void UMistspireAltitudeDebugSubsystem::Tick(float DeltaTime)
 				*UMistspireWorldAtlasSubsystem::GetDistrictDisplayName(Atlas->GetCurrentDistrict()).ToString());
 		}
 
-		GEngine->AddOnScreenDebugMessage(INDEX_NONE, 0.f, FColor::Cyan, Line1);
+		GEngine->AddOnScreenDebugMessage(0, 0.f, FColor::Cyan, Line1);
 
 		if (UMistspireInteriorSubsystem* Interior = World->GetSubsystem<UMistspireInteriorSubsystem>())
 		{

@@ -63,7 +63,7 @@ Auto-saves on **new personal best** and **summit reached**. Slot: `MistspireProf
 
 ```
 mistspire.ShowAltitudeHUD 1
-mistspire.ShowWristAltimeter 1  # alias
+mistspire.ShowWristAltimeter 1
 mistspire.AltitudeStats
 mistspire.TeleportUp 5000
 mistspire.SetWeather 2          # 0–3

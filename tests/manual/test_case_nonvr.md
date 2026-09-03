@@ -6,14 +6,18 @@ Prerequisites: compile C++ module; open `Main_WP`; click **Play** (not VR Previe
 
 - [ ] WASD moves the pawn on the ground or fallback floor
 - [ ] Mouse look rotates the camera
-- [ ] Space jumps only when grounded; gravity returns pawn to ground
+- [ ] Standing still does not sink or bounce
+- [ ] Space jumps only when grounded; the fall reaches the floor (no mid-air snap); landing does not sink
+- [ ] Gravity returns pawn to ground after a jump
 
 ## Traversal
 
 - [ ] Left Control (hold) near a vertical surface starts climbing
 - [ ] Left Shift (hold) increases move speed (sprint) on flat ground
 - [ ] F or right mouse fires grapple toward a surface in front
+- [ ] Grapple reel does not pass through the floor; reeling upward still works
 - [ ] G toggles glider
+- [ ] Gliding into the floor lands, cancels the glider, and does not fall through
 - [ ] T teleports forward (blink)
 
 ## Systems

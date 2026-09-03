@@ -11,6 +11,7 @@
 #include "InputModifiers.h"
 #include "IXRTrackingSystem.h"
 #include "Misc/Parse.h"
+#include "HAL/IConsoleManager.h"
 #include "StereoRendering.h"
 
 namespace
@@ -159,5 +160,37 @@ void FMistspireInputMode::AddNonVRMappingContext(APlayerController* PlayerContro
 	if (UEnhancedInputLocalPlayerSubsystem* InputSubsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
 	{
 		InputSubsystem->AddMappingContext(MappingContext, 0);
+	}
+}
+
+void FMistspireInputMode::ApplyRendererOverrides(bool bNonVR)
+{
+	// Must use SetByCode: DefaultEngine.ini RendererSettings bind as SetByProjectSetting,
+	// which silently wins over SetByGameSetting — prior overrides never applied.
+	auto SetCVar = [](const TCHAR* Name, int32 Value)
+	{
+		if (IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(Name))
+		{
+			CVar->Set(Value, ECVF_SetByCode);
+		}
+	};
+
+	if (bNonVR)
+	{
+		// Two bottom stereo tiles + right-edge strip = leftover L/R eye rects in a mono view.
+		SetCVar(TEXT("r.ClearSceneMethod"), 1);
+		SetCVar(TEXT("vr.InstancedStereo"), 0);
+		SetCVar(TEXT("vr.StereoViewOffset"), 0);
+		SetCVar(TEXT("r.VariableRateShading.Enable"), 0);
+		SetCVar(TEXT("r.VolumetricFog.ScreenResolutionDivisor"), 1);
+	}
+	else
+	{
+		// VR HMD writes every pixel; skip clear + enable stereo packing for perf.
+		SetCVar(TEXT("r.ClearSceneMethod"), 0);
+		SetCVar(TEXT("vr.InstancedStereo"), 1);
+		SetCVar(TEXT("vr.StereoViewOffset"), 1);
+		SetCVar(TEXT("r.VariableRateShading.Enable"), 1);
+		SetCVar(TEXT("r.VolumetricFog.ScreenResolutionDivisor"), 2);
 	}
 }

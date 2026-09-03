@@ -63,7 +63,7 @@ Bindings (authoring): [`interaction_profiles/openxr/README.md`](../../interactio
 mistspire.AltitudeStats
 mistspire.TeleportUp 5000
 mistspire.ShowAltitudeHUD 1
-mistspire.ShowWristAltimeter 1  # alias
+mistspire.ShowWristAltimeter 1
 ```
 
 Full console commands: [docs/gameplay/IMMERSION.md](../gameplay/IMMERSION.md).

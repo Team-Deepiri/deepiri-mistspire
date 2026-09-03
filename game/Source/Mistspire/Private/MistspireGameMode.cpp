@@ -54,7 +54,10 @@ void AMistspireGameMode::StartPlay()
 		World->GetSubsystem<UMistspireGhostClimberSubsystem>();
 		World->GetSubsystem<UMistspireAmbienceSubsystem>();
 
-		if (FMistspireInputMode::IsNonVRMode(World))
+		const bool bNonVR = FMistspireInputMode::IsNonVRMode(World);
+		FMistspireInputMode::ApplyRendererOverrides(bNonVR);
+
+		if (bNonVR)
 		{
 			World->GetTimerManager().SetTimer(
 				NonVRPlaygroundTimerHandle,
@@ -62,11 +65,8 @@ void AMistspireGameMode::StartPlay()
 				&AMistspireGameMode::DeferredNonVRSetup,
 				0.15f,
 				false);
-
-			if (AMistspireGameState* GS = World->GetGameState<AMistspireGameState>())
-			{
-				GS->BroadcastSocialAchievement(FMistspireInputMode::GetNonVRControlsHint());
-			}
+			// Do not ClientMessage the WASD hint — AHUD draws those at the bottom of the view
+			// and the same string is shown via mistspire.ShowControls.
 		}
 		else if (AMistspireGameState* GS = World->GetGameState<AMistspireGameState>())
 		{
@@ -204,11 +204,10 @@ void AMistspireGameMode::EnsureNonVRPlayground()
 		return;
 	}
 
-	UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
 	UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
-	if (!PlaneMesh)
+	if (!CubeMesh)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Mistspire non-VR: could not load engine plane mesh."));
+		UE_LOG(LogTemp, Warning, TEXT("Mistspire non-VR: could not load engine cube mesh."));
 		return;
 	}
 
@@ -234,25 +233,29 @@ void AMistspireGameMode::EnsureNonVRPlayground()
 		}
 		Actor->SetActorScale3D(Scale);
 		UGameplayStatics::FinishSpawningActor(Actor, FTransform(Location));
+		if (UStaticMeshComponent* MeshComp = Actor->GetStaticMeshComponent())
+		{
+			MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			MeshComp->SetCollisionProfileName(TEXT("BlockAll"));
+			MeshComp->SetMobility(EComponentMobility::Static);
+		}
 		return Actor;
 	};
 
-	if (SpawnPlaygroundMesh(PlaneMesh, FVector::ZeroVector, FVector(400.f, 400.f, 1.f)))
+	// Engine cube is 100 cm; scale Z=0.4 => 40 cm thick. Center 20 cm below origin so the top sits at Z=0.
+	if (SpawnPlaygroundMesh(CubeMesh, FVector(0.f, 0.f, -20.f), FVector(400.f, 400.f, 0.4f)))
 	{
 		// floor spawned
 	}
 
-	if (CubeMesh)
+	for (int32 Step = 0; Step < 10; ++Step)
 	{
-		for (int32 Step = 0; Step < 10; ++Step)
+		const float X = 400.f * static_cast<float>(Step + 1);
+		const float Y = 250.f * FMath::Sin(static_cast<float>(Step) * 0.65f);
+		const float Z = 50.f + static_cast<float>(Step) * 120.f;
+		if (SpawnPlaygroundMesh(CubeMesh, FVector(X, Y, Z), FVector(6.f, 6.f, 0.5f)))
 		{
-			const float X = 400.f * static_cast<float>(Step + 1);
-			const float Y = 250.f * FMath::Sin(static_cast<float>(Step) * 0.65f);
-			const float Z = 50.f + static_cast<float>(Step) * 120.f;
-			if (SpawnPlaygroundMesh(CubeMesh, FVector(X, Y, Z), FVector(6.f, 6.f, 0.5f)))
-			{
-				// platform spawned
-			}
+			// platform spawned
 		}
 	}
 

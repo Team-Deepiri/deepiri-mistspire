@@ -63,6 +63,7 @@ mistspire.RefillSurvival
 - **Editor upgrade toasts:** UE 5.8 migrates leftover Axis/Action mappings to Enhanced Input. This project already uses Enhanced Input; restart after pulling so `DefaultInput.ini` has no legacy mappings.
 - **Keys do nothing:** click inside the PIE viewport; recompile C++ after pulling; launch with `.\run-nonvr.ps1` (`-nonvr`) and use **Play**, not **VR Preview**.
 - **Still no movement:** confirm Output Log has no `Mistspire non-VR requires EnhancedInputComponent` error.
+- **Magenta/cyan noise only on the sky / behind ground (two bottom tiles + right-edge strip):** leftover **instanced stereo** L/R eye rects. Project defaults are now mono-safe (`r.ClearSceneMethod=1`, `vr.InstancedStereo=False`). Runtime uses `ECVF_SetByCode` so overrides actually win over ini. Fully restart the editor after pulling so RendererSettings reload — toggling mid-session is not enough.
 
 ## Mode detection
 
@@ -76,7 +77,7 @@ mistspire.RefillSurvival
 
 ## World bootstrap
 
-On non-VR start, after a short delay (to allow World Partition to stream), if there is **no ground** under `PlayerStart`, the game spawns a fallback floor (400 m) and stepping platforms. If `Main_WP` already has landscape, it uses the map as-is.
+On non-VR start, after a short delay (to allow World Partition to stream), if there is **no ground** under `PlayerStart`, the game spawns a fallback **cube** floor (thick, `BlockAll`, ~400 m) and stepping platforms. If `Main_WP` already has landscape, it uses the map as-is.
 
 Atlas door/POI markers are **not** spawned in non-VR by default (set `bSpawnAtlasMarkersInNonVR` on `MistspireGameMode` to enable).
 

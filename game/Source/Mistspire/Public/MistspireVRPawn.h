@@ -13,6 +13,7 @@ class UTextRenderComponent;
 class UAudioComponent;
 class UPostProcessComponent;
 class UCableComponent;
+struct FHitResult;
 
 UCLASS()
 class MISTSPIRE_API AMistspireVRPawn : public APawn
@@ -231,6 +232,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
 	float NonVREyeHeightCm = 64.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRGravityCmPerSec2 = 2400.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRGroundSnapMaxGapCm = 8.f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float SprintSpeedCmPerSec = 700.f;
 
@@ -301,7 +308,12 @@ private:
 	void OnInteractPressed();
 	void PollXRInput();
 	void UpdateAltitudeTracking();
-	void ApplyVerticalVelocity(float DeltaCm);
+	void ApplyVerticalVelocity(float DeltaCm, FHitResult* OutHit = nullptr);
+	void UpdateNonVRGravity(float DeltaTime);
+	bool ProbeGround(FHitResult& OutHit, float ExtraDownCm) const;
+	bool IsFloorHit(const FHitResult& Hit) const;
+	void SnapFeetToGround(const FHitResult& GroundHit);
+	void EnforceNonVRGroundConstraint(bool bSkipWhileReelingUpward);
 	void UpdateStamina(float DeltaTime);
 	void UpdateOxygen(float DeltaTime);
 	void UpdateAtmosphericEffects(float DeltaTime);

@@ -37,4 +37,7 @@ struct MISTSPIRE_API FMistspireInputMode
 
 	/** Register the non-VR mapping context on the local player. */
 	static void AddNonVRMappingContext(APlayerController* PlayerController, const UInputMappingContext* MappingContext);
+
+	/** VR DefaultEngine.ini skips scene clear + uses instanced stereo. Flat Play must override or sky pixels show garbage. */
+	static void ApplyRendererOverrides(bool bNonVR);
 };
