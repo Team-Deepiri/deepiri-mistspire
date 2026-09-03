@@ -2,27 +2,46 @@ name: validate
 
 on:
   pull_request:
-    branches: [main, dev]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '.gitignore'
-      - 'LICENSE*'
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  lint:
-    timeout-minutes: 20
-    name: Project structure
+  ci-gate:
+    name: CI gate
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run_code: ${{ steps.filter.outputs.run_code }}
     steps:
       - uses: actions/checkout@v4
-      - run: test -f game/Mistspire.uproject
+      - id: filter
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 .github/scripts/pr_has_code_changes.py
+
+  lint:
+    name: Project structure
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Skip docs-only change
+        if: needs.ci-gate.outputs.run_code != 'true'
+        run: echo "No code paths changed; skipping."
+      - uses: actions/checkout@v4
+        if: needs.ci-gate.outputs.run_code == 'true'
+      - if: needs.ci-gate.outputs.run_code == 'true'
+        run: test -f game/Mistspire.uproject
       - name: Validate JSON config files
+        if: needs.ci-gate.outputs.run_code == 'true'
         run: |
           set -euo pipefail
           for f in game/Mistspire.uproject interaction_profiles/openxr/*.json; do
@@ -30,37 +49,36 @@ jobs:
           done
 
   shellcheck:
-    timeout-minutes: 20
     name: Shellcheck
+    needs: ci-gate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      - name: Skip docs-only change
+        if: needs.ci-gate.outputs.run_code != 'true'
+        run: echo "No code paths changed; skipping."
       - uses: actions/checkout@v4
+        if: needs.ci-gate.outputs.run_code == 'true'
       # -x follows `# shellcheck source=` includes (e.g. scripts/lib/ue-paths.sh).
-      - run: shellcheck -x scripts/*.sh
+      - if: needs.ci-gate.outputs.run_code == 'true'
+        run: shellcheck -x scripts/*.sh
 
   python-lint:
-    timeout-minutes: 20
     name: Python lint (ruff)
+    needs: ci-gate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      - name: Skip docs-only change
+        if: needs.ci-gate.outputs.run_code != 'true'
+        run: echo "No code paths changed; skipping."
       - uses: actions/checkout@v4
+        if: needs.ci-gate.outputs.run_code == 'true'
       - uses: actions/setup-python@v5
+        if: needs.ci-gate.outputs.run_code == 'true'
         with:
           python-version: "3.11"
-      - run: pip install "ruff==0.16.0"
-      - run: ruff check scripts/*.py
-
-  xr-sandbox-build:
-    timeout-minutes: 20
-    name: Build xr-sandbox (native, no Unreal Editor)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install OpenXR dev headers
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libopenxr-dev pkg-config
-      - name: Configure
-        run: cmake -B native/xr-sandbox/build -S native/xr-sandbox -DCMAKE_BUILD_TYPE=Release
-      - name: Build
-        run: cmake --build native/xr-sandbox/build
+      - if: needs.ci-gate.outputs.run_code == 'true'
+        run: pip install "ruff==0.16.0"
+      - if: needs.ci-gate.outputs.run_code == 'true'
+        run: ruff check scripts/*.py .github/scripts/*.py

@@ -25,8 +25,8 @@ Edit JSON under `interaction_profiles/openxr/`, keep action names aligned with `
 
 Hosted GitHub Actions cannot build Unreal. PRs should keep green:
 
-- `validate.yml` — JSON, shellcheck, pinned Ruff (`ruff==0.16.0`), `native/xr-sandbox` cmake build
-- `codeql.yml` — C++ analysis after building `native/xr-sandbox`
+- `validate.yml` — JSON, shellcheck, pinned Ruff (`ruff==0.16.0`); docs-only PRs still report via `CI gate`
+- `codeql.yml` — C++ analysis after building `native/xr-sandbox` (weekly schedule covers `main`; no post-merge `push`)
 
 See [.github/codeql/README.md](.github/codeql/README.md).
 
