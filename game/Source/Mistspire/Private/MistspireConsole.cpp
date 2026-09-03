@@ -96,6 +96,37 @@ static FAutoConsoleCommand CmdMistspireRefillSurvival(
 	TEXT("Refill stamina and oxygen (debug)."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireRefillSurvival));
 
+static void MistspireToggleSettings(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	APlayerController* PC = GWorld->GetFirstPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(PC->GetPawn()))
+	{
+		if (!Pawn->IsNonVRMode())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Mistspire: ToggleSettings is non-VR only."));
+			return;
+		}
+		if (!Pawn->HasGameplayStarted())
+		{
+			Pawn->StartGameplay();
+		}
+		Pawn->ToggleSettingsMenu();
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireToggleSettings(
+	TEXT("mistspire.ToggleSettings"),
+	TEXT("Toggle the non-VR settings menu (use in PIE — Esc stops play in the editor)."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireToggleSettings));
+
 static void MistspireSaveProgress(const TArray<FString>&)
 {
 	if (!GWorld)

@@ -127,7 +127,7 @@ void FMistspireInputMode::CreateNonVREnhancedInput(UObject* Outer, FMistspireNon
 	{
 		FEnhancedActionKeyMapping& Mouse = Context->MapKey(Out.Look, EKeys::Mouse2D);
 		UInputModifierScalar* Scale = AddModifier<UInputModifierScalar>(Context, Mouse);
-		Scale->Scalar = FVector(0.07f, 0.07f, 1.f);
+		Scale->Scalar = FVector(0.14f, 0.14f, 1.f);
 		UInputModifierNegate* InvertY = AddModifier<UInputModifierNegate>(Context, Mouse);
 		InvertY->bX = false;
 		InvertY->bY = true;
@@ -183,6 +183,7 @@ void FMistspireInputMode::ApplyRendererOverrides(bool bNonVR)
 		SetCVar(TEXT("vr.StereoViewOffset"), 0);
 		SetCVar(TEXT("r.VariableRateShading.Enable"), 0);
 		SetCVar(TEXT("r.VolumetricFog.ScreenResolutionDivisor"), 1);
+		// Fullscreen / windowed is owned by UMistspireGameUserSettings (Esc menu + defaults).
 	}
 	else
 	{

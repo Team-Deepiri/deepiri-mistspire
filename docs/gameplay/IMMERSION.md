@@ -7,7 +7,7 @@
 | Grip | Grab / climb |
 | Left stick | Move + strafe |
 | Right stick X | Turn |
-| Right trigger | **Grapple** (line trace); hold to reel faster |
+| Right trigger | **Grapple** (line trace); hold to reel faster; press again to cancel |
 | B button | **Glider** toggle |
 | Menu | Teleport blink forward |
 | Hands high + forward | **Mantle** ledge assist |
@@ -23,10 +23,12 @@ Editor **Play** or packaged `-nonvr`. Full table: [docs/setup/NONVR_MODE.md](../
 | Space | Jump |
 | Left Control (hold) | Climb |
 | Left Shift (hold) | Sprint |
-| F / Right mouse | Grapple |
+| F / Right mouse | Grapple (center + aim); press again to cancel |
 | G | Glider toggle |
 | T | Teleport blink |
 | E | Interact |
+| Esc | Settings menu |
+| Alt+Enter / F11 | Toggle fullscreen |
 
 ## Survival
 
@@ -68,6 +70,7 @@ mistspire.AltitudeStats
 mistspire.TeleportUp 5000
 mistspire.SetWeather 2          # 0–3
 mistspire.RefillSurvival
+mistspire.ToggleSettings        # non-VR settings (PIE-safe; Esc stops PIE)
 mistspire.SaveProgress
 mistspire.LoadProgress
 mistspire.VisualDebug

@@ -13,7 +13,7 @@ Play Mistspire without a VR headset. Uses the same `AMistspireVRPawn` and game s
 .\run-nonvr.ps1
 ```
 
-Open the project, then click **Play** (not **VR Preview**).
+Open the project, then click **Play** (not **VR Preview**). You will see the **Mistspire** title over the live world; press any key (or mouse button) to start.
 
 ## Quick start — editor (Linux)
 
@@ -35,18 +35,24 @@ See [Packaging](#packaging) below for cook commands.
 
 | Input | Action |
 |-------|--------|
-| W / A / S / D | Move |
-| Mouse | Look |
+| W / A / S / D | Move (eases in/out; not instant) |
+| Mouse | Look (camera bobs while walking) |
 | Space | Jump |
 | Left Control (hold) | Climb (when facing a surface) |
 | Left Shift (hold) | Sprint |
-| F or Right Mouse | Grapple |
+| F or Right Mouse | Grapple (aim with center +; press again to cancel) |
 | G | Toggle glider |
 | T | Teleport blink forward |
 | E | Interact (buttons, lore shards) |
+| Esc | Settings (fullscreen, mouse sensitivity, view bobbing, FOV, keyboard controls hint) |
 | `~` | Console |
+| Alt+Enter / F11 | Toggle fullscreen (outside settings) |
 
 Bindings are created in C++ (`FMistspireInputMode::CreateNonVREnhancedInput`) — there are no Content Input Action assets. `DefaultInput.ini` uses `EnhancedPlayerInput` / `EnhancedInputComponent`.
+
+Esc opens a Slate settings overlay (soft-pause: cursor on, gameplay input ignored). Values persist via `UMistspireGameUserSettings`. The on-screen keyboard controls line is **off by default**; enable it under **Show keyboard controls** in settings (or `mistspire.ShowControls 1` to force on).
+
+A white **+** crosshair is drawn at screen center (`AMistspireHUD`) for grapple aim. The cable tip extends to the hit before pull starts; press F / RMB again to cancel while extending or reeling. The far end stays locked to the world hit (it does not follow look).
 
 ## Console
 
@@ -56,8 +62,10 @@ mistspire.ShowControls 1
 mistspire.TeleportUp 5000
 mistspire.AltitudeStats
 mistspire.RefillSurvival
+mistspire.ToggleSettings
 ```
 
+In the editor, **Esc stops PIE**. Use `mistspire.ToggleSettings` (tilde console) to open/close the settings menu instead. Packaged builds still use Esc.
 ## Troubleshooting input
 
 - **Editor upgrade toasts:** UE 5.8 migrates leftover Axis/Action mappings to Enhanced Input. This project already uses Enhanced Input; restart after pulling so `DefaultInput.ini` has no legacy mappings.
@@ -91,15 +99,19 @@ $UAT = "$env:UE_ROOT\Engine\Build\BatchFiles\RunUAT.bat"
   -project="game\Mistspire.uproject" `
   -platform=Win64 `
   -clientconfig=Development `
-  -cook -stage -pak -archive `
+  -build -cook -stage -pak -archive `
   -archivedirectory="game\Package\Win64"
 ```
 
 Launch:
 
 ```powershell
-.\game\Package\Win64\Windows\Mistspire\Binaries\Win64\Mistspire.exe -nonvr
+.\game\Package\Win64\Mistspire\Binaries\Win64\Mistspire.exe -nonvr -windowed
+# or:
+.\scripts\launch_packaged_win64.ps1
 ```
+
+Default is **windowed** (`DefaultGameUserSettings.ini` + `-windowed`). In-game **Esc** opens settings (fullscreen mode, mouse sensitivity, view bobbing, FOV). Alt+Enter / F11 also toggle fullscreen.
 
 OpenXR plugins remain enabled; they are not required when `-nonvr` is used and no headset is connected.
 

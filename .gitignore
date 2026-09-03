@@ -1,10 +1,35 @@
+# Unreal Engine build / cook / cache (do not commit)
 Binaries/
+**/Binaries/
 DerivedDataCache/
+**/DerivedDataCache/
 Intermediate/
+**/Intermediate/
 Saved/
+**/Saved/
 Build/
+**/Build/
+Package/
+**/Package/
+ArchivedBuilds/
+**/ArchivedBuilds/
+
+# Map lighting/HLOD build artifacts and local shader bytecode
+*_BuiltData.uasset
+*.ushaderbytecode
+*.upipelinecache
+
+# Visual Studio / IDE
 *.sln
 .vs/
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.csproj.user
+
+# OS / env / local tooling
 .DS_Store
 .env
 .env.*

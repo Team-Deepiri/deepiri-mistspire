@@ -1,5 +1,6 @@
 #include "MistspireGameMode.h"
 #include "MistspireGameState.h"
+#include "MistspireHUD.h"
 #include "MistspireVRPawn.h"
 #include "MistspirePlayerState.h"
 #include "MistspireSummitRegistry.h"
@@ -13,6 +14,7 @@
 #include "MistspireNarrativeSubsystem.h"
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireInputMode.h"
+#include "Engine/Engine.h"
 #include "Engine/StaticMeshActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -26,6 +28,7 @@ AMistspireGameMode::AMistspireGameMode()
 	DefaultPawnClass = AMistspireVRPawn::StaticClass();
 	GameStateClass = AMistspireGameState::StaticClass();
 	PlayerStateClass = AMistspirePlayerState::StaticClass();
+	HUDClass = AMistspireHUD::StaticClass();
 
 	bPauseable = false;
 	bStartPlayersAsSpectators = false;
@@ -36,6 +39,14 @@ void AMistspireGameMode::StartPlay()
 	Super::StartPlay();
 	SeedDefaultSummits();
 	SeedWorldAtlas();
+
+	if (GEngine)
+	{
+		// Prevent Engine banner "'DisableAllScreenMessages' to suppress".
+		GEngine->bEnableOnScreenDebugMessages = false;
+		GEngine->bEnableOnScreenDebugMessagesDisplay = false;
+		GEngine->ClearOnScreenDebugMessages();
+	}
 
 	if (UWorld* World = GetWorld())
 	{

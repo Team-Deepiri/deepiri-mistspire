@@ -29,5 +29,5 @@ if (-not $Exe) {
     exit 1
 }
 
-Write-Host "Launching: $Exe -nonvr"
-& $Exe -nonvr
+Write-Host "Launching: $Exe -nonvr -windowed"
+& $Exe -nonvr -windowed

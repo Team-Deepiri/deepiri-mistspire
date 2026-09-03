@@ -17,6 +17,8 @@ public class Mistspire : ModuleRules
 		{
 			"RenderCore",
 			"XRBase",
+			"Slate",
+			"SlateCore",
 		});
 	}
 }

@@ -58,13 +58,8 @@ void UMistspireNarrativeSubsystem::PushLine(const FText& Line, float DisplaySeco
 {
 	LastLine = Line;
 	OnNarrativeLine.Broadcast(Line);
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(
-			-1, DisplaySeconds, FColor::Silver,
-			FString::Printf(TEXT("> %s"), *Line.ToString()));
-	}
+	// Intentionally no AddOnScreenDebugMessage — that triggers Engine's
+	// "'DisableAllScreenMessages' to suppress" banner. Use HUD / wrist / events instead.
 }
 
 void UMistspireNarrativeSubsystem::HandleZoneChanged(EMistspireAltitudeZone OldZone, EMistspireAltitudeZone NewZone)
