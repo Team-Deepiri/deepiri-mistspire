@@ -47,8 +47,6 @@ deepiri-mistspire/
 └── docs/
 ```
 
-
-
 ## Documentation
 
 - [Docs index](docs/README.md)

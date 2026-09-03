@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$ROOT"
+cd "$ROOT" || exit
 
 # shellcheck source=scripts/lib/ue-paths.sh
 source "$ROOT/scripts/lib/ue-paths.sh"

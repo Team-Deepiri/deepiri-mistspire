@@ -9,3 +9,5 @@ Build/
 .env
 .env.*
 native/xr-sandbox/build/
+__pycache__/
+*.py[cod]

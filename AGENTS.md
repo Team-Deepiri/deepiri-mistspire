@@ -12,8 +12,9 @@
 | `game/Source/Mistspire/` | Game module (pawn, altitude, summits) |
 | `game/Plugins/MistspireOpenXRNative/` | OpenXR native bridge |
 | `interaction_profiles/openxr/` | Controller bindings (Meta, Valve, HTC) |
-| `docs/setup/PCVR_DEV_SETUP.md` | PCVR hub; per-headset guides under `docs/setup/headsets/` |
+| `docs/setup/PCVR_DEV_SETUP.md` | PCVR hub, Linux/WSL/Windows VR; headset guides under `docs/setup/headsets/` |
 | `game/Config/DefaultEngine.ini` | Linux Vulkan SM5/SM6 + Win64 D3D12 SM5/SM6 |
+| `.github/workflows/` | Hosted CI (`validate.yml`, `codeql.yml`, reusable `ci-gate.yml`); see [`.github/codeql/README.md`](.github/codeql/README.md) |
 | `docs/setup/NONVR_MODE.md` | Keyboard/mouse play without a headset |
 
 ## Rules for agents
