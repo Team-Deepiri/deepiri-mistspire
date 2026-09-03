@@ -2,42 +2,86 @@ name: CodeQL
 
 on:
   pull_request:
-    branches: [main, dev]
   push:
-    branches: [main, dev]
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 permissions:
   actions: read
   contents: read
+  pull-requests: read
   security-events: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  ci-gate:
+    uses: ./.github/workflows/ci-gate.yml
+    permissions:
+      contents: read
+      pull-requests: read
+
   analyze:
     name: Analyze (cpp)
+    needs: ci-gate
     runs-on: ubuntu-latest
-
+    timeout-minutes: 30
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Skip docs-only change
+        if: needs.ci-gate.outputs.run_code != 'true'
+        run: echo "No code paths changed; uploading empty SARIF so code scanning still reports."
+      - name: Write empty SARIF
+        if: needs.ci-gate.outputs.run_code != 'true'
+        run: |
+          cat > "${RUNNER_TEMP}/empty.sarif" <<'EOF'
+          {
+            "version": "2.1.0",
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "CodeQL",
+                    "organization": "GitHub",
+                    "informationUri": "https://codeql.github.com"
+                  }
+                },
+                "results": []
+              }
+            ]
+          }
+          EOF
+      - name: Upload empty SARIF
+        if: needs.ci-gate.outputs.run_code != 'true'
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          fetch-depth: 0
-
+          sarif_file: ${{ runner.temp }}/empty.sarif
       - name: Initialize CodeQL
+        if: needs.ci-gate.outputs.run_code == 'true'
         uses: github/codeql-action/init@v3
         with:
           languages: cpp
           config-file: ./.github/codeql/codeql-config.yml
 
       - name: Install OpenXR dev headers
+        if: needs.ci-gate.outputs.run_code == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y libopenxr-dev pkg-config
 
       - name: Configure native sandbox
+        if: needs.ci-gate.outputs.run_code == 'true'
         run: cmake -B native/xr-sandbox/build -S native/xr-sandbox -DCMAKE_BUILD_TYPE=Release
 
       - name: Build native sandbox
+        if: needs.ci-gate.outputs.run_code == 'true'
         run: cmake --build native/xr-sandbox/build
 
       - name: Perform CodeQL Analysis
+        if: needs.ci-gate.outputs.run_code == 'true'
         uses: github/codeql-action/analyze@v3

@@ -43,8 +43,6 @@ deepiri-mistspire/
 └── docs/
 ```
 
-
-
 ## Documentation
 
 - [Docs index](docs/README.md)
@@ -54,8 +52,6 @@ deepiri-mistspire/
 - [World design](docs/gameplay/WORLD_DESIGN.md)
 - [OpenXR runtimes](docs/architecture/OPENXR_RUNTIMES.md)
 - [Build / edit Main_WP](game/Content/Maps/README.md)
-
-
 
 ## WSL
 
