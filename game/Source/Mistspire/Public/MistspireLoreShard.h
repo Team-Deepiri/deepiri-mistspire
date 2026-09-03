@@ -19,6 +19,11 @@ public:
 
 	virtual void MistspireInteract_Implementation(AActor* InteractInstigator) override;
 
+	/** Authority-only apply; called from pawn Server_CollectLoreShard. */
+	void ApplyCollection(AMistspireVRPawn* Pawn);
+
+	bool IsCollected() const { return bCollected; }
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -27,10 +32,6 @@ protected:
 		int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	void CollectShard(AMistspireVRPawn* Pawn);
-	void ApplyCollection(AMistspireVRPawn* Pawn);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerCollectShard(AMistspireVRPawn* CollectingPawn);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Lore")
 	FText LoreTitle;

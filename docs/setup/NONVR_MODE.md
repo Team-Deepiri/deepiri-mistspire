@@ -85,7 +85,7 @@ In the editor, **Esc stops PIE**. Use `mistspire.ToggleSettings` (tilde console)
 
 ## World bootstrap
 
-On non-VR start, after a short delay (to allow World Partition to stream), if there is **no ground** under `PlayerStart`, the game spawns a fallback **cube** floor (thick, `BlockAll`, ~400 m) and stepping platforms. If `Main_WP` already has landscape, it uses the map as-is.
+On non-VR start, the game polls for ground under `PlayerStart` for up to ~5 s (World Partition streaming). If there is still **no ground**, it spawns a fallback **cube** floor (thick, `BlockAll`, ~400 m) and stepping platforms. If `Main_WP` already has landscape, it uses the map as-is.
 
 Atlas door/POI markers are **not** spawned in non-VR by default (set `bSpawnAtlasMarkersInNonVR` on `MistspireGameMode` to enable).
 
@@ -106,12 +106,13 @@ $UAT = "$env:UE_ROOT\Engine\Build\BatchFiles\RunUAT.bat"
 Launch:
 
 ```powershell
-.\game\Package\Win64\Mistspire\Binaries\Win64\Mistspire.exe -nonvr -windowed
+.\game\Package\Win64\Mistspire\Binaries\Win64\Mistspire.exe -nonvr
 # or:
 .\scripts\launch_packaged_win64.ps1
+# optional: .\scripts\launch_packaged_win64.ps1 -ForceWindowed
 ```
 
-Default is **windowed** (`DefaultGameUserSettings.ini` + `-windowed`). In-game **Esc** opens settings (fullscreen mode, mouse sensitivity, view bobbing, FOV). Alt+Enter / F11 also toggle fullscreen.
+Default display follows `UMistspireGameUserSettings` (windowed on first launch). Pass `-ForceWindowed` or `-windowed` to override. In-game **Esc** opens settings (fullscreen, sensitivity, bob, FOV, keyboard hint). Alt+Enter / F11 also toggle fullscreen.
 
 OpenXR plugins remain enabled; they are not required when `-nonvr` is used and no headset is connected.
 

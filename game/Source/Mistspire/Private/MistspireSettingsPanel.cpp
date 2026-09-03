@@ -9,6 +9,43 @@
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Styling/CoreStyle.h"
+#include "Styling/SlateTypes.h"
+#include "InputCoreTypes.h"
+#include "Framework/Application/SlateApplication.h"
+
+namespace
+{
+	const FSliderStyle& GetVisibleSliderStyle()
+	{
+		static const FSliderStyle Style = []()
+		{
+			const FSlateBrush* WhiteBox = FCoreStyle::Get().GetBrush("GenericWhiteBox");
+
+			FSlateBrush Bar = WhiteBox ? *WhiteBox : FSlateBrush();
+			Bar.DrawAs = ESlateBrushDrawType::Box;
+			Bar.Margin = FMargin(0.f);
+			Bar.TintColor = FSlateColor(FLinearColor(0.82f, 0.84f, 0.88f, 1.f));
+			Bar.ImageSize = FVector2D(32.f, 10.f);
+
+			FSlateBrush Thumb = WhiteBox ? *WhiteBox : FSlateBrush();
+			Thumb.DrawAs = ESlateBrushDrawType::Box;
+			Thumb.Margin = FMargin(0.f);
+			Thumb.TintColor = FSlateColor(FLinearColor(1.f, 1.f, 1.f, 1.f));
+			Thumb.ImageSize = FVector2D(18.f, 18.f);
+
+			FSliderStyle Out;
+			Out.SetNormalBarImage(Bar);
+			Out.SetHoveredBarImage(Bar);
+			Out.SetDisabledBarImage(Bar);
+			Out.SetNormalThumbImage(Thumb);
+			Out.SetHoveredThumbImage(Thumb);
+			Out.SetDisabledThumbImage(Thumb);
+			Out.SetBarThickness(10.f);
+			return Out;
+		}();
+		return Style;
+	}
+}
 
 void SMistspireSettingsPanel::Construct(const FArguments& InArgs)
 {
@@ -64,14 +101,21 @@ void SMistspireSettingsPanel::Construct(const FArguments& InArgs)
 					.Font(RowFont)
 					.ColorAndOpacity(FLinearColor(0.9f, 0.9f, 0.9f))
 				]
-				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f)
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
 				[
-					SNew(SSlider)
-					.Value(this, &SMistspireSettingsPanel::GetSensitivityValue)
-					.OnValueChanged(this, &SMistspireSettingsPanel::OnSensitivityChanged)
-					.MinValue(0.25f)
-					.MaxValue(3.f)
-					.StepSize(0.05f)
+					SNew(SBox)
+					.MinDesiredHeight(22.f)
+					[
+						SNew(SSlider)
+						.Style(&GetVisibleSliderStyle())
+						.SliderBarColor(FLinearColor(0.85f, 0.87f, 0.92f, 1.f))
+						.SliderHandleColor(FLinearColor(1.f, 1.f, 1.f, 1.f))
+						.Value(this, &SMistspireSettingsPanel::GetSensitivityValue)
+						.OnValueChanged(this, &SMistspireSettingsPanel::OnSensitivityChanged)
+						.MinValue(0.25f)
+						.MaxValue(3.f)
+						.StepSize(0.05f)
+					]
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 10.f)
 				[
@@ -114,14 +158,21 @@ void SMistspireSettingsPanel::Construct(const FArguments& InArgs)
 					.Font(RowFont)
 					.ColorAndOpacity(FLinearColor(0.9f, 0.9f, 0.9f))
 				]
-				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 4.f)
+				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 6.f)
 				[
-					SNew(SSlider)
-					.Value(this, &SMistspireSettingsPanel::GetFovValue)
-					.OnValueChanged(this, &SMistspireSettingsPanel::OnFovChanged)
-					.MinValue(70.f)
-					.MaxValue(110.f)
-					.StepSize(1.f)
+					SNew(SBox)
+					.MinDesiredHeight(22.f)
+					[
+						SNew(SSlider)
+						.Style(&GetVisibleSliderStyle())
+						.SliderBarColor(FLinearColor(0.85f, 0.87f, 0.92f, 1.f))
+						.SliderHandleColor(FLinearColor(1.f, 1.f, 1.f, 1.f))
+						.Value(this, &SMistspireSettingsPanel::GetFovValue)
+						.OnValueChanged(this, &SMistspireSettingsPanel::OnFovChanged)
+						.MinValue(70.f)
+						.MaxValue(110.f)
+						.StepSize(1.f)
+					]
 				]
 				+ SVerticalBox::Slot().AutoHeight().Padding(0.f, 22.f, 0.f, 0.f)
 				[
@@ -144,6 +195,16 @@ void SMistspireSettingsPanel::Construct(const FArguments& InArgs)
 			]
 		]
 	];
+}
+
+FReply SMistspireSettingsPanel::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		OnClosed.ExecuteIfBound();
+		return FReply::Handled();
+	}
+	return SCompoundWidget::OnKeyDown(MyGeometry, InKeyEvent);
 }
 
 FReply SMistspireSettingsPanel::OnResumeClicked()
@@ -183,6 +244,7 @@ void SMistspireSettingsPanel::OnControlsHintChanged(ECheckBoxState NewState)
 {
 	if (UMistspireGameUserSettings* Settings = UMistspireGameUserSettings::Get())
 	{
+		// HUD reads this flag directly each frame — no FOV/camera ApplyLive needed.
 		Settings->SetControlsHintEnabled(NewState == ECheckBoxState::Checked);
 	}
 }

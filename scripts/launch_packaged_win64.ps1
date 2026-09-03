@@ -1,6 +1,7 @@
 # Launch packaged Win64 Mistspire in non-VR mode.
 param(
-    [string]$PackageRoot = ""
+    [string]$PackageRoot = "",
+    [switch]$ForceWindowed
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,5 +30,10 @@ if (-not $Exe) {
     exit 1
 }
 
-Write-Host "Launching: $Exe -nonvr -windowed"
-& $Exe -nonvr -windowed
+$LaunchArgs = @("-nonvr")
+if ($ForceWindowed) {
+    $LaunchArgs += "-windowed"
+}
+
+Write-Host "Launching: $Exe $($LaunchArgs -join ' ')"
+& $Exe @LaunchArgs

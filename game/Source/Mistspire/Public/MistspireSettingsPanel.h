@@ -17,6 +17,9 @@ public:
 		SLATE_EVENT(FOnMistspireSettingsClosed, OnClosed)
 	SLATE_END_ARGS()
 
+	virtual bool SupportsKeyboardFocus() const override { return true; }
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
+
 	void Construct(const FArguments& InArgs);
 
 private:

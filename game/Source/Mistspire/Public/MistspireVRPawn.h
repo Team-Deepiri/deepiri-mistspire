@@ -77,6 +77,10 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientReceiveLoreShard(const FText& Title, const FText& Body);
 
+	/** Client-owned RPC so lore shards can be collected over the network. */
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_CollectLoreShard(class AMistspireLoreShard* Shard);
+
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void TeleportForward(float DistanceCm = 800.f);
 

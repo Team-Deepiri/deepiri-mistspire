@@ -28,4 +28,6 @@ protected:
 	FVector ResolveNonVRSpawnLocation() const;
 
 	FTimerHandle NonVRPlaygroundTimerHandle;
+	int32 NonVRPlaygroundAttempts = 0;
+	static constexpr int32 NonVRPlaygroundMaxAttempts = 20; // 20 * 0.25s = 5s
 };

@@ -83,6 +83,8 @@ Bindings include: `move`, `strafe`, `turn`, `grip`, `jump`, `climb`, `grapple`, 
 - `mistspire.AltitudeStats`
 - `mistspire.TeleportUp 5000`
 - `mistspire.ShowAltitudeHUD 1` (on-screen HUD CVar)
+- `mistspire.ShowControls 1` (force keyboard hint; `-1` = use settings, default off)
+- `mistspire.ToggleSettings` (non-VR settings menu; PIE-safe — Esc stops PIE)
 - `mistspire.ShowWristAltimeter 1` (wrist world-text command)
 - Full command list: see [docs/gameplay/IMMERSION.md](docs/gameplay/IMMERSION.md).
 

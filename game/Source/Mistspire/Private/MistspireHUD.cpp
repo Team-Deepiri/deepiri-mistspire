@@ -5,6 +5,7 @@
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireInputMode.h"
 #include "MistspireInteriorSubsystem.h"
+#include "MistspireNarrativeSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "MistspireWorldAtlasSubsystem.h"
 #include "MistspireZoneSubsystem.h"
@@ -18,7 +19,12 @@ namespace
 {
 	UFont* GetHudFontAsset()
 	{
-		return LoadObject<UFont>(nullptr, TEXT("/Engine/EngineFonts/Roboto.Roboto"));
+		static TWeakObjectPtr<UFont> CachedFont;
+		if (!CachedFont.IsValid())
+		{
+			CachedFont = LoadObject<UFont>(nullptr, TEXT("/Engine/EngineFonts/Roboto.Roboto"));
+		}
+		return CachedFont.Get();
 	}
 
 	void DrawSlateText(UCanvas* Canvas, const FString& Text, float X, float Y, float FontSize,
@@ -54,13 +60,13 @@ namespace
 		{
 			if (UMistspireAltitudeSubsystem* Alt = World->GetSubsystem<UMistspireAltitudeSubsystem>())
 			{
-				FString Line1 = FString::Printf(TEXT("Mistspire  %.0f m   BEST %.0f m"),
+				FString Line1 = FString::Printf(TEXT("ALT  %.0f m   BEST %.0f m"),
 					Alt->GetCurrentAltitudeCm() / 100.f,
 					Alt->GetPersonalBestAltitudeCm() / 100.f);
 
 				if (UMistspireZoneSubsystem* Zone = World->GetSubsystem<UMistspireZoneSubsystem>())
 				{
-					Line1 += FString::Printf(TEXT("   [%s]"),
+					Line1 += FString::Printf(TEXT("   [ %s ]"),
 						*UMistspireZoneSubsystem::GetZoneDisplayName(Zone->GetCurrentZone()).ToString());
 				}
 				if (UMistspireWorldAtlasSubsystem* Atlas = World->GetSubsystem<UMistspireWorldAtlasSubsystem>())
@@ -111,6 +117,16 @@ namespace
 						FString::Printf(TEXT("Beacon: %.1f km  bearing %.0f deg"),
 							Target.DistanceCm / 100000.f, Target.BearingDegrees),
 						X, Y, LineSize, FLinearColor(1.f, 0.55f, 0.1f), false, false);
+					Y += LineStep;
+				}
+			}
+
+			if (UMistspireNarrativeSubsystem* Narr = World->GetSubsystem<UMistspireNarrativeSubsystem>())
+			{
+				if (Narr->HasActiveLine())
+				{
+					DrawSlateText(Canvas, Narr->GetActiveLine().ToString(), X, Y, LineSize,
+						FLinearColor(1.f, 0.95f, 0.7f), false, false);
 					Y += LineStep;
 				}
 			}

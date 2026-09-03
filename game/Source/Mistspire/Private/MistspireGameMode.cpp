@@ -14,7 +14,6 @@
 #include "MistspireNarrativeSubsystem.h"
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireInputMode.h"
-#include "Engine/Engine.h"
 #include "Engine/StaticMeshActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -40,14 +39,6 @@ void AMistspireGameMode::StartPlay()
 	SeedDefaultSummits();
 	SeedWorldAtlas();
 
-	if (GEngine)
-	{
-		// Prevent Engine banner "'DisableAllScreenMessages' to suppress".
-		GEngine->bEnableOnScreenDebugMessages = false;
-		GEngine->bEnableOnScreenDebugMessagesDisplay = false;
-		GEngine->ClearOnScreenDebugMessages();
-	}
-
 	if (UWorld* World = GetWorld())
 	{
 		World->GetSubsystem<UMistspireAltitudeDebugSubsystem>();
@@ -70,14 +61,13 @@ void AMistspireGameMode::StartPlay()
 
 		if (bNonVR)
 		{
+			NonVRPlaygroundAttempts = 0;
 			World->GetTimerManager().SetTimer(
 				NonVRPlaygroundTimerHandle,
 				this,
 				&AMistspireGameMode::DeferredNonVRSetup,
-				0.15f,
-				false);
-			// Do not ClientMessage the WASD hint — AHUD draws those at the bottom of the view
-			// and the same string is shown via mistspire.ShowControls.
+				0.25f,
+				true);
 		}
 		else if (AMistspireGameState* GS = World->GetGameState<AMistspireGameState>())
 		{
@@ -151,7 +141,30 @@ void AMistspireGameMode::DeferredNonVRSetup()
 	UWorld* World = GetWorld();
 	if (!World || !FMistspireInputMode::IsNonVRMode(World))
 	{
+		if (World)
+		{
+			World->GetTimerManager().ClearTimer(NonVRPlaygroundTimerHandle);
+		}
 		return;
+	}
+
+	++NonVRPlaygroundAttempts;
+	const FVector SpawnLoc = ResolveNonVRSpawnLocation();
+	const bool bGroundReady = HasGroundUnderLocation(SpawnLoc);
+	const bool bTimedOut = NonVRPlaygroundAttempts >= NonVRPlaygroundMaxAttempts;
+
+	if (!bGroundReady && !bTimedOut)
+	{
+		return;
+	}
+
+	World->GetTimerManager().ClearTimer(NonVRPlaygroundTimerHandle);
+
+	if (!bGroundReady)
+	{
+		UE_LOG(LogTemp, Log,
+			TEXT("Mistspire non-VR: no ground after %.1fs — spawning fallback playground."),
+			NonVRPlaygroundAttempts * 0.25f);
 	}
 
 	EnsureNonVRPlayground();
@@ -248,7 +261,7 @@ void AMistspireGameMode::EnsureNonVRPlayground()
 		{
 			MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 			MeshComp->SetCollisionProfileName(TEXT("BlockAll"));
-			MeshComp->SetMobility(EComponentMobility::Static);
+			// Keep Movable — flipping to Static after FinishSpawning re-registers oddly for runtime spawns.
 		}
 		return Actor;
 	};

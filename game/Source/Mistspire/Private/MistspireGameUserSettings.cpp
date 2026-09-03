@@ -93,3 +93,14 @@ FText UMistspireGameUserSettings::GetFullscreenModeLabel() const
 		return NSLOCTEXT("Mistspire", "FS_Windowed", "Windowed");
 	}
 }
+
+void UMistspireGameUserSettings::SetToDefaults()
+{
+	Super::SetToDefaults();
+	MouseSensitivity = 1.f;
+	bViewBobbing = true;
+	ViewBobScale = 1.f;
+	FieldOfView = 90.f;
+	bShowControlsHint = false;
+	SetFullscreenMode(EWindowMode::Windowed);
+}

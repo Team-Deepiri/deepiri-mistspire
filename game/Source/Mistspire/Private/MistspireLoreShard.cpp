@@ -62,23 +62,14 @@ void AMistspireLoreShard::CollectShard(AMistspireVRPawn* Pawn)
 	}
 	else if (Pawn->IsLocallyControlled())
 	{
-		ServerCollectShard(Pawn);
+		// Route through the owned pawn — this actor has no owning connection.
+		Pawn->Server_CollectLoreShard(this);
 	}
-}
-
-bool AMistspireLoreShard::ServerCollectShard_Validate(AMistspireVRPawn* CollectingPawn)
-{
-	return CollectingPawn != nullptr && !bCollected;
-}
-
-void AMistspireLoreShard::ServerCollectShard_Implementation(AMistspireVRPawn* CollectingPawn)
-{
-	ApplyCollection(CollectingPawn);
 }
 
 void AMistspireLoreShard::ApplyCollection(AMistspireVRPawn* Pawn)
 {
-	if (bCollected || !Pawn)
+	if (bCollected || !Pawn || !HasAuthority())
 	{
 		return;
 	}

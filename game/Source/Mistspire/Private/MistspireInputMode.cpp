@@ -165,32 +165,38 @@ void FMistspireInputMode::AddNonVRMappingContext(APlayerController* PlayerContro
 
 void FMistspireInputMode::ApplyRendererOverrides(bool bNonVR)
 {
-	// Must use SetByCode: DefaultEngine.ini RendererSettings bind as SetByProjectSetting,
-	// which silently wins over SetByGameSetting — prior overrides never applied.
+	// Prefer SetByCode so we win over weaker priorities. Restart-required / ReadOnly
+	// CVars (notably vr.InstancedStereo) cannot change at runtime — DefaultEngine.ini wins.
 	auto SetCVar = [](const TCHAR* Name, int32 Value)
 	{
-		if (IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(Name))
+		IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(Name);
+		if (!CVar)
 		{
-			CVar->Set(Value, ECVF_SetByCode);
+			UE_LOG(LogTemp, Warning, TEXT("Mistspire: console variable '%s' not found"), Name);
+			return;
 		}
+		if (CVar->TestFlags(ECVF_ReadOnly))
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("Mistspire: console variable '%s' is read-only (value stays %d); set DefaultEngine.ini instead"),
+				Name, CVar->GetInt());
+			return;
+		}
+		CVar->Set(Value, ECVF_SetByCode);
 	};
 
 	if (bNonVR)
 	{
-		// Two bottom stereo tiles + right-edge strip = leftover L/R eye rects in a mono view.
+		// Clear every frame so leftover stereo/VRS tiles never show in mono.
+		// Do not attempt vr.InstancedStereo here — it is restart-required.
 		SetCVar(TEXT("r.ClearSceneMethod"), 1);
-		SetCVar(TEXT("vr.InstancedStereo"), 0);
-		SetCVar(TEXT("vr.StereoViewOffset"), 0);
 		SetCVar(TEXT("r.VariableRateShading.Enable"), 0);
 		SetCVar(TEXT("r.VolumetricFog.ScreenResolutionDivisor"), 1);
-		// Fullscreen / windowed is owned by UMistspireGameUserSettings (Esc menu + defaults).
 	}
 	else
 	{
-		// VR HMD writes every pixel; skip clear + enable stereo packing for perf.
+		// VR HMD fills the view; skip clear + enable VRS for perf when mutable.
 		SetCVar(TEXT("r.ClearSceneMethod"), 0);
-		SetCVar(TEXT("vr.InstancedStereo"), 1);
-		SetCVar(TEXT("vr.StereoViewOffset"), 1);
 		SetCVar(TEXT("r.VariableRateShading.Enable"), 1);
 		SetCVar(TEXT("r.VolumetricFog.ScreenResolutionDivisor"), 2);
 	}

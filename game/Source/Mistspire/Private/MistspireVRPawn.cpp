@@ -16,6 +16,8 @@
 #include "MistspireInteractionSubsystem.h"
 #include "MistspireGameUserSettings.h"
 #include "MistspireSettingsPanel.h"
+#include "MistspireNarrativeSubsystem.h"
+#include "MistspireLoreShard.h"
 #include "EnhancedInputComponent.h"
 #include "InputActionValue.h"
 #include "Camera/CameraComponent.h"
@@ -31,6 +33,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/Engine.h"
+#include "Framework/Application/SlateApplication.h"
 #include "InputCoreTypes.h"
 #include "Net/UnrealNetwork.h"
 #include "Engine/World.h"
@@ -299,9 +302,13 @@ void AMistspireVRPawn::OpenSettingsMenu()
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
 		PC->bShowMouseCursor = true;
-		FInputModeUIOnly InputMode;
+		// GameAndUI keeps Escape reachable; UIOnly sets viewport IgnoreInput and blocks Esc close.
+		FInputModeGameAndUI InputMode;
+		InputMode.SetWidgetToFocus(Panel);
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		InputMode.SetHideCursorDuringCapture(false);
 		PC->SetInputMode(InputMode);
+		FSlateApplication::Get().SetKeyboardFocus(Panel, EFocusCause::SetDirectly);
 	}
 }
 
@@ -334,8 +341,9 @@ void AMistspireVRPawn::CloseSettingsMenu(bool bSaveSettings)
 
 void AMistspireVRPawn::PollSettingsMenuToggle()
 {
-	if (!bNonVRMode || !bGameplayStarted)
+	if (!bNonVRMode || !bGameplayStarted || bSettingsMenuOpen)
 	{
+		// Esc while open is handled by SMistspireSettingsPanel::OnKeyDown.
 		return;
 	}
 
@@ -345,7 +353,7 @@ void AMistspireVRPawn::PollSettingsMenuToggle()
 		return;
 	}
 
-	ToggleSettingsMenu();
+	OpenSettingsMenu();
 }
 
 bool AMistspireVRPawn::TryConsumeStartScreenInput() const
@@ -441,10 +449,20 @@ void AMistspireVRPawn::PollNonVRInput()
 	CachedMoveInput = FVector2D(NonVRMoveRight, NonVRMoveForward);
 	CachedTurnInput = 0.f;
 
-	const float BaseSpeed = DefaultLocomotionSpeedCmPerSec;
-	LocomotionSpeedCmPerSec = (bNonVRSprintHeld && !bNonVRClimbHeld && !bIsClimbing)
-		? SprintSpeedCmPerSec
-		: BaseSpeed;
+	float Speed = DefaultLocomotionSpeedCmPerSec;
+	if (bIsClimbing || bNonVRClimbHeld)
+	{
+		Speed = DefaultLocomotionSpeedCmPerSec * 0.55f;
+	}
+	else if (bGliderActive)
+	{
+		Speed = DefaultLocomotionSpeedCmPerSec * 1.5f;
+	}
+	else if (bNonVRSprintHeld)
+	{
+		Speed = SprintSpeedCmPerSec;
+	}
+	LocomotionSpeedCmPerSec = Speed;
 
 	if (bNonVRClimbHeld)
 	{
@@ -901,7 +919,19 @@ void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 void AMistspireVRPawn::ShowNotification(const FString& Message, float Duration)
 {
-	if (!NotificationText || bNonVRMode)
+	if (bNonVRMode)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (UMistspireNarrativeSubsystem* Narr = World->GetSubsystem<UMistspireNarrativeSubsystem>())
+			{
+				Narr->PushLine(FText::FromString(Message), Duration);
+			}
+		}
+		return;
+	}
+
+	if (!NotificationText)
 	{
 		return;
 	}
@@ -1551,11 +1581,7 @@ void AMistspireVRPawn::TryMantle(float DeltaTime)
 	}
 
 	float ReachHeight = Capsule->GetScaledCapsuleHalfHeight() * 0.55f;
-	if (bNonVRMode && VRCamera)
-	{
-		ReachHeight = VRCamera->GetRelativeLocation().Z;
-	}
-	else if (LeftHandController && RightHandController)
+	if (LeftHandController && RightHandController)
 	{
 		ReachHeight = FMath::Max(
 			LeftHandController->GetRelativeLocation().Z,
@@ -1567,9 +1593,7 @@ void AMistspireVRPawn::TryMantle(float DeltaTime)
 		return;
 	}
 
-	const FVector Forward = bNonVRMode && VRCamera
-		? VRCamera->GetForwardVector()
-		: GetActorForwardVector();
+	const FVector Forward = GetActorForwardVector();
 	const FVector Start = GetActorLocation();
 	const FVector End = Start + Forward * 90.f + FVector(0.f, 0.f, 130.f);
 	FHitResult Hit;
@@ -2138,6 +2162,20 @@ void AMistspireVRPawn::ClientReceiveLoreShard_Implementation(const FText& Title,
 	ReceiveLoreShardLocal(Title, Body);
 }
 
+bool AMistspireVRPawn::Server_CollectLoreShard_Validate(AMistspireLoreShard* Shard)
+{
+	return Shard != nullptr;
+}
+
+void AMistspireVRPawn::Server_CollectLoreShard_Implementation(AMistspireLoreShard* Shard)
+{
+	if (!Shard || Shard->IsCollected())
+	{
+		return;
+	}
+	Shard->ApplyCollection(this);
+}
+
 void AMistspireVRPawn::StartClimb()
 {
 	bIsClimbing = true;
@@ -2239,6 +2277,11 @@ void AMistspireVRPawn::ToggleGlider(bool bEnable)
 			GliderVelocity += GetActorForwardVector() * LocomotionSpeedCmPerSec;
 		}
 		HorizontalVelocity = FVector::ZeroVector;
+	}
+	else
+	{
+		VerticalVelocityCmPerSec = GliderVelocity.Z;
+		HorizontalVelocity = FVector(GliderVelocity.X, GliderVelocity.Y, 0.f);
 	}
 
 	if (GetLocalRole() < ROLE_Authority)

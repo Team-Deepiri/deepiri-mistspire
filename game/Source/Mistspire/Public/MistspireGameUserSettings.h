@@ -55,6 +55,8 @@ public:
 
 	FText GetFullscreenModeLabel() const;
 
+	virtual void SetToDefaults() override;
+
 protected:
 	UPROPERTY(config)
 	float MouseSensitivity = 1.f;
