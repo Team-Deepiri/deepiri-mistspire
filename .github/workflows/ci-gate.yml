@@ -24,16 +24,24 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          SCRIPT_REF: ${{ github.sha }}
+          SCRIPT_REF: ${{ github.event.pull_request.base.sha || github.sha }}
+          SCRIPT_FALLBACK_REF: ${{ github.sha }}
         run: |
           set -euo pipefail
-          if ! gh api "repos/${GITHUB_REPOSITORY}/contents/.github/scripts/pr_has_code_changes.py?ref=${SCRIPT_REF}" \
-            --jq .content \
-            | python3 -c "import sys, base64; sys.stdout.buffer.write(base64.b64decode(sys.stdin.read()))" \
-            > /tmp/pr_has_code_changes.py; then
-            echo "Failed to fetch gate script; running code jobs." >&2
-            echo "run_code=true" >> "${GITHUB_OUTPUT}"
-            exit 0
+          fetch_script() {
+            local ref="$1"
+            gh api "repos/${GITHUB_REPOSITORY}/contents/.github/scripts/pr_has_code_changes.py?ref=${ref}" \
+              --jq .content \
+              | python3 -c "import sys, base64; sys.stdout.buffer.write(base64.b64decode(sys.stdin.read()))" \
+              > /tmp/pr_has_code_changes.py
+          }
+          if ! fetch_script "${SCRIPT_REF}"; then
+            echo "Gate script missing at ${SCRIPT_REF}; trying ${SCRIPT_FALLBACK_REF}." >&2
+            if ! fetch_script "${SCRIPT_FALLBACK_REF}"; then
+              echo "Failed to fetch gate script; running code jobs." >&2
+              echo "run_code=true" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
           fi
           python3 /tmp/pr_has_code_changes.py || {
             echo "Gate script exited non-zero; running code jobs." >&2
