@@ -2,6 +2,8 @@ name: validate
 
 on:
   pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -14,18 +16,10 @@ concurrency:
 
 jobs:
   ci-gate:
-    name: CI gate
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      run_code: ${{ steps.filter.outputs.run_code }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: filter
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: python3 .github/scripts/pr_has_code_changes.py
+    uses: ./.github/workflows/ci-gate.yml
+    permissions:
+      contents: read
+      pull-requests: read
 
   lint:
     name: Project structure
@@ -82,3 +76,10 @@ jobs:
         run: pip install "ruff==0.16.0"
       - if: needs.ci-gate.outputs.run_code == 'true'
         run: ruff check scripts/*.py .github/scripts/*.py
+
+  xr-sandbox-build:
+    name: Build xr-sandbox (native, no Unreal Editor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "Native cmake build runs in CodeQL Analyze (cpp); this check name is retained so required status checks do not hang."

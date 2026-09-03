@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Decide whether a PR has non-ignored (code) path changes.
 
-Always run code jobs for workflow_dispatch, schedule, and push.
+Always run code jobs for workflow_dispatch and schedule.
 For pull_request, list changed files via the GitHub API and treat a PR as
 docs-only when every path matches the ignore set (markdown, docs/, .gitignore,
-root LICENSE*).
+root LICENSE*). An empty or unreadable file list fail-opens to run_code=true.
 
 Writes run_code=true|false to $GITHUB_OUTPUT.
 """
@@ -16,6 +16,8 @@ import os
 import sys
 import urllib.error
 import urllib.request
+
+REQUEST_TIMEOUT_SEC = 30
 
 
 def is_ignored(path: str) -> bool:
@@ -57,7 +59,7 @@ def list_pr_files(repo: str, number: str, token: str) -> list[str]:
                 "User-Agent": "mistspire-ci-gate",
             },
         )
-        with urllib.request.urlopen(request) as response:
+        with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SEC) as response:
             batch = json.load(response)
         if not isinstance(batch, list):
             raise RuntimeError(f"Unexpected PR files payload: {batch!r}")
@@ -68,29 +70,34 @@ def list_pr_files(repo: str, number: str, token: str) -> list[str]:
     return files
 
 
-def main() -> int:
+def decide() -> bool:
     event_name = os.environ.get("GITHUB_EVENT_NAME", "")
-    if event_name in ("workflow_dispatch", "schedule", "push"):
-        write_output(True)
-        return 0
+    if event_name in ("workflow_dispatch", "schedule"):
+        return True
 
     token = os.environ.get("GITHUB_TOKEN", "")
     repo = os.environ.get("GITHUB_REPOSITORY", "")
     number = os.environ.get("PR_NUMBER", "")
     if not token or not repo or not number:
-        print("Missing GITHUB_TOKEN, GITHUB_REPOSITORY, or PR_NUMBER; running code jobs.", file=sys.stderr)
-        write_output(True)
-        return 0
+        print(
+            "Missing GITHUB_TOKEN, GITHUB_REPOSITORY, or PR_NUMBER; running code jobs.",
+            file=sys.stderr,
+        )
+        return True
 
+    changed = list_pr_files(repo, number, token)
+    if not changed:
+        print("PR file list was empty; running code jobs.", file=sys.stderr)
+        return True
+    return any(not is_ignored(path) for path in changed)
+
+
+def main() -> int:
     try:
-        changed = list_pr_files(repo, number, token)
-    except urllib.error.URLError as exc:
-        print(f"Failed to list PR files ({exc}); running code jobs.", file=sys.stderr)
+        write_output(decide())
+    except Exception as exc:
+        print(f"CI gate failed open ({exc!r}); running code jobs.", file=sys.stderr)
         write_output(True)
-        return 0
-
-    run_code = any(not is_ignored(path) for path in changed)
-    write_output(run_code)
     return 0
 
 

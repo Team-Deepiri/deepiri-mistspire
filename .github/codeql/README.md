@@ -7,10 +7,12 @@ This folder contains the CodeQL configuration for security scanning in this repo
 - `.github/workflows/codeql.yml`
   - Runs CodeQL for **C++** on pull requests (any target branch), Monday 06:00 UTC (`schedule`), and `workflow_dispatch`.
   - Does **not** run on `push` (avoids a second post-merge bill). Default-branch alerts come from the weekly schedule.
-  - Docs-only PRs still start the workflow: `CI gate` always reports success; `Analyze (cpp)` no-ops so required checks do not hang.
+  - Docs-only PRs still start the workflow. The reusable `CI gate` job fail-opens to `run_code=true` on API/script errors. On a true docs-only PR, `Analyze (cpp)` skips the compile and uploads empty SARIF (`category: /language:cpp`) so the GitHub **code scanning results** check is still created.
   - Builds `native/xr-sandbox` between init and analyze so CodeQL sees compiled C/C++ (the Unreal game project is not built on hosted runners).
+- `.github/workflows/ci-gate.yml`
+  - Reusable `workflow_call` used by CodeQL and validate. Fetches `.github/scripts/pr_has_code_changes.py` via the GitHub API (no full checkout) to avoid a second billed clone per caller.
 - `.github/scripts/pr_has_code_changes.py`
-  - Shared path filter used by CodeQL and validate. Ignores `*.md` (including repo-root files), `docs/**`, `.gitignore`, and root `LICENSE*`.
+  - Shared path filter. Ignores `*.md` (including repo-root files), `docs/**`, `.gitignore`, and root `LICENSE*`. Empty file lists and unexpected exceptions fail-open to `run_code=true`.
 - `.github/codeql/codeql-config.yml`
   - Include/ignore paths, with Unreal/VR-specific exclusions.
 
@@ -37,7 +39,7 @@ permissions:
   pull-requests: read
   security-events: write
 ```
-`security-events: write` is required so CodeQL can upload findings. `pull-requests: read` is for the CI gate file list.
+`security-events: write` is required so CodeQL can upload findings (including empty SARIF). `pull-requests: read` is for the CI gate file list.
 
 ### Language setup
 ```yaml
@@ -58,8 +60,10 @@ Checkout uses the action default fetch depth (full history is not required for t
 ### Analyze
 ```yaml
 uses: github/codeql-action/analyze@v3
+with:
+  category: /language:cpp
 ```
-Runs queries and uploads results to GitHub Security. Job timeout is 30 minutes.
+Runs queries and uploads results to GitHub Security. Job timeout is 30 minutes. Docs-only PRs use `upload-sarif@v3` with the same category instead.
 
 ## Config breakdown (`.github/codeql/codeql-config.yml`)
 
@@ -89,13 +93,15 @@ With `languages: cpp`, CodeQL extraction follows the **build**. Most `paths` / `
 
 ## Related validate workflow
 
-`.github/workflows/validate.yml` (not CodeQL) checks project JSON, shellcheck on `scripts/*.sh`, and pinned Ruff (`ruff==0.16.0` + repo `.ruff.toml`) on `scripts/*.py` and `.github/scripts/*.py`. It does **not** rebuild `native/xr-sandbox`; that compile is CodeQL's job so PRs do not pay for the same cmake twice.
+`.github/workflows/validate.yml` (not CodeQL) checks project JSON, shellcheck on `scripts/*.sh`, and pinned Ruff (`ruff==0.16.0` + repo `.ruff.toml` `include` of `scripts/*.py` and `.github/scripts/*.py`). It does **not** rebuild `native/xr-sandbox`; that compile is CodeQL's job. A stub job keeps the historical check name `Build xr-sandbox (native, no Unreal Editor)` so a required check with that name cannot hang.
 
-Validate uses the same CI gate / docs-only no-op pattern, `permissions: contents: read` plus `pull-requests: read`, lint timeouts of 10 minutes, and `cancel-in-progress` only on `pull_request`.
+Validate uses the same reusable CI gate, `permissions: contents: read` plus `pull-requests: read`, lint timeouts of 10 minutes, Monday 06:00 UTC `schedule` (no `push`), and `cancel-in-progress` only on `pull_request`.
+
+The reusable gate still occupies one small runner per calling workflow. That is cheaper than cloning the repo twice for a path filter.
 
 ## Best practices
 
-1. Keep default-branch CodeQL on a cheap `schedule` (not a post-merge `push` double-fire).
+1. Keep default-branch CodeQL and validate on a cheap `schedule` (not a post-merge `push` double-fire).
 2. Keep language list aligned with what CI can actually compile.
 3. Exclude generated/vendor artifacts in `paths-ignore` (interpreted languages; cmake for C++).
 4. Pin to stable major action versions (`@v3`).
