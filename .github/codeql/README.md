@@ -5,9 +5,9 @@ This folder contains the CodeQL configuration for security scanning in this repo
 ## What each file does
 
 - `.github/workflows/codeql.yml`
-  - Runs CodeQL for **C++** on pull requests (any target branch), Monday 06:00 UTC (`schedule`), and `workflow_dispatch`.
-  - Does **not** run on `push` (avoids a second post-merge bill). Default-branch alerts come from the weekly schedule.
-  - Docs-only PRs still start the workflow. The reusable `CI gate` job fail-opens to `run_code=true` on API/script errors. On a true docs-only PR, `Analyze (cpp)` checkouts first (so `upload-sarif` has git metadata), skips the compile, and uploads empty SARIF (`category: /language:cpp`) so the GitHub **code scanning results** check is still created. That empty upload can show zero cpp alerts on the PR; default-branch alert state still comes from the weekly schedule.
+  - Runs CodeQL for **C++** on pull requests (any target branch), `push` to `main` (GHAS baseline so the PR **CodeQL** check is not `neutral`), Monday 06:00 UTC (`schedule`), and `workflow_dispatch`.
+  - Default-branch alerts come from `push` to `main` plus the weekly schedule. Validate still has no `push` (avoids a post-merge lint double-fire).
+  - Docs-only PRs still start the workflow. The reusable `CI gate` job fail-opens to `run_code=true` on API/script errors. On a true docs-only PR, `Analyze (cpp)` checkouts first (so `upload-sarif` has git metadata), skips the compile, and uploads empty SARIF with the **default** category so it matches `.github/workflows/codeql.yml:analyze` on `main`. An extra `category: /language:cpp` made GitHub treat the PR upload as a different configuration and skip the CodeQL check (`neutral`).
   - Builds `native/xr-sandbox` between init and analyze so CodeQL sees compiled C/C++ (the Unreal game project is not built on hosted runners).
 - `.github/workflows/ci-gate.yml`
   - Reusable `workflow_call` used by CodeQL and validate. Fetches `.github/scripts/pr_has_code_changes.py` via the GitHub API (no full checkout). On `pull_request` it prefers `github.event.pull_request.base.sha` (trusted base) and only falls back to `github.sha` if the file is not on the base yet.
@@ -22,6 +22,8 @@ This folder contains the CodeQL configuration for security scanning in this repo
 ```yaml
 on:
   pull_request:
+  push:
+    branches: [main]
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
@@ -60,10 +62,8 @@ Between `codeql-action/init` and `codeql-action/analyze` (skipped on docs-only P
 ### Analyze
 ```yaml
 uses: github/codeql-action/analyze@v3
-with:
-  category: /language:cpp
 ```
-Runs queries and uploads results to GitHub Security. Job timeout is 30 minutes. Docs-only PRs use `upload-sarif@v3` with the same category instead.
+Do not set `category` unless it matches the analysis already on `main`. A mismatched category makes the GitHub Advanced Security **CodeQL** check `neutral` ("configuration present on main was not found").
 
 ## Config breakdown (`.github/codeql/codeql-config.yml`)
 
@@ -101,7 +101,7 @@ The reusable gate still occupies one small runner per calling workflow. That is 
 
 ## Best practices
 
-1. Keep default-branch CodeQL and validate on a cheap `schedule` (not a post-merge `push` double-fire).
+1. Keep CodeQL `push` to `main` so GHAS can diff PRs against a default-branch config. Keep validate off `push` (schedule + `workflow_dispatch` only).
 2. Keep language list aligned with what CI can actually compile.
 3. Exclude generated/vendor artifacts in `paths-ignore` (interpreted languages; cmake for C++).
 4. Pin to stable major action versions (`@v3`).

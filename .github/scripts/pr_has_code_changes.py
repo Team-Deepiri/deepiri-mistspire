@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Decide whether a PR has non-ignored (code) path changes.
 
-Always run code jobs for workflow_dispatch and schedule.
+Always run code jobs for workflow_dispatch, schedule, and push.
 For pull_request, list changed files via the GitHub API and treat a PR as
 docs-only when every path matches the ignore set (markdown, docs/, .gitignore,
 root LICENSE*). An empty or unreadable file list fail-opens to run_code=true.
@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-import urllib.error
 import urllib.request
 
 REQUEST_TIMEOUT_SEC = 30
@@ -72,7 +71,7 @@ def list_pr_files(repo: str, number: str, token: str) -> list[str]:
 
 def decide() -> bool:
     event_name = os.environ.get("GITHUB_EVENT_NAME", "")
-    if event_name in ("workflow_dispatch", "schedule"):
+    if event_name in ("workflow_dispatch", "schedule", "push"):
         return True
 
     token = os.environ.get("GITHUB_TOKEN", "")
