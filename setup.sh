@@ -4,7 +4,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$ROOT"
+cd "$ROOT" || exit
 
 NON_INTERACTIVE=0
 for arg in "$@"; do

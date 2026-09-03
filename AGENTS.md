@@ -12,9 +12,9 @@
 | `game/Source/Mistspire/` | Game module (pawn, altitude, summits) |
 | `game/Plugins/MistspireOpenXRNative/` | OpenXR native bridge |
 | `interaction_profiles/openxr/` | Controller bindings (Meta, Valve, HTC) |
-| `docs/setup/PCVR_DEV_SETUP.md` | PCVR hub; per-headset guides under `docs/setup/headsets/` |
+| `docs/setup/PCVR_DEV_SETUP.md` | PCVR hub, Linux/WSL/Windows VR; headset guides under `docs/setup/headsets/` |
 | `game/Config/DefaultEngine.ini` | Linux Vulkan SM5/SM6 + Win64 D3D12 SM5/SM6 |
-| `docs/setup/PCVR_DEV_SETUP.md` | Linux / WSL / Windows VR dev |
+| `.github/workflows/` | Hosted CI (`validate.yml`, `codeql.yml`, reusable `ci-gate.yml`); see [`.github/codeql/README.md`](.github/codeql/README.md) |
 
 ## Rules for agents
 
@@ -24,6 +24,7 @@
 4. Binary `.umap` / `.uasset` — Git LFS; document map steps in `game/Content/Maps/README.md`.
 5. Repo layout is **flat** under `deepiri-mistspire/` (no nested `deepiri-cloudloom/`).
 6. Keep project docs in sync with code: when adding or changing features, update the matching files under `docs/` (`gameplay/`, `architecture/`, `setup/`) and this `AGENTS.md` when paths, rules, systems, or setup steps change.
+
 ## Quick start
 
 | OS | Command |
