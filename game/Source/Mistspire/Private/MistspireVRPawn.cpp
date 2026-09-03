@@ -14,6 +14,8 @@
 #include "MistspireAudioSubsystem.h"
 #include "MistspireInputMode.h"
 #include "MistspireInteractionSubsystem.h"
+#include "EnhancedInputComponent.h"
+#include "InputActionValue.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -201,6 +203,7 @@ void AMistspireVRPawn::ApplyNonVRPlayerControllerSettings()
 	{
 		PC->bShowMouseCursor = false;
 		PC->SetInputMode(FInputModeGameOnly());
+		FMistspireInputMode::AddNonVRMappingContext(PC, NonVRMappingContext);
 	}
 }
 
@@ -608,46 +611,75 @@ void AMistspireVRPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		return;
 	}
 
-	FMistspireInputMode::EnsureLegacyNonVRKeyMappings();
-
-	PlayerInputComponent->BindAxis(TEXT("MoveForward"), this, &AMistspireVRPawn::MoveForward);
-	PlayerInputComponent->BindAxis(TEXT("MoveRight"), this, &AMistspireVRPawn::MoveRight);
-	PlayerInputComponent->BindAxis(TEXT("Turn"), this, &AMistspireVRPawn::Turn);
-	PlayerInputComponent->BindAxis(TEXT("LookUp"), this, &AMistspireVRPawn::LookUp);
-	PlayerInputComponent->BindAction(TEXT("Jump"), IE_Pressed, this, &AMistspireVRPawn::TryJump);
-	PlayerInputComponent->BindAction(TEXT("Climb"), IE_Pressed, this, &AMistspireVRPawn::OnClimbPressed);
-	PlayerInputComponent->BindAction(TEXT("Climb"), IE_Released, this, &AMistspireVRPawn::OnClimbReleased);
-	PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Pressed, this, &AMistspireVRPawn::OnSprintPressed);
-	PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Released, this, &AMistspireVRPawn::OnSprintReleased);
-	PlayerInputComponent->BindAction(TEXT("Grapple"), IE_Pressed, this, &AMistspireVRPawn::OnGrapplePressed);
-	PlayerInputComponent->BindAction(TEXT("Glider"), IE_Pressed, this, &AMistspireVRPawn::OnGliderPressed);
-	PlayerInputComponent->BindAction(TEXT("Teleport"), IE_Pressed, this, &AMistspireVRPawn::OnTeleportPressed);
-	PlayerInputComponent->BindAction(TEXT("Interact"), IE_Pressed, this, &AMistspireVRPawn::OnInteractPressed);
+	BindNonVREnhancedInput(Cast<UEnhancedInputComponent>(PlayerInputComponent));
+	ApplyNonVRPlayerControllerSettings();
 }
 
-void AMistspireVRPawn::MoveForward(float Value)
+void AMistspireVRPawn::BindNonVREnhancedInput(UEnhancedInputComponent* EnhancedInputComponent)
 {
-	NonVRMoveForward = Value;
-}
-
-void AMistspireVRPawn::MoveRight(float Value)
-{
-	NonVRMoveRight = Value;
-}
-
-void AMistspireVRPawn::Turn(float Value)
-{
-	if (bNonVRMode && !FMath::IsNearlyZero(Value))
+	if (!EnhancedInputComponent)
 	{
-		AddControllerYawInput(Value);
+		UE_LOG(LogTemp, Error, TEXT("Mistspire non-VR requires EnhancedInputComponent (DefaultInput.ini DefaultInputComponentClass)."));
+		return;
 	}
+
+	if (!NonVRMappingContext || !NonVRMoveAction)
+	{
+		FMistspireNonVREnhancedInput Built;
+		FMistspireInputMode::CreateNonVREnhancedInput(this, Built);
+		NonVRMappingContext = Built.MappingContext;
+		NonVRMoveAction = Built.Move;
+		NonVRLookAction = Built.Look;
+		NonVRJumpAction = Built.Jump;
+		NonVRClimbAction = Built.Climb;
+		NonVRSprintAction = Built.Sprint;
+		NonVRGrappleAction = Built.Grapple;
+		NonVRGliderAction = Built.Glider;
+		NonVRTeleportAction = Built.Teleport;
+		NonVRInteractAction = Built.Interact;
+	}
+
+	if (!NonVRMappingContext || !NonVRMoveAction || !NonVRLookAction)
+	{
+		return;
+	}
+
+	EnhancedInputComponent->BindAction(NonVRMoveAction, ETriggerEvent::Triggered, this, &AMistspireVRPawn::OnNonVRMove);
+	EnhancedInputComponent->BindAction(NonVRMoveAction, ETriggerEvent::Completed, this, &AMistspireVRPawn::OnNonVRMove);
+	EnhancedInputComponent->BindAction(NonVRLookAction, ETriggerEvent::Triggered, this, &AMistspireVRPawn::OnNonVRLook);
+	EnhancedInputComponent->BindAction(NonVRJumpAction, ETriggerEvent::Started, this, &AMistspireVRPawn::TryJump);
+	EnhancedInputComponent->BindAction(NonVRClimbAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnClimbPressed);
+	EnhancedInputComponent->BindAction(NonVRClimbAction, ETriggerEvent::Completed, this, &AMistspireVRPawn::OnClimbReleased);
+	EnhancedInputComponent->BindAction(NonVRSprintAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnSprintPressed);
+	EnhancedInputComponent->BindAction(NonVRSprintAction, ETriggerEvent::Completed, this, &AMistspireVRPawn::OnSprintReleased);
+	EnhancedInputComponent->BindAction(NonVRGrappleAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnGrapplePressed);
+	EnhancedInputComponent->BindAction(NonVRGliderAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnGliderPressed);
+	EnhancedInputComponent->BindAction(NonVRTeleportAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnTeleportPressed);
+	EnhancedInputComponent->BindAction(NonVRInteractAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnInteractPressed);
 }
 
-void AMistspireVRPawn::LookUp(float Value)
+void AMistspireVRPawn::OnNonVRMove(const FInputActionValue& Value)
 {
-	if (bNonVRMode && !FMath::IsNearlyZero(Value))
+	const FVector2D Axis = Value.Get<FVector2D>();
+	NonVRMoveRight = Axis.X;
+	NonVRMoveForward = Axis.Y;
+}
+
+void AMistspireVRPawn::OnNonVRLook(const FInputActionValue& Value)
+{
+	if (!bNonVRMode)
 	{
-		AddControllerPitchInput(Value);
+		return;
+	}
+
+	const FVector2D Axis = Value.Get<FVector2D>();
+	if (!FMath::IsNearlyZero(Axis.X))
+	{
+		AddControllerYawInput(Axis.X);
+	}
+	if (!FMath::IsNearlyZero(Axis.Y))
+	{
+		AddControllerPitchInput(Axis.Y);
 	}
 }
 
@@ -1543,7 +1575,7 @@ void AMistspireVRPawn::DeliverLoreShard(const FText& Title, const FText& Body)
 	}
 }
 
-void AMistspireVRPawn::ClientReceiveLoreShard_Implementation(FText Title, FText Body)
+void AMistspireVRPawn::ClientReceiveLoreShard_Implementation(const FText& Title, const FText& Body)
 {
 	ReceiveLoreShardLocal(Title, Body);
 }

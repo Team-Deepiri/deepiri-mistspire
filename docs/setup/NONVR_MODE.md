@@ -1,6 +1,6 @@
 # Mistspire — non-VR mode (keyboard / mouse)
 
-Play Mistspire without a VR headset. Uses the same `AMistspireVRPawn` and game systems as PCVR, with keyboard/mouse input routing.
+Play Mistspire without a VR headset. Uses the same `AMistspireVRPawn` and game systems as PCVR, with **Enhanced Input** for keyboard/mouse. VR Preview still uses OpenXR (`mistspire_gameplay`), not these mappings.
 
 ## Requirements
 
@@ -46,7 +46,7 @@ See [Packaging](#packaging) below for cook commands.
 | E | Interact (buttons, lore shards) |
 | `~` | Console |
 
-WASD and mouse appear under **Axis Mappings** (scroll below Action Mappings in Project Settings → Input). Jump, climb, sprint, etc. are Action Mappings.
+Bindings are created in C++ (`FMistspireInputMode::CreateNonVREnhancedInput`) — there are no Content Input Action assets. `DefaultInput.ini` uses `EnhancedPlayerInput` / `EnhancedInputComponent`.
 
 ## Console
 
@@ -60,9 +60,9 @@ mistspire.RefillSurvival
 
 ## Troubleshooting input
 
-- **Axis Mappings missing in editor:** expand **Axis Mappings** below Action Mappings; look for `MoveForward`, `Turn`, `LookUp`.
-- **Editor overwrote config:** opening/saving Project Settings → Input can set `EnhancedPlayerInput`. Non-VR needs legacy `PlayerInput` — restore `game/Config/DefaultInput.ini` from git and restart the editor.
-- **Still no movement after Play:** click inside the PIE viewport; recompile C++ after pulling latest.
+- **Editor upgrade toasts:** UE 5.8 migrates leftover Axis/Action mappings to Enhanced Input. This project already uses Enhanced Input; restart after pulling so `DefaultInput.ini` has no legacy mappings.
+- **Keys do nothing:** click inside the PIE viewport; recompile C++ after pulling; launch with `.\run-nonvr.ps1` (`-nonvr`) and use **Play**, not **VR Preview**.
+- **Still no movement:** confirm Output Log has no `Mistspire non-VR requires EnhancedInputComponent` error.
 
 ## Mode detection
 

@@ -4,6 +4,9 @@
 #include "GameFramework/Pawn.h"
 #include "MistspireVRPawn.generated.h"
 class UCapsuleComponent;
+class UCameraComponent;
+class UInputAction;
+class UInputMappingContext;
 class UMotionControllerComponent;
 class USkeletalMeshComponent;
 class UTextRenderComponent;
@@ -54,7 +57,7 @@ public:
 	void DeliverLoreShard(const FText& Title, const FText& Body);
 
 	UFUNCTION(Client, Reliable)
-	void ClientReceiveLoreShard(FText Title, FText Body);
+	void ClientReceiveLoreShard(const FText& Title, const FText& Body);
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void TeleportForward(float DistanceCm = 800.f);
@@ -285,10 +288,9 @@ private:
 	void ConfigureNonVRMode();
 	void ApplyNonVRPlayerControllerSettings();
 	void PollNonVRInput();
-	void MoveForward(float Value);
-	void MoveRight(float Value);
-	void Turn(float Value);
-	void LookUp(float Value);
+	void BindNonVREnhancedInput(class UEnhancedInputComponent* EnhancedInputComponent);
+	void OnNonVRMove(const struct FInputActionValue& Value);
+	void OnNonVRLook(const struct FInputActionValue& Value);
 	void OnClimbPressed();
 	void OnClimbReleased();
 	void OnSprintPressed();
@@ -311,6 +313,36 @@ private:
 	bool IsGrounded() const;
 	UFUNCTION()
 	void HandleSummitReached(FName SummitId);
+
+	UPROPERTY()
+	TObjectPtr<UInputMappingContext> NonVRMappingContext;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRMoveAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRLookAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRJumpAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRClimbAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRSprintAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRGrappleAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRGliderAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRTeleportAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRInteractAction;
 
 	FVector2D CachedMoveInput;
 	float NonVRMoveForward = 0.f;
