@@ -38,6 +38,8 @@ Platform matrix: [docs/setup/PLATFORMS.md](docs/setup/PLATFORMS.md). Bootstrap: 
 
 Manual / PCVR: [docs/setup/PCVR_DEV_SETUP.md](docs/setup/PCVR_DEV_SETUP.md). Non-VR: [docs/setup/NONVR_MODE.md](docs/setup/NONVR_MODE.md).
 
+Local demo map (`demo` branch only): [docs/setup/DEMO_VALLEY_MAP.md](docs/setup/DEMO_VALLEY_MAP.md).
+
 ## Manual build
 
 ```bash

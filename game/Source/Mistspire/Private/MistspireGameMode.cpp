@@ -15,6 +15,9 @@
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireInputMode.h"
 #include "Engine/StaticMeshActor.h"
+#include "Engine/Engine.h"
+#include "Engine/PostProcessVolume.h"
+#include "Components/PostProcessComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerStart.h"
@@ -58,6 +61,26 @@ void AMistspireGameMode::StartPlay()
 
 		const bool bNonVR = FMistspireInputMode::IsNonVRMode(World);
 		FMistspireInputMode::ApplyRendererOverrides(bNonVR);
+
+		// Demo / AncientWorld: hide HLOD + Blueprint compile banners; strip dirt-frame PP.
+		SanitizeDemoViewportOverlays();
+		DemoOverlaySanitizeAttempts = 0;
+		World->GetTimerManager().SetTimer(
+			DemoOverlaySanitizeTimerHandle,
+			FTimerDelegate::CreateLambda([this]()
+			{
+				SanitizeDemoViewportOverlays();
+				++DemoOverlaySanitizeAttempts;
+				if (DemoOverlaySanitizeAttempts >= DemoOverlaySanitizeMaxAttempts)
+				{
+					if (UWorld* W = GetWorld())
+					{
+						W->GetTimerManager().ClearTimer(DemoOverlaySanitizeTimerHandle);
+					}
+				}
+			}),
+			0.5f,
+			true);
 
 		if (bNonVR)
 		{
@@ -284,4 +307,64 @@ void AMistspireGameMode::EnsureNonVRPlayground()
 	}
 
 	UE_LOG(LogTemp, Log, TEXT("Mistspire non-VR playground spawned (no ground under PlayerStart)."));
+}
+
+void AMistspireGameMode::SanitizeDemoViewportOverlays()
+{
+	if (GEngine)
+	{
+		GEngine->bSuppressMapWarnings = true;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// Hide "BLUEPRINT COMPILE ERROR" (Valley BPs without AncientGame C++).
+	World->bKismetScriptError = false;
+
+	auto SanitizeSettings = [](FPostProcessSettings& Settings)
+	{
+		Settings.bOverride_BloomDirtMaskIntensity = true;
+		Settings.BloomDirtMaskIntensity = 0.f;
+		Settings.bOverride_BloomDirtMask = true;
+		Settings.BloomDirtMask = nullptr;
+		Settings.bOverride_BloomDirtMaskTint = true;
+		Settings.BloomDirtMaskTint = FLinearColor::Black;
+
+		Settings.bOverride_VignetteIntensity = true;
+		Settings.VignetteIntensity = 0.f;
+
+		Settings.bOverride_FilmGrainIntensity = true;
+		Settings.FilmGrainIntensity = 0.f;
+		Settings.bOverride_FilmGrainIntensityShadows = true;
+		Settings.FilmGrainIntensityShadows = 0.f;
+		Settings.bOverride_FilmGrainIntensityMidtones = true;
+		Settings.FilmGrainIntensityMidtones = 0.f;
+		Settings.bOverride_FilmGrainIntensityHighlights = true;
+		Settings.FilmGrainIntensityHighlights = 0.f;
+
+		// Valley FilmGrain / heat-haze materials live in WeightedBlendables.
+		Settings.WeightedBlendables.Array.Reset();
+	};
+
+	for (TActorIterator<APostProcessVolume> It(World); It; ++It)
+	{
+		SanitizeSettings(It->Settings);
+	}
+
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		TArray<UPostProcessComponent*> Components;
+		It->GetComponents<UPostProcessComponent>(Components);
+		for (UPostProcessComponent* Comp : Components)
+		{
+			if (Comp)
+			{
+				SanitizeSettings(Comp->Settings);
+			}
+		}
+	}
 }

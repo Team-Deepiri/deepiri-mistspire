@@ -36,3 +36,8 @@ ArchivedBuilds/
 native/xr-sandbox/build/
 __pycache__/
 *.py[cod]
+
+# Local Valley of the Ancient map link (demo branch) — do not commit/push
+game/Content/AncientContent/
+game/Content/__ExternalActors__/AncientContent/
+game/Content/__ExternalObjects__/AncientContent/

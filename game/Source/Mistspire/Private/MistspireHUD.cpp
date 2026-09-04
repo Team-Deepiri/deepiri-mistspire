@@ -161,7 +161,9 @@ void AMistspireHUD::DrawHUD()
 
 	if (Pawn && !Pawn->HasGameplayStarted())
 	{
-		DrawSlateText(Canvas, TEXT("Mistspire"), CX, CY, 72.f, FLinearColor::White, true, true);
+		DrawSlateText(Canvas, TEXT("Mistspire"), CX, CY - 40.f, 72.f, FLinearColor::White, true, true);
+		DrawSlateText(Canvas, TEXT("in the Valley of the Ancient"), CX, CY + 38.f, 28.f,
+			FLinearColor(1.f, 1.f, 1.f, 0.85f), true, true);
 		DrawSlateText(Canvas, TEXT("Press any key to start"), CX, Canvas->ClipY - 72.f, 28.f,
 			FLinearColor(1.f, 1.f, 1.f, 0.92f), true, true);
 		return;
