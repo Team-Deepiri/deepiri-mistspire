@@ -89,6 +89,8 @@ On non-VR start, the game polls for ground under `PlayerStart` for up to ~5 s (W
 
 Atlas door/POI markers are **not** spawned in non-VR by default (set `bSpawnAtlasMarkersInNonVR` on `MistspireGameMode` to enable).
 
+Non-VR walking uses step-up and wall-slide on uneven collision (rocks/debris), sticky ground support while standing still, and Ctrl-climb crest mantle so lip jitter is reduced. Grapple skips ground-snap while reeling.
+
 ## Packaging
 
 Cook and package (run from repo root, adjust `UE_ROOT`):

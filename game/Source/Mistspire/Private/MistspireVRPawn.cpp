@@ -48,6 +48,14 @@ namespace
 	constexpr float NonVRGroundSkinCm = 0.5f;
 	constexpr float NonVRGroundContactGapCm = 2.f;
 	constexpr float NonVRGroundProbeRadiusCm = 4.f;
+	/** Ignore tiny Z corrections (stops jitter between rock contact points). */
+	constexpr float NonVRGroundSnapDeadzoneCm = 1.75f;
+	/** Stationary: ignore support Z changes smaller than this (pebbles/debris). */
+	constexpr float NonVRStationarySupportStickCm = 8.f;
+	/** Treat as standing still for support sticking (cm/s). */
+	constexpr float NonVRStationarySpeedCmPerSec = 35.f;
+	/** Falling faster than this skips walk-follow snaps so jumps can finish. */
+	constexpr float NonVRFallFollowCancelCmPerSec = -120.f;
 }
 
 AMistspireVRPawn::AMistspireVRPawn()
@@ -470,16 +478,27 @@ void AMistspireVRPawn::PollNonVRInput()
 		const FVector TraceEnd = TraceStart + (VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector()) * 120.f;
 		FHitResult Hit;
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(NonVRClimbTrace), false, this);
-		const bool bNearClimbable = World->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params)
+		const bool bHit = World->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params)
 			&& Hit.bBlockingHit;
+		// Only vertical-ish surfaces count as climbable (not the boulder top / ground).
+		const bool bNearClimbable = bHit && Hit.ImpactNormal.Z < 0.55f;
 
-		if (bNearClimbable && !bIsClimbing)
+		if (bNearClimbable)
 		{
-			StartClimb();
+			NonVRClimbMissFrames = 0;
+			if (!bIsClimbing)
+			{
+				StartClimb();
+			}
 		}
-		else if (!bNearClimbable && bIsClimbing)
+		else if (bIsClimbing)
 		{
-			StopClimb();
+			++NonVRClimbMissFrames;
+			// Crest / look-away flicker: require several misses before dropping off the wall.
+			if (NonVRClimbMissFrames >= 8)
+			{
+				StopClimb();
+			}
 		}
 	}
 	else if (bIsClimbing)
@@ -602,7 +621,11 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			ApplySmoothLocomotion(CachedMoveInput, DeltaTime);
 			if (bNonVRMode)
 			{
-				UpdateNonVRGravity(DeltaTime);
+				// Grapple owns vertical motion — gravity/ground snap would pin you to rocks.
+				if (!bGrappleActive && !bGrappleExtending)
+				{
+					UpdateNonVRGravity(DeltaTime);
+				}
 			}
 			else
 			{
@@ -658,8 +681,8 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			Atlas->UpdateDistrictFromPlayerLocation(GetActorLocation());
 		}
 
-		// Comfort Vignette based on rotation, speed, exhaustion, and hypoxia
-		if (ComfortVignette)
+		// Comfort Vignette based on rotation, speed, exhaustion, and hypoxia (VR only)
+		if (ComfortVignette && !bNonVRMode)
 		{
 			float TurnFactor = FMath::Abs(CachedTurnInput);
 			float SpeedFactor = GliderVelocity.Size() / 4000.f;
@@ -1064,8 +1087,15 @@ void AMistspireVRPawn::ApplySmoothLocomotion(FVector2D MoveInput, float DeltaTim
 	}
 
 	const FVector Delta = HorizontalVelocity * DeltaTime;
-	FHitResult Hit;
-	AddActorWorldOffset(Delta, true, &Hit);
+	if (bNonVRMode)
+	{
+		ApplyNonVRWalkDelta(Delta);
+	}
+	else
+	{
+		FHitResult Hit;
+		AddActorWorldOffset(Delta, true, &Hit);
+	}
 
 	if (GetLocalRole() < ROLE_Authority)
 	{
@@ -1106,18 +1136,52 @@ void AMistspireVRPawn::UpdateClimbingMovement(float DeltaTime)
 {
 	if (bNonVRMode)
 	{
+		ClearNonVRGroundCache();
+		VerticalVelocityCmPerSec = 0.f;
+
 		const float ClimbSpeed = LocomotionSpeedCmPerSec;
 		FVector ClimbDelta(0.f, 0.f, ClimbSpeed * DeltaTime);
 
-		if (!FMath::IsNearlyZero(NonVRMoveForward, 0.01f))
+		const FVector Forward = VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector();
+		const FVector FlatFwd = FVector(Forward.X, Forward.Y, 0.f).GetSafeNormal();
+
+		// Always ease slightly into the wall so we stay attached; W adds more forward cresting.
+		const float IntoWall = FMath::IsNearlyZero(NonVRMoveForward, 0.01f) ? 0.25f : NonVRMoveForward;
+		if (!FlatFwd.IsNearlyZero() && IntoWall > 0.f)
 		{
-			const FVector Forward = VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector();
-			const FVector FlatFwd = FVector(Forward.X, Forward.Y, 0.f).GetSafeNormal();
-			ClimbDelta += FlatFwd * NonVRMoveForward * ClimbSpeed * 0.5f * DeltaTime;
+			ClimbDelta += FlatFwd * IntoWall * ClimbSpeed * 0.55f * DeltaTime;
 		}
 
 		FHitResult Hit;
 		AddActorWorldOffset(ClimbDelta, true, &Hit);
+
+		if (Hit.bBlockingHit)
+		{
+			// Hit a walkable top while rising — mantle onto it instead of vibrating on the lip.
+			if (IsFloorHit(Hit))
+			{
+				SnapFeetToGround(Hit);
+				if (!FlatFwd.IsNearlyZero())
+				{
+					AddActorWorldOffset(FlatFwd * 35.f, true);
+				}
+				StopClimb();
+				return;
+			}
+
+			const FVector Remaining = ClimbDelta * (1.f - Hit.Time);
+			const FVector Slide = FVector::VectorPlaneProject(Remaining, Hit.ImpactNormal);
+			if (!Slide.IsNearlyZero(0.5f))
+			{
+				AddActorWorldOffset(Slide, true);
+			}
+		}
+
+		if (TryNonVRClimbMantle())
+		{
+			StopClimb();
+			return;
+		}
 
 		if (GetLocalRole() < ROLE_Authority)
 		{
@@ -1509,7 +1573,7 @@ void AMistspireVRPawn::UpdateAtmosphericEffects(float DeltaTime)
 			
 			const float Temp = Env->GetTemperatureCelsius(Altitude);
 			const float Aurora = Env->GetAuroraIntensity(Altitude);
-			if (ComfortVignette)
+			if (ComfortVignette && !bNonVRMode)
 			{
 				float FrostIntensity = (Temp < 0.f) ? FMath::Clamp(-Temp / 50.f, 0.f, 0.35f) : 0.f;
 				float AuroraGlow = Aurora * 0.25f;
@@ -1603,6 +1667,60 @@ void AMistspireVRPawn::TryMantle(float DeltaTime)
 		const FVector MantleDelta = FVector(0.f, 0.f, 95.f) + Forward * 45.f;
 		AddActorWorldOffset(MantleDelta * FMath::Min(DeltaTime * 10.f, 1.f), true);
 	}
+}
+
+bool AMistspireVRPawn::TryNonVRClimbMantle()
+{
+	UWorld* World = GetWorld();
+	if (!World || !Capsule || !bNonVRMode)
+	{
+		return false;
+	}
+
+	const FVector FlatFwd = FVector(
+		(VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector()).X,
+		(VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector()).Y,
+		0.f).GetSafeNormal();
+	if (FlatFwd.IsNearlyZero())
+	{
+		return false;
+	}
+
+	const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+	// Probe just ahead and above the feet for a walkable ledge top.
+	const FVector LedgeProbeStart = GetActorLocation() + FlatFwd * 45.f + FVector(0.f, 0.f, HalfHeight * 0.35f);
+	const FVector LedgeProbeEnd = LedgeProbeStart - FVector(0.f, 0.f, HalfHeight + 40.f);
+
+	FHitResult LedgeHit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(NonVRClimbMantle), false, this);
+	const bool bHit = World->SweepSingleByChannel(
+		LedgeHit, LedgeProbeStart, LedgeProbeEnd, FQuat::Identity, ECC_WorldStatic,
+		FCollisionShape::MakeSphere(NonVRGroundProbeRadiusCm), Params);
+
+	if (!bHit || !IsFloorHit(LedgeHit))
+	{
+		return false;
+	}
+
+	const float GapToLedge = (GetActorLocation().Z - HalfHeight) - LedgeHit.ImpactPoint.Z;
+	// Only mantle when the ledge is near foot height or slightly below the capsule mid.
+	if (GapToLedge < -NonVRMaxStepHeightCm || GapToLedge > HalfHeight * 0.85f)
+	{
+		return false;
+	}
+
+	SnapFeetToGround(LedgeHit);
+	AddActorWorldOffset(FlatFwd * 40.f, true);
+
+	FHitResult SettleHit;
+	if (ProbeGround(SettleHit, NonVRMaxStepHeightCm))
+	{
+		SnapFeetToGround(SettleHit);
+	}
+
+	HorizontalVelocity = FVector::ZeroVector;
+	VerticalVelocityCmPerSec = 0.f;
+	return true;
 }
 
 void AMistspireVRPawn::UpdateBeaconPulseHaptics()
@@ -1791,10 +1909,15 @@ void AMistspireVRPawn::UpdateGrapple(float DeltaTime)
 		FHitResult GrappleHit;
 		AddActorWorldOffset(PullForce, true, &GrappleHit);
 
-		if (bNonVRMode)
+		// Slide along rock faces instead of jamming into them (common on uneven maps).
+		if (GrappleHit.bBlockingHit)
 		{
-			const bool bReelingUpward = ToAnchor.Z > 0.f && PullForce.Z > 0.f;
-			EnforceNonVRGroundConstraint(bReelingUpward);
+			const FVector Remaining = PullForce * (1.f - GrappleHit.Time);
+			const FVector Slide = FVector::VectorPlaneProject(Remaining, GrappleHit.ImpactNormal);
+			if (!Slide.IsNearlyZero(0.5f))
+			{
+				AddActorWorldOffset(Slide, true);
+			}
 		}
 
 		if (GetLocalRole() < ROLE_Authority)
@@ -1946,6 +2069,13 @@ bool AMistspireVRPawn::ProbeGround(FHitResult& OutHit, float ExtraDownCm) const
 	return bHit && IsFloorHit(OutHit);
 }
 
+void AMistspireVRPawn::ClearNonVRGroundCache()
+{
+	bNonVRHasSupportCache = false;
+	bNonVRGroundedSticky = false;
+	NonVRCachedSupportZ = 0.f;
+}
+
 void AMistspireVRPawn::SnapFeetToGround(const FHitResult& GroundHit)
 {
 	if (!Capsule)
@@ -1954,12 +2084,197 @@ void AMistspireVRPawn::SnapFeetToGround(const FHitResult& GroundHit)
 	}
 
 	const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+	const FVector Loc = GetActorLocation();
+	float SupportZ = GroundHit.ImpactPoint.Z;
+	const bool bStationary = HorizontalVelocity.SizeSquared() < FMath::Square(NonVRStationarySpeedCmPerSec);
+	const UWorld* World = GetWorld();
+	const float Dt = World ? World->GetDeltaSeconds() : (1.f / 60.f);
+
+	if (bNonVRHasSupportCache)
+	{
+		const float Diff = SupportZ - NonVRCachedSupportZ;
+		if (bStationary)
+		{
+			// Standing on pebble fields: keep the last solid height unless we clearly stepped.
+			if (FMath::Abs(Diff) < NonVRStationarySupportStickCm)
+			{
+				SupportZ = NonVRCachedSupportZ;
+			}
+			else
+			{
+				NonVRCachedSupportZ = SupportZ;
+			}
+		}
+		else
+		{
+			// Walking: ease support height so debris does not pop the camera.
+			NonVRCachedSupportZ = FMath::FInterpTo(NonVRCachedSupportZ, SupportZ, Dt, 10.f);
+			SupportZ = NonVRCachedSupportZ;
+		}
+	}
+	else
+	{
+		NonVRCachedSupportZ = SupportZ;
+		bNonVRHasSupportCache = true;
+	}
+
+	bNonVRGroundedSticky = true;
+
+	const float DesiredZ = SupportZ + HalfHeight + NonVRGroundSkinCm;
+	const float DeltaZ = DesiredZ - Loc.Z;
+
+	if (FMath::Abs(DeltaZ) < NonVRGroundSnapDeadzoneCm)
+	{
+		VerticalVelocityCmPerSec = 0.f;
+		GliderVelocity.Z = FMath::Max(0.f, GliderVelocity.Z);
+		return;
+	}
+
 	VerticalVelocityCmPerSec = 0.f;
 	GliderVelocity.Z = FMath::Max(0.f, GliderVelocity.Z);
-	const FVector Loc = GetActorLocation();
-	SetActorLocation(
-		FVector(Loc.X, Loc.Y, GroundHit.ImpactPoint.Z + HalfHeight + NonVRGroundSkinCm),
-		false, nullptr, ETeleportType::None);
+
+	FHitResult MoveHit;
+	AddActorWorldOffset(FVector(0.f, 0.f, DeltaZ), true, &MoveHit);
+	if (MoveHit.bBlockingHit && !IsFloorHit(MoveHit) && DeltaZ > 0.f)
+	{
+		return;
+	}
+}
+
+void AMistspireVRPawn::ApplyNonVRWalkDelta(const FVector& InDelta)
+{
+	FVector Delta = InDelta;
+	Delta.Z = 0.f;
+	if (Delta.IsNearlyZero())
+	{
+		return;
+	}
+
+	const bool bGrappling = bGrappleActive || bGrappleExtending;
+
+	FHitResult Hit;
+	AddActorWorldOffset(Delta, true, &Hit);
+
+	if (Hit.bBlockingHit)
+	{
+		const FVector Remaining = Delta * (1.f - Hit.Time);
+		if (Remaining.SizeSquared() > 1.f)
+		{
+			const bool bAllowStep = !bGrappling && VerticalVelocityCmPerSec <= 10.f;
+			if (!(bAllowStep && TryNonVRStepUp(Remaining)))
+			{
+				FVector WallNormal = Hit.ImpactNormal;
+				WallNormal.Z = 0.f;
+				if (WallNormal.Normalize())
+				{
+					FVector Slide = FVector::VectorPlaneProject(Remaining, WallNormal);
+					Slide.Z = 0.f;
+					if (!Slide.IsNearlyZero(0.5f))
+					{
+						FHitResult SlideHit;
+						AddActorWorldOffset(Slide, true, &SlideHit);
+						if (bAllowStep && SlideHit.bBlockingHit)
+						{
+							TryNonVRStepUp(Slide * (1.f - SlideHit.Time));
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (!bGrappling)
+	{
+		// Contour-follow only while moving — standing still must not chase pebble hits.
+		if (HorizontalVelocity.SizeSquared() >= FMath::Square(NonVRStationarySpeedCmPerSec))
+		{
+			FollowNonVRGroundAfterMove();
+		}
+	}
+}
+
+bool AMistspireVRPawn::TryNonVRStepUp(const FVector& RemainingHorizontal)
+{
+	if (!Capsule || RemainingHorizontal.SizeSquared() < 1.f)
+	{
+		return false;
+	}
+
+	const FVector SavedLoc = GetActorLocation();
+	const FRotator SavedRot = GetActorRotation();
+	const float StepUp = NonVRMaxStepHeightCm;
+
+	FHitResult UpHit;
+	AddActorWorldOffset(FVector(0.f, 0.f, StepUp), true, &UpHit);
+	if (UpHit.bBlockingHit && UpHit.Time < 0.15f)
+	{
+		SetActorLocationAndRotation(SavedLoc, SavedRot, false, nullptr, ETeleportType::TeleportPhysics);
+		return false;
+	}
+
+	FHitResult FwdHit;
+	AddActorWorldOffset(RemainingHorizontal, true, &FwdHit);
+	if (FwdHit.bBlockingHit && FwdHit.Time <= KINDA_SMALL_NUMBER)
+	{
+		SetActorLocationAndRotation(SavedLoc, SavedRot, false, nullptr, ETeleportType::TeleportPhysics);
+		return false;
+	}
+
+	FHitResult DownHit;
+	AddActorWorldOffset(FVector(0.f, 0.f, -(StepUp + 8.f)), true, &DownHit);
+
+	FHitResult GroundHit;
+	if (IsFloorHit(DownHit))
+	{
+		SnapFeetToGround(DownHit);
+		return true;
+	}
+	if (ProbeGround(GroundHit, StepUp + 12.f))
+	{
+		SnapFeetToGround(GroundHit);
+		return true;
+	}
+
+	SetActorLocationAndRotation(SavedLoc, SavedRot, false, nullptr, ETeleportType::TeleportPhysics);
+	return false;
+}
+
+void AMistspireVRPawn::FollowNonVRGroundAfterMove()
+{
+	if (!Capsule)
+	{
+		return;
+	}
+
+	// Rising jump or a real fall: gravity / landing sweep owns Z.
+	if (VerticalVelocityCmPerSec > 10.f || VerticalVelocityCmPerSec < NonVRFallFollowCancelCmPerSec)
+	{
+		return;
+	}
+
+	FHitResult GroundHit;
+	if (!ProbeGround(GroundHit, NonVRMaxStepHeightCm))
+	{
+		return;
+	}
+
+	const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+	const float DesiredZ = GroundHit.ImpactPoint.Z + HalfHeight + NonVRGroundSkinCm;
+	const float DeltaZ = DesiredZ - GetActorLocation().Z;
+
+	if (FMath::Abs(DeltaZ) < NonVRGroundSnapDeadzoneCm)
+	{
+		return;
+	}
+
+	if (DeltaZ < -0.1f && -DeltaZ <= NonVRMaxStepHeightCm)
+	{
+		SnapFeetToGround(GroundHit);
+	}
+	else if (DeltaZ > 0.1f && DeltaZ <= NonVRMaxStepHeightCm)
+	{
+		SnapFeetToGround(GroundHit);
+	}
 }
 
 void AMistspireVRPawn::EnforceNonVRGroundConstraint(bool bSkipWhileReelingUpward)
@@ -1997,6 +2312,25 @@ void AMistspireVRPawn::EnforceNonVRGroundConstraint(bool bSkipWhileReelingUpward
 
 void AMistspireVRPawn::UpdateNonVRGravity(float DeltaTime)
 {
+	if (VerticalVelocityCmPerSec > 10.f)
+	{
+		ClearNonVRGroundCache();
+	}
+
+	const bool bStationary = HorizontalVelocity.SizeSquared() < FMath::Square(NonVRStationarySpeedCmPerSec);
+
+	// Already planted and not moving: hold Z — do not re-probe pebbles every tick.
+	if (bStationary && bNonVRGroundedSticky && bNonVRHasSupportCache && VerticalVelocityCmPerSec <= 0.f)
+	{
+		const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+		const float GapCached = (GetActorLocation().Z - HalfHeight) - NonVRCachedSupportZ;
+		if (GapCached >= -NonVRGroundSkinCm && GapCached <= NonVRGroundContactGapCm + 3.f)
+		{
+			VerticalVelocityCmPerSec = 0.f;
+			return;
+		}
+	}
+
 	FHitResult GroundHit;
 	if (ProbeGround(GroundHit, NonVRGroundSnapMaxGapCm))
 	{
@@ -2011,9 +2345,19 @@ void AMistspireVRPawn::UpdateNonVRGravity(float DeltaTime)
 
 		if (VerticalVelocityCmPerSec <= 0.f && GapToGround <= NonVRGroundContactGapCm)
 		{
+			if (bStationary && bNonVRGroundedSticky)
+			{
+				VerticalVelocityCmPerSec = 0.f;
+				return;
+			}
 			SnapFeetToGround(GroundHit);
 			return;
 		}
+	}
+	else if (VerticalVelocityCmPerSec <= 0.f)
+	{
+		// Lost nearby support while not rising — clear sticky so IsGrounded is honest.
+		ClearNonVRGroundCache();
 	}
 
 	VerticalVelocityCmPerSec -= NonVRGravityCmPerSec2 * DeltaTime;
@@ -2049,7 +2393,7 @@ void AMistspireVRPawn::UpdateNonVRCameraBob(float DeltaTime)
 	const float Speed2D = HorizontalVelocity.Size();
 	const float WalkRef = FMath::Max(1.f, DefaultLocomotionSpeedCmPerSec);
 	const bool bBobbing = !bIsClimbing && !bGliderActive && !bGrappleActive
-		&& IsGrounded() && Speed2D > 20.f;
+		&& IsGrounded() && Speed2D > NonVRStationarySpeedCmPerSec;
 
 	float TargetWeight = 0.f;
 	if (bBobbing)
@@ -2061,28 +2405,15 @@ void AMistspireVRPawn::UpdateNonVRCameraBob(float DeltaTime)
 			NonVRHeadBobPhase = FMath::Fmod(NonVRHeadBobPhase, 2.f * PI);
 		}
 	}
-	else
-	{
-		// Soft idle breath when standing still on ground.
-		if (!bIsClimbing && !bGliderActive && IsGrounded())
-		{
-			NonVRHeadBobPhase += DeltaTime * 0.9f;
-		}
-	}
 
-	NonVRHeadBobWeight = FMath::FInterpTo(NonVRHeadBobWeight, TargetWeight, DeltaTime, bBobbing ? 8.f : 6.f);
+	NonVRHeadBobWeight = FMath::FInterpTo(NonVRHeadBobWeight, TargetWeight, DeltaTime, bBobbing ? 8.f : 10.f);
 
 	float BobY = 0.f;
 	float BobZ = 0.f;
 	if (NonVRHeadBobWeight > 0.01f)
 	{
-		// Two vertical peaks per stride; lateral once per stride.
 		BobZ = FMath::Sin(NonVRHeadBobPhase * 2.f) * NonVRHeadBobVerticalCm * NonVRHeadBobWeight * BobScale;
 		BobY = FMath::Sin(NonVRHeadBobPhase) * NonVRHeadBobLateralCm * NonVRHeadBobWeight * BobScale;
-	}
-	else if (!bIsClimbing && !bGliderActive && IsGrounded())
-	{
-		BobZ = FMath::Sin(NonVRHeadBobPhase) * 0.35f * BobScale;
 	}
 
 	VRCamera->SetRelativeLocation(FVector(0.f, BobY, NonVREyeHeightCm + BobZ));
@@ -2090,6 +2421,11 @@ void AMistspireVRPawn::UpdateNonVRCameraBob(float DeltaTime)
 
 bool AMistspireVRPawn::IsGrounded() const
 {
+	if (bNonVRMode)
+	{
+		return bNonVRGroundedSticky && VerticalVelocityCmPerSec <= 50.f;
+	}
+
 	FHitResult Hit;
 	if (!ProbeGround(Hit, NonVRGroundContactGapCm))
 	{
@@ -2179,7 +2515,10 @@ void AMistspireVRPawn::Server_CollectLoreShard_Implementation(AMistspireLoreShar
 void AMistspireVRPawn::StartClimb()
 {
 	bIsClimbing = true;
+	NonVRClimbMissFrames = 0;
 	HorizontalVelocity = FVector::ZeroVector;
+	VerticalVelocityCmPerSec = 0.f;
+	ClearNonVRGroundCache();
 	LocomotionSpeedCmPerSec = DefaultLocomotionSpeedCmPerSec * 0.55f;
 	if (GetLocalRole() < ROLE_Authority)
 	{
@@ -2193,7 +2532,19 @@ void AMistspireVRPawn::Server_StartClimb_Implementation() { bIsClimbing = true; 
 void AMistspireVRPawn::StopClimb()
 {
 	bIsClimbing = false;
+	NonVRClimbMissFrames = 0;
 	LocomotionSpeedCmPerSec = bGliderActive ? DefaultLocomotionSpeedCmPerSec * 1.5f : DefaultLocomotionSpeedCmPerSec;
+
+	// If we stopped on solid ground (crested a boulder), plant feet once.
+	if (bNonVRMode)
+	{
+		FHitResult GroundHit;
+		if (ProbeGround(GroundHit, NonVRMaxStepHeightCm))
+		{
+			SnapFeetToGround(GroundHit);
+		}
+	}
+
 	if (GetLocalRole() < ROLE_Authority)
 	{
 		Server_StopClimb();
@@ -2209,6 +2560,7 @@ void AMistspireVRPawn::FireGrapple(FVector WorldTarget)
 	bGrappleExtending = true;
 	GrappleExtendAlpha = 0.f;
 	GrappleAnchorPoint = WorldTarget;
+	ClearNonVRGroundCache();
 
 	if (GrappleCable)
 	{
@@ -2302,6 +2654,7 @@ void AMistspireVRPawn::TryJump()
 			return;
 		}
 		VerticalVelocityCmPerSec = NonVRJumpImpulseCmPerSec;
+		ClearNonVRGroundCache();
 	}
 	else
 	{

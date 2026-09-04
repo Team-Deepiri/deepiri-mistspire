@@ -294,8 +294,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
 	float NonVRGravityCmPerSec2 = 2400.f;
 
+	/** Max downward snap while standing still / falling onto ground (cm). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
 	float NonVRGroundSnapMaxGapCm = 8.f;
+
+	/** Max rock/slope step the non-VR capsule can climb in one move (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRMaxStepHeightCm = 45.f;
+
+	/** How far down to search for ground after a horizontal walk step (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRGroundFollowDistanceCm = 55.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float SprintSpeedCmPerSec = 700.f;
@@ -388,6 +397,13 @@ private:
 	bool IsFloorHit(const FHitResult& Hit) const;
 	void SnapFeetToGround(const FHitResult& GroundHit);
 	void EnforceNonVRGroundConstraint(bool bSkipWhileReelingUpward);
+	/** Walk on uneven terrain: step-up, wall-slide, then follow ground height. */
+	void ApplyNonVRWalkDelta(const FVector& Delta);
+	bool TryNonVRStepUp(const FVector& RemainingHorizontal);
+	void FollowNonVRGroundAfterMove();
+	void ClearNonVRGroundCache();
+	/** When cresting a boulder while climbing, step onto the top and end climb. */
+	bool TryNonVRClimbMantle();
 	void UpdateStamina(float DeltaTime);
 	void UpdateOxygen(float DeltaTime);
 	void UpdateAtmosphericEffects(float DeltaTime);
@@ -440,6 +456,12 @@ private:
 	float NonVRMoveForward = 0.f;
 	float NonVRMoveRight = 0.f;
 	float CachedTurnInput = 0.f;
+	/** Sticky floor height so pebbles/debris do not re-snap the capsule every frame. */
+	float NonVRCachedSupportZ = 0.f;
+	bool bNonVRHasSupportCache = false;
+	bool bNonVRGroundedSticky = false;
+	/** Frames the climb wall trace has missed while Ctrl is held (hysteresis). */
+	int32 NonVRClimbMissFrames = 0;
 	bool bNonVRClimbHeld = false;
 	bool bNonVRSprintHeld = false;
 	float VerticalVelocityCmPerSec = 0.f;
