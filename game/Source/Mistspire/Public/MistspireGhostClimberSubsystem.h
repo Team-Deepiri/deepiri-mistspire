@@ -22,5 +22,7 @@ private:
 	UPROPERTY()
 	TArray<TObjectPtr<AMistspireGhostPillar>> GhostActors;
 
+	TArray<int32> GhostEntityIds;
+
 	float RefreshTimer = 0.f;
 };
