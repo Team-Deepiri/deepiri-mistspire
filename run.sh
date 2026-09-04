@@ -37,7 +37,8 @@ if [[ "$MODE" == "editor" ]]; then
   fi
   echo ""
   echo "==> Launching UE Editor..."
-  echo "   Once loaded: Play -> VR Preview to test"
+  echo "   Once loaded: Play -> VR Preview (headset) or Play (non-VR keyboard/mouse)"
+  echo "   Non-VR shortcut: ./run-nonvr.sh"
   echo ""
   "$UE_EDITOR" "$UPROJECT" 2>&1
 elif [[ "$MODE" == "packaged" ]]; then

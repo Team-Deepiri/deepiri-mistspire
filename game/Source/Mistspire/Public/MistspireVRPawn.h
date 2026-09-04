@@ -3,15 +3,18 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "MistspireVRPawn.generated.h"
-
-class UCameraComponent;
 class UCapsuleComponent;
+class UCameraComponent;
+class UInputAction;
+class UInputMappingContext;
 class UMotionControllerComponent;
 class USkeletalMeshComponent;
 class UTextRenderComponent;
 class UAudioComponent;
 class UPostProcessComponent;
 class UCableComponent;
+class USceneComponent;
+struct FHitResult;
 
 UCLASS()
 class MISTSPIRE_API AMistspireVRPawn : public APawn
@@ -23,9 +26,38 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void NotifyControllerChanged() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	/** True when playing without a headset (editor PIE, packaged -nonvr, or no HMD). */
+	UFUNCTION(BlueprintPure, Category = "Mistspire|NonVR")
+	bool IsNonVRMode() const { return bNonVRMode; }
+
+	/** False on non-VR until the title screen is dismissed. Always true in VR. */
+	UFUNCTION(BlueprintPure, Category = "Mistspire|NonVR")
+	bool HasGameplayStarted() const { return bGameplayStarted; }
+
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|NonVR")
+	void StartGameplay();
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|NonVR")
+	bool IsSettingsMenuOpen() const { return bSettingsMenuOpen; }
+
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|NonVR")
+	void ToggleSettingsMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|NonVR")
+	void CloseSettingsMenu(bool bSaveSettings = true);
+
+	/** Camera-forward point used for non-VR interaction traces. */
+	UFUNCTION(BlueprintPure, Category = "Mistspire|NonVR")
+	FVector GetInteractionTraceStart() const;
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|NonVR")
+	FVector GetInteractionTraceEnd(float MaxDistanceCm = 400.f) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void ApplySmoothLocomotion(FVector2D MoveInput, float DeltaTime);
@@ -38,6 +70,16 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ApplyTeleport(const FVector& TargetLocation);
+
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Narrative")
+	void DeliverLoreShard(const FText& Title, const FText& Body);
+
+	UFUNCTION(Client, Reliable)
+	void ClientReceiveLoreShard(const FText& Title, const FText& Body);
+
+	/** Client-owned RPC so lore shards can be collected over the network. */
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_CollectLoreShard(class AMistspireLoreShard* Shard);
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void TeleportForward(float DistanceCm = 800.f);
@@ -78,6 +120,12 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_FireGrapple(FVector WorldTarget);
+
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
+	void ReleaseGrapple();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_ReleaseGrapple();
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void ToggleGlider(bool bEnable);
@@ -151,6 +199,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
 	TObjectPtr<UCableComponent> GrappleCable;
 
+	/** World-fixed point the cable end attaches to (does not rotate with look). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
+	TObjectPtr<USceneComponent> GrappleAnchor;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|VR")
 	TObjectPtr<UStaticMeshComponent> GliderMesh;
 
@@ -190,11 +242,23 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float GrappleTraceDistanceCm = 8000.f;
 
+	/** How fast the cable tip travels toward the hit (cm/s) before pull starts. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
+	float GrappleExtendSpeedCmPerSec = 6000.f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float DefaultLocomotionSpeedCmPerSec = 400.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float LocomotionSpeedCmPerSec = 400.f;
+
+	/** How quickly planar speed eases toward the stick/WASD target (higher = snappier). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
+	float LocomotionAccelInterp = 10.f;
+
+	/** How quickly planar speed eases to a stop when input is released. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
+	float LocomotionBrakeInterp = 8.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float TurnRateDegPerSec = 90.f;
@@ -202,8 +266,58 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float JumpImpulseCmPerSec = 450.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRJumpImpulseCmPerSec = 650.f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float TeleportForwardCm = 800.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVREyeHeightCm = 64.f;
+
+	/** Vertical camera bob amplitude while walking (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRHeadBobVerticalCm = 2.8f;
+
+	/** Lateral camera bob amplitude while walking (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRHeadBobLateralCm = 1.4f;
+
+	/** Subtle roll with each step (degrees). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRHeadBobRollDeg = 0.45f;
+
+	/** Stride cycles per second at default walk speed. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRHeadBobStrideHz = 1.35f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRGravityCmPerSec2 = 2400.f;
+
+	/** Max downward snap while standing still / falling onto ground (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRGroundSnapMaxGapCm = 8.f;
+
+	/** Max rock/slope step the non-VR capsule can climb in one move (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRMaxStepHeightCm = 45.f;
+
+	/** How far down to search for ground after a horizontal walk step (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|NonVR")
+	float NonVRGroundFollowDistanceCm = 55.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
+	float SprintSpeedCmPerSec = 700.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|NonVR")
+	bool bNonVRMode = false;
+
+	/** Non-VR title screen gate; VR sets true immediately. */
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|NonVR")
+	bool bGameplayStarted = true;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|NonVR")
+	bool bSettingsMenuOpen = false;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Traversal")
 	bool bIsClimbing = false;
@@ -213,6 +327,9 @@ public:
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Traversal")
 	bool bGrappleActive = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Traversal")
+	bool bGrappleExtending = false;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Mistspire|Traversal")
 	FVector GrappleAnchorPoint;
@@ -253,21 +370,100 @@ public:
 	float CurrentAtmosphericPressure = 1.0f;
 
 private:
+	void ConfigureNonVRMode();
+	void ApplyNonVRPlayerControllerSettings();
+	void ApplyUserSettingsToGameplay();
+	void OpenSettingsMenu();
+	bool TryConsumeStartScreenInput() const;
+	void PollNonVRInput();
+	void PollSettingsMenuToggle();
+	void BindNonVREnhancedInput(class UEnhancedInputComponent* EnhancedInputComponent);
+	void OnNonVRMove(const struct FInputActionValue& Value);
+	void OnNonVRLook(const struct FInputActionValue& Value);
+	void OnClimbPressed();
+	void OnClimbReleased();
+	void OnSprintPressed();
+	void OnSprintReleased();
+	void OnGrapplePressed();
+	void OnGliderPressed();
+	void OnTeleportPressed();
+	void OnInteractPressed();
 	void PollXRInput();
 	void UpdateAltitudeTracking();
-	void ApplyVerticalVelocity(float DeltaCm);
+	void ApplyVerticalVelocity(float DeltaCm, FHitResult* OutHit = nullptr);
+	void UpdateNonVRGravity(float DeltaTime);
+	void UpdateNonVRCameraBob(float DeltaTime);
+	bool ProbeGround(FHitResult& OutHit, float ExtraDownCm) const;
+	bool IsFloorHit(const FHitResult& Hit) const;
+	void SnapFeetToGround(const FHitResult& GroundHit);
+	void EnforceNonVRGroundConstraint(bool bSkipWhileReelingUpward);
+	/** Walk on uneven terrain: step-up, wall-slide, then follow ground height. */
+	void ApplyNonVRWalkDelta(const FVector& Delta);
+	bool TryNonVRStepUp(const FVector& RemainingHorizontal);
+	void FollowNonVRGroundAfterMove();
+	void ClearNonVRGroundCache();
+	/** When cresting a boulder while climbing, step onto the top and end climb. */
+	bool TryNonVRClimbMantle();
 	void UpdateStamina(float DeltaTime);
 	void UpdateOxygen(float DeltaTime);
 	void UpdateAtmosphericEffects(float DeltaTime);
 	void UpdateWristHUD();
 	void TryGrappleShot();
+	void UpdateGrapple(float DeltaTime);
+	void UpdateGrappleCableVisual(const FVector& CableEndWorld);
+	void PlaceNonVRGrappleCableStart();
 	void TryMantle(float DeltaTime);
 	void UpdateBeaconPulseHaptics();
+	void ReceiveLoreShardLocal(const FText& Title, const FText& Body);
+	bool IsGrounded() const;
 	UFUNCTION()
 	void HandleSummitReached(FName SummitId);
 
+	UPROPERTY()
+	TObjectPtr<UInputMappingContext> NonVRMappingContext;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRMoveAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRLookAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRJumpAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRClimbAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRSprintAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRGrappleAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRGliderAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRTeleportAction;
+
+	UPROPERTY()
+	TObjectPtr<UInputAction> NonVRInteractAction;
+
 	FVector2D CachedMoveInput;
+	FVector HorizontalVelocity = FVector::ZeroVector;
+	float NonVRHeadBobPhase = 0.f;
+	float NonVRHeadBobWeight = 0.f;
+	float NonVRMoveForward = 0.f;
+	float NonVRMoveRight = 0.f;
 	float CachedTurnInput = 0.f;
+	/** Sticky floor height so pebbles/debris do not re-snap the capsule every frame. */
+	float NonVRCachedSupportZ = 0.f;
+	bool bNonVRHasSupportCache = false;
+	bool bNonVRGroundedSticky = false;
+	/** Frames the climb wall trace has missed while Ctrl is held (hysteresis). */
+	int32 NonVRClimbMissFrames = 0;
+	bool bNonVRClimbHeld = false;
+	bool bNonVRSprintHeld = false;
 	float VerticalVelocityCmPerSec = 0.f;
 	bool bMenuPressedLast = false;
 	bool bMenuHeld = false;
@@ -275,9 +471,14 @@ private:
 	bool bJumpPressedLast = false;
 	bool bGrapplePressedLast = false;
 	bool bGliderPressedLast = false;
+	float GrappleExtendAlpha = 0.f;
 	FVector GliderVelocity = FVector::ZeroVector;
 	float GliderBoostTimeRemaining = 0.f;
 	float GliderBoostMultiplier = 1.65f;
 	bool bGrappleHeld = false;
 	float NotificationTimer = 0.f;
+	float HeartbeatTimer = 0.f;
+	float PhysTimer = 0.f;
+
+	TSharedPtr<class SWidget> SettingsMenuWidget;
 };

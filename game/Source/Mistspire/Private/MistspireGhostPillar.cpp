@@ -18,5 +18,7 @@ void AMistspireGhostPillar::Configure(const FVector& WorldLocation, float Height
 	const float PillarHeight = FMath::Clamp(HeightCm, 500.f, 2000000.f);
 	SetActorLocation(WorldLocation);
 	SetActorScale3D(FVector(0.2f, 0.2f, PillarHeight / 10000.f));
+#if WITH_EDITOR
 	SetActorLabel(FString::Printf(TEXT("Ghost_%s"), *Label));
+#endif
 }

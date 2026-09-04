@@ -2,7 +2,7 @@
 
 ## Project
 
-**Mistspire** — UE 5.8 PCVR game. Objective: reach the highest altitude on a World Partition map.
+**Mistspire** — UE 5.8 PCVR game. Objective: reach the highest altitude on a World Partition map. **Non-VR mode** (keyboard/mouse) is supported for editor PIE and packaged builds (`-nonvr`).
 
 ## Key paths
 
@@ -15,6 +15,7 @@
 | `docs/setup/PCVR_DEV_SETUP.md` | PCVR hub, Linux/WSL/Windows VR; headset guides under `docs/setup/headsets/` |
 | `game/Config/DefaultEngine.ini` | Linux Vulkan SM5/SM6 + Win64 D3D12 SM5/SM6 |
 | `.github/workflows/` | Hosted CI (`validate.yml`, `codeql.yml`, reusable `ci-gate.yml`); see [`.github/codeql/README.md`](.github/codeql/README.md) |
+| `docs/setup/NONVR_MODE.md` | Keyboard/mouse play without a headset |
 
 ## Rules for agents
 
@@ -24,6 +25,7 @@
 4. Binary `.umap` / `.uasset` — Git LFS; document map steps in `game/Content/Maps/README.md`.
 5. Repo layout is **flat** under `deepiri-mistspire/` (no nested `deepiri-cloudloom/`).
 6. Keep project docs in sync with code: when adding or changing features, update the matching files under `docs/` (`gameplay/`, `architecture/`, `setup/`) and this `AGENTS.md` when paths, rules, systems, or setup steps change.
+7. **Non-VR mode:** use `FMistspireInputMode::IsNonVRMode(World)`; CLI `-nonvr` (alias `-demoflat`) forces keyboard/mouse; `-forcvr` or `-forcevr` forces VR. Editor **Play** = non-VR; **VR Preview** = VR. Non-VR uses Enhanced Input (`FMistspireInputMode::CreateNonVREnhancedInput`); VR stays on OpenXR `mistspire_gameplay`. Do not break either path when changing input or pawn code.
 
 ## Quick start
 
@@ -34,7 +36,7 @@
 
 Platform matrix: [docs/setup/PLATFORMS.md](docs/setup/PLATFORMS.md). Bootstrap: [docs/setup/DEV_BOOTSTRAP.md](docs/setup/DEV_BOOTSTRAP.md).
 
-Manual / PCVR: [docs/setup/PCVR_DEV_SETUP.md](docs/setup/PCVR_DEV_SETUP.md).
+Manual / PCVR: [docs/setup/PCVR_DEV_SETUP.md](docs/setup/PCVR_DEV_SETUP.md). Non-VR: [docs/setup/NONVR_MODE.md](docs/setup/NONVR_MODE.md).
 
 ## Manual build
 

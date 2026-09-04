@@ -1,6 +1,8 @@
 #include "MistspireInteractionSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "MistspireXRActionSubsystem.h"
+#include "MistspireInputMode.h"
+#include "MistspireInteractable.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/PrimitiveComponent.h"
 
@@ -15,13 +17,12 @@ void UMistspireInteractionSubsystem::Tick(float DeltaTime)
 		return;
 	}
 
-	const TArray<FVector> HandLocations = {
-		VRPawn->GetLeftHandWorldLocation(),
-		VRPawn->GetRightHandWorldLocation(),
-		VRPawn->GetActorLocation()
-	};
+	const bool bNonVR = FMistspireInputMode::IsNonVRMode(GetWorld());
 
-	const float ProximityCm = 35.f;
+	TArray<FVector> ProximityPoints;
+	GatherProximityPoints(VRPawn, ProximityPoints, bNonVR);
+
+	const float ProximityCm = bNonVR ? 120.f : 35.f;
 	UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>();
 
 	for (AActor* Actor : InteractiveActors)
@@ -32,9 +33,9 @@ void UMistspireInteractionSubsystem::Tick(float DeltaTime)
 		}
 
 		bool bShouldHighlight = false;
-		for (const FVector& HandLoc : HandLocations)
+		for (const FVector& Point : ProximityPoints)
 		{
-			if (FVector::Dist(Actor->GetActorLocation(), HandLoc) < ProximityCm)
+			if (FVector::Dist(Actor->GetActorLocation(), Point) < ProximityCm)
 			{
 				bShouldHighlight = true;
 				break;
@@ -54,11 +55,46 @@ void UMistspireInteractionSubsystem::Tick(float DeltaTime)
 				Comp->SetCustomDepthStencilValue(bShouldHighlight ? 1 : 0);
 			}
 
-			if (bShouldHighlight && XR && VRPawn->IsLocallyControlled())
+			if (bShouldHighlight && XR && VRPawn->IsLocallyControlled() && !bNonVR)
 			{
 				XR->TriggerHapticVibration(true, 0.12f, 0.04f, 90.f);
 			}
 		}
+	}
+}
+
+void UMistspireInteractionSubsystem::TryInteractFromPawn(AMistspireVRPawn* Pawn)
+{
+	if (!Pawn || !FMistspireInputMode::IsNonVRMode(GetWorld()))
+	{
+		return;
+	}
+
+	const FVector Start = Pawn->GetInteractionTraceStart();
+	const FVector End = Pawn->GetInteractionTraceEnd(400.f);
+	FHitResult Hit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(MistspireInteract), false, Pawn);
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params) || !Hit.GetActor())
+	{
+		return;
+	}
+
+	if (Hit.GetActor()->GetClass()->ImplementsInterface(UMistspireInteractable::StaticClass()))
+	{
+		IMistspireInteractable::Execute_MistspireInteract(Hit.GetActor(), Pawn);
+	}
+}
+
+void UMistspireInteractionSubsystem::GatherProximityPoints(
+	AMistspireVRPawn* Pawn, TArray<FVector>& OutPoints, bool bNonVRMode) const
+{
+	OutPoints.Reset();
+	OutPoints.Add(Pawn->GetActorLocation());
+	OutPoints.Add(Pawn->GetLeftHandWorldLocation());
+	OutPoints.Add(Pawn->GetRightHandWorldLocation());
+	if (bNonVRMode)
+	{
+		OutPoints.Add(Pawn->GetInteractionTraceEnd(80.f));
 	}
 }
 

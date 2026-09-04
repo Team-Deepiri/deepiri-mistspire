@@ -52,8 +52,8 @@ if ($Mode -eq "editor") {
   }
   if ($exe) {
     Write-Host ""
-    Write-Host "==> Launching packaged build: $exe"
-    & $exe
+    Write-Host "==> Launching packaged build (non-VR): $exe"
+    & $exe -nonvr
   } else {
     Write-Host "!! No Win64 package found under game\Package\Win64"
     Write-Host "   Package first — see scripts\package_win64.sh and tools\pipeline\step_17_README.md"

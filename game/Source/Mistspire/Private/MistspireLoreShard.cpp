@@ -3,12 +3,14 @@
 #include "MistspireInteractionSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "MistspireXRActionSubsystem.h"
+#include "MistspireInputMode.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 
 AMistspireLoreShard::AMistspireLoreShard()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
 
 	ShardSphere = CreateDefaultSubobject<USphereComponent>(TEXT("ShardSphere"));
 	SetRootComponent(ShardSphere);
@@ -33,22 +35,51 @@ void AMistspireLoreShard::BeginPlay()
 void AMistspireLoreShard::OnShardOverlap(UPrimitiveComponent* Overlapped, AActor* Other,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(Other);
-	if (!Pawn || !Pawn->IsLocallyControlled())
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(Other))
+	{
+		CollectShard(Pawn);
+	}
+}
+
+void AMistspireLoreShard::MistspireInteract_Implementation(AActor* InteractInstigator)
+{
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(InteractInstigator))
+	{
+		CollectShard(Pawn);
+	}
+}
+
+void AMistspireLoreShard::CollectShard(AMistspireVRPawn* Pawn)
+{
+	if (bCollected || !Pawn)
 	{
 		return;
 	}
 
-	if (UMistspireNarrativeSubsystem* Narr = GetWorld()->GetSubsystem<UMistspireNarrativeSubsystem>())
+	if (HasAuthority())
 	{
-		Narr->PushLine(FText::Format(
-			NSLOCTEXT("Mistspire", "LoreShard", "{0} — {1}"),
-			LoreTitle, LoreBody), 8.f);
+		ApplyCollection(Pawn);
+	}
+	else if (Pawn->IsLocallyControlled())
+	{
+		// Route through the owned pawn — this actor has no owning connection.
+		Pawn->Server_CollectLoreShard(this);
+	}
+}
+
+void AMistspireLoreShard::ApplyCollection(AMistspireVRPawn* Pawn)
+{
+	if (bCollected || !Pawn || !HasAuthority())
+	{
+		return;
 	}
 
-	if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+	bCollected = true;
+	Pawn->DeliverLoreShard(LoreTitle, LoreBody);
+
+	if (UMistspireInteractionSubsystem* Sub = GetWorld()->GetSubsystem<UMistspireInteractionSubsystem>())
 	{
-		XR->TriggerHapticVibration(true, 0.2f, 0.08f, 110.f);
+		Sub->UnregisterInteractiveActor(this);
 	}
 
 	Destroy();

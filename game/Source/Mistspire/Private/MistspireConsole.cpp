@@ -104,6 +104,37 @@ static FAutoConsoleCommand CmdMistspireRefillSurvival(
 	TEXT("Refill stamina and oxygen (debug)."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireRefillSurvival));
 
+static void MistspireToggleSettings(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	APlayerController* PC = GWorld->GetFirstPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(PC->GetPawn()))
+	{
+		if (!Pawn->IsNonVRMode())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Mistspire: ToggleSettings is non-VR only."));
+			return;
+		}
+		if (!Pawn->HasGameplayStarted())
+		{
+			Pawn->StartGameplay();
+		}
+		Pawn->ToggleSettingsMenu();
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireToggleSettings(
+	TEXT("mistspire.ToggleSettings"),
+	TEXT("Toggle the non-VR settings menu (use in PIE — Esc stops play in the editor)."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireToggleSettings));
+
 static void MistspireSaveProgress(const TArray<FString>&)
 {
 	if (!GWorld)
@@ -225,16 +256,10 @@ static void RegisterMistspireAltitudeHudCommands()
 {
 	IConsoleManager& CM = IConsoleManager::Get();
 
-	// Register an alias for maintainers + saved console workflows.
-	if (!CM.FindConsoleObject(TEXT("mistspire.ShowAltitudeHUD")))
-	{
-		CM.RegisterConsoleCommand(
-			TEXT("mistspire.ShowAltitudeHUD"),
-			TEXT("Toggle wrist altimeter text visibility: 0=hide, 1=show."),
-			FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireShowAltitudeHUD));
-	}
+	// Do not register mistspire.ShowAltitudeHUD here — it is a TAutoConsoleVariable<int32>
+	// in MistspireAltitudeDebugSubsystem.cpp. A command with the same name fatals on load
+	// when static init order registers the command first.
 
-	// New preferred name (kept for clarity).
 	if (!CM.FindConsoleObject(TEXT("mistspire.ShowWristAltimeter")))
 	{
 		CM.RegisterConsoleCommand(
