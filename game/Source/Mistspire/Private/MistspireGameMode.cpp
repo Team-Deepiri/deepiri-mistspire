@@ -21,6 +21,11 @@
 #include "EngineUtils.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
+#include "MistspireDialogueSubsystem.h"
+#include "MistspireEntitySubsystem.h"
+#include "MistspireObservationRecorder.h"
+#include "MistspireLeaderboardService.h"
+#include "AI/MistspireAIController.h"
 
 AMistspireGameMode::AMistspireGameMode()
 {
@@ -55,6 +60,17 @@ void AMistspireGameMode::StartPlay()
 		World->GetSubsystem<UMistspireCompanionSubsystem>();
 		World->GetSubsystem<UMistspireGhostClimberSubsystem>();
 		World->GetSubsystem<UMistspireAmbienceSubsystem>();
+		World->GetSubsystem<UMistspireDialogueSubsystem>();
+		World->GetSubsystem<UMistspireEntitySubsystem>();
+		World->GetSubsystem<UMistspireObservationRecorder>();
+
+		if (UGameInstance* GI = World->GetGameInstance())
+		{
+			if (UMistspireLeaderboardService* Leaderboard = GI->GetSubsystem<UMistspireLeaderboardService>())
+			{
+				Leaderboard->RefreshLeaderboard();
+			}
+		}
 
 		const bool bNonVR = FMistspireInputMode::IsNonVRMode(World);
 		FMistspireInputMode::ApplyRendererOverrides(bNonVR);

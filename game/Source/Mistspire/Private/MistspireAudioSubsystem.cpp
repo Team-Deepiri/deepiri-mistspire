@@ -1,8 +1,8 @@
 #include "MistspireAudioSubsystem.h"
 #include "MistspireLog.h"
-#include "MistspireEnvironmentSubsystem.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundAttenuation.h"
 #include "AudioDevice.h"
 
 void UMistspireAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -22,6 +22,79 @@ void UMistspireAudioSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	{
 		UE_LOG(LogMistspire, Log, TEXT("MistspireAudioSubsystem initialized with 6 audio channels"));
 	}
+}
+
+void UMistspireAudioSubsystem::Deinitialize()
+{
+	if (AmbienceComponent)
+	{
+		AmbienceComponent->Stop();
+		AmbienceComponent->DestroyComponent();
+		AmbienceComponent = nullptr;
+	}
+
+	if (WeatherComponent)
+	{
+		WeatherComponent->Stop();
+		WeatherComponent->DestroyComponent();
+		WeatherComponent = nullptr;
+	}
+
+	for (UAudioComponent* Component : OneShotPool)
+	{
+		if (Component)
+		{
+			Component->Stop();
+			Component->DestroyComponent();
+		}
+	}
+	OneShotPool.Empty();
+
+	Super::Deinitialize();
+}
+
+void UMistspireAudioSubsystem::ResetOneShotComponent(UAudioComponent* Component)
+{
+	Component->Stop();
+	Component->SetPitchMultiplier(1.0f);
+	Component->bIsUISound = true;
+	Component->bOverrideAttenuation = false;
+	Component->AttenuationOverrides = FSoundAttenuationSettings();
+	if (!Component->IsRegistered())
+	{
+		Component->RegisterComponent();
+	}
+}
+
+UAudioComponent* UMistspireAudioSubsystem::AcquireOneShotComponent()
+{
+	// Drop entries for pooled components destroyed externally.
+	OneShotPool.RemoveAll([](const TObjectPtr<UAudioComponent>& Component) { return Component == nullptr; });
+
+	for (UAudioComponent* Component : OneShotPool)
+	{
+		if (!Component->IsPlaying())
+		{
+			ResetOneShotComponent(Component);
+			return Component;
+		}
+	}
+
+	if (OneShotPool.Num() < MaxOneShotComponents)
+	{
+		UAudioComponent* Component = NewObject<UAudioComponent>(this);
+		Component->bAutoDestroy = false;
+		Component->bAllowAnyoneToDestroyMe = true;
+		OneShotPool.Add(Component);
+		ResetOneShotComponent(Component);
+		return Component;
+	}
+
+	// All voices busy: recycle the next component round-robin.
+	UAudioComponent* Recycled = OneShotPool[NextOneShotIndex % MaxOneShotComponents];
+	NextOneShotIndex = (NextOneShotIndex + 1) % MaxOneShotComponents;
+	ResetOneShotComponent(Recycled);
+	return Recycled;
 }
 
 FMistspireAudioBusState& UMistspireAudioSubsystem::GetBus(EMistspireAudioChannel Channel)
@@ -56,7 +129,21 @@ void UMistspireAudioSubsystem::PlayBiomeAmbience(FName BiomeName, float Crossfad
 	USoundCue** FoundCue = BiomeAmbienceMap.Find(BiomeName);
 	if (!FoundCue || !*FoundCue)
 	{
-		UE_LOG(LogMistspire, Warning, TEXT("PlayBiomeAmbience: no sound cue for biome '%s'"), *BiomeName.ToString());
+		if (!WarnedMissingBiomeCues.Contains(BiomeName))
+		{
+			WarnedMissingBiomeCues.Add(BiomeName);
+			UE_LOG(LogMistspire, Warning, TEXT("PlayBiomeAmbience: no sound cue for biome '%s'"), *BiomeName.ToString());
+		}
+		return;
+	}
+
+	const float BusVolume = GetBus(EMistspireAudioChannel::Ambient).bMuted ? 0.f : BusStates[static_cast<int32>(EMistspireAudioChannel::Ambient)].VolumeMultiplier;
+
+	// Already playing this biome: only refresh the volume so per-tick callers
+	// do not restart the ambience loop.
+	if (BiomeName == CurrentAmbienceBiome && AmbienceComponent && AmbienceComponent->IsPlaying())
+	{
+		AmbienceComponent->SetVolumeMultiplier(BusVolume);
 		return;
 	}
 
@@ -69,10 +156,10 @@ void UMistspireAudioSubsystem::PlayBiomeAmbience(FName BiomeName, float Crossfad
 		AmbienceComponent->RegisterComponent();
 	}
 
-	const float BusVolume = GetBus(EMistspireAudioChannel::Ambient).bMuted ? 0.f : BusStates[static_cast<int32>(EMistspireAudioChannel::Ambient)].VolumeMultiplier;
 	AmbienceComponent->SetSound(*FoundCue);
 	AmbienceComponent->SetVolumeMultiplier(BusVolume);
 	AmbienceComponent->Play();
+	CurrentAmbienceBiome = BiomeName;
 }
 
 void UMistspireAudioSubsystem::PlayPhysiologySound(EPhysiologySoundType Type, float Intensity)
@@ -80,7 +167,12 @@ void UMistspireAudioSubsystem::PlayPhysiologySound(EPhysiologySoundType Type, fl
 	USoundCue** FoundCue = PhysiologySoundMap.Find(Type);
 	if (!FoundCue || !*FoundCue)
 	{
-		UE_LOG(LogMistspire, Warning, TEXT("PlayPhysiologySound: no sound cue for type %d"), static_cast<int32>(Type));
+		const int32 TypeKey = static_cast<int32>(Type);
+		if (!WarnedMissingPhysiologyCues.Contains(TypeKey))
+		{
+			WarnedMissingPhysiologyCues.Add(TypeKey);
+			UE_LOG(LogMistspire, Warning, TEXT("PlayPhysiologySound: no sound cue for type %d"), TypeKey);
+		}
 		return;
 	}
 
@@ -89,13 +181,12 @@ void UMistspireAudioSubsystem::PlayPhysiologySound(EPhysiologySoundType Type, fl
 
 	const float BusVolume = GetBus(EMistspireAudioChannel::Physiology).bMuted ? 0.f : BusStates[static_cast<int32>(EMistspireAudioChannel::Physiology)].VolumeMultiplier;
 
-	UAudioComponent* AudioComp = NewObject<UAudioComponent>(this);
-	AudioComp->bAutoDestroy = true;
-	AudioComp->bAllowAnyoneToDestroyMe = true;
+	UAudioComponent* AudioComp = AcquireOneShotComponent();
+	if (!AudioComp) return;
+
 	AudioComp->SetWorldLocation(Camera->GetCameraLocation());
 	AudioComp->SetSound(*FoundCue);
 	AudioComp->SetVolumeMultiplier(BusVolume * FMath::Clamp(Intensity, 0.0f, 2.0f));
-	AudioComp->RegisterComponent();
 	AudioComp->Play();
 }
 
@@ -104,23 +195,46 @@ void UMistspireAudioSubsystem::PlayWeatherSound(EMistspireWeatherType Weather, f
 	USoundCue** FoundCue = WeatherSoundMap.Find(Weather);
 	if (!FoundCue || !*FoundCue)
 	{
-		UE_LOG(LogMistspire, Warning, TEXT("PlayWeatherSound: no sound cue for weather %d"), static_cast<int32>(Weather));
+		const int32 WeatherKey = static_cast<int32>(Weather);
+		if (!WarnedMissingWeatherCues.Contains(WeatherKey))
+		{
+			WarnedMissingWeatherCues.Add(WeatherKey);
+			UE_LOG(LogMistspire, Warning, TEXT("PlayWeatherSound: no sound cue for weather %d"), WeatherKey);
+		}
+		return;
+	}
+
+	const float BusVolume = GetBus(EMistspireAudioChannel::Weather).bMuted ? 0.f : BusStates[static_cast<int32>(EMistspireAudioChannel::Weather)].VolumeMultiplier;
+	const float TargetVolume = BusVolume * FMath::Clamp(Intensity, 0.0f, 1.5f);
+
+	// Already playing this weather: only refresh volume so per-tick callers
+	// do not restart the loop.
+	if (bHasCurrentWeather && Weather == CurrentWeather && WeatherComponent && WeatherComponent->IsPlaying())
+	{
+		WeatherComponent->SetVolumeMultiplier(TargetVolume);
 		return;
 	}
 
 	if (!WeatherComponent)
 	{
+		APlayerController* PlayerController = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+		if (!PlayerController)
+		{
+			return;
+		}
+
 		WeatherComponent = NewObject<UAudioComponent>(this);
 		WeatherComponent->bAutoDestroy = false;
 		WeatherComponent->bAllowAnyoneToDestroyMe = true;
-		WeatherComponent->SetupAttachment(GetWorld()->GetFirstPlayerController()->GetRootComponent());
+		WeatherComponent->SetupAttachment(PlayerController->GetRootComponent());
 		WeatherComponent->RegisterComponent();
 	}
 
-	const float BusVolume = GetBus(EMistspireAudioChannel::Weather).bMuted ? 0.f : BusStates[static_cast<int32>(EMistspireAudioChannel::Weather)].VolumeMultiplier;
 	WeatherComponent->SetSound(*FoundCue);
-	WeatherComponent->SetVolumeMultiplier(BusVolume * FMath::Clamp(Intensity, 0.0f, 1.5f));
+	WeatherComponent->SetVolumeMultiplier(TargetVolume);
 	WeatherComponent->Play();
+	CurrentWeather = Weather;
+	bHasCurrentWeather = true;
 }
 
 void UMistspireAudioSubsystem::PlaySurfaceContactSound(float ImpactForce, bool bIsStone)
@@ -137,13 +251,12 @@ void UMistspireAudioSubsystem::PlaySurfaceContactSound(float ImpactForce, bool b
 	const float PitchVariation = FMath::FRandRange(0.85f, 1.15f);
 	const float BusVolume = GetBus(EMistspireAudioChannel::Surface).bMuted ? 0.f : BusStates[static_cast<int32>(EMistspireAudioChannel::Surface)].VolumeMultiplier;
 
-	UAudioComponent* AudioComp = NewObject<UAudioComponent>(this);
-	AudioComp->bAutoDestroy = true;
-	AudioComp->bAllowAnyoneToDestroyMe = true;
+	UAudioComponent* AudioComp = AcquireOneShotComponent();
+	if (!AudioComp) return;
+
 	AudioComp->SetSound(*FoundCue);
 	AudioComp->SetVolumeMultiplier(BusVolume * NormalizedForce);
 	AudioComp->SetPitchMultiplier(PitchVariation);
-	AudioComp->RegisterComponent();
 	AudioComp->Play();
 }
 
@@ -158,12 +271,11 @@ void UMistspireAudioSubsystem::PlayUISound(FName SoundId, float Volume)
 
 	const float BusVolume = GetBus(EMistspireAudioChannel::UI).bMuted ? 0.f : BusStates[static_cast<int32>(EMistspireAudioChannel::UI)].VolumeMultiplier;
 
-	UAudioComponent* AudioComp = NewObject<UAudioComponent>(this);
-	AudioComp->bAutoDestroy = true;
-	AudioComp->bAllowAnyoneToDestroyMe = true;
+	UAudioComponent* AudioComp = AcquireOneShotComponent();
+	if (!AudioComp) return;
+
 	AudioComp->SetSound(*FoundCue);
 	AudioComp->SetVolumeMultiplier(BusVolume * FMath::Clamp(Volume, 0.0f, 2.0f));
-	AudioComp->RegisterComponent();
 	AudioComp->Play();
 }
 
@@ -178,16 +290,15 @@ void UMistspireAudioSubsystem::PlaySpatialSoundAtLocation(FName SoundId, FVector
 
 	const float BusVolume = GetBus(EMistspireAudioChannel::Spatial).bMuted ? 0.f : BusStates[static_cast<int32>(EMistspireAudioChannel::Spatial)].VolumeMultiplier;
 
-	UAudioComponent* AudioComp = NewObject<UAudioComponent>(this);
-	AudioComp->bAutoDestroy = true;
-	AudioComp->bAllowAnyoneToDestroyMe = true;
+	UAudioComponent* AudioComp = AcquireOneShotComponent();
+	if (!AudioComp) return;
+
 	AudioComp->SetWorldLocation(WorldLocation);
 	AudioComp->SetSound(*FoundCue);
 	AudioComp->SetVolumeMultiplier(BusVolume * FMath::Clamp(Volume, 0.0f, 2.0f));
 	AudioComp->bIsUISound = false;
 	AudioComp->AttenuationOverrides.bAttenuate = true;
 	AudioComp->bOverrideAttenuation = true;
-	AudioComp->RegisterComponent();
 	AudioComp->Play();
 }
 

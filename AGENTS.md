@@ -82,10 +82,14 @@ Bindings include: `move`, `strafe`, `turn`, `grip`, `jump`, `climb`, `grapple`, 
 
 - `mistspire.AltitudeStats`
 - `mistspire.TeleportUp 5000`
-- `mistspire.ShowAltitudeHUD 1` (on-screen HUD CVar)
-- `mistspire.ShowControls 1` (force keyboard hint; `-1` = use settings, default off)
-- `mistspire.ToggleSettings` (non-VR settings menu; PIE-safe — Esc stops PIE)
-- `mistspire.ShowWristAltimeter 1` (wrist world-text command)
+- `mistspire.ShowAltitudeHUD 1` (or `mistspire.ShowWristAltimeter 1`)
+- `mistspire.SetWeather 0` (0=Clear, 1=MistStorm, 2=Electric, 3=ZenithGlow)
+- `mistspire.RefillSurvival`
+- `mistspire.SaveProgress` / `mistspire.LoadProgress`
+- `mistspire.Speak <id>` (companion_greeting, ghost_whisper, summit_breath, shelter_warmth, storm_warning, zenith_glow, oxygen_low)
+- `mistspire.AIThink` / `mistspire.GOAPPlan <goal>`
+- `mistspire.SpawnGhostSim` / `mistspire.StateMachineDebug`
+- `mistspire.ObservationStart [intervalS]` / `mistspire.ObservationStop`
 - Full command list: see [docs/gameplay/IMMERSION.md](docs/gameplay/IMMERSION.md).
 
 ## Immersion stack

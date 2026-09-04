@@ -56,6 +56,17 @@ flowchart TB
 | World scale | `UMistspireWorldAtlasSubsystem`, `UMistspireInteriorSubsystem` | 12 districts, enterable buildings — [BUILDINGS_AND_INTERIORS.md](../gameplay/BUILDINGS_AND_INTERIORS.md) |
 | Audio / visuals | `UMistspireAudioSubsystem`, `UMistspireVisualEnhancementSubsystem` | Biome/physiology buses; per-biome post-process |
 
+## AI & systems stack
+
+- `AI/` — Behavior Tree nodes, GOAP planner, Utility AI, steering behaviors, state
+  chart component, AI controller, wandering-ghost simulator.
+- `MistspireDialogueSubsystem` — DataTable-driven dialogue (`FDialogueLine` rows).
+- `MistspireEntitySubsystem` — archetype/component entity store for ghosts/pickups.
+- `MistspireObservationRecorder` — RL observation CSV pipeline (Saved/RL/observations.csv).
+- `MistspireLeaderboardService` — pluggable leaderboard backend (local / OnlineSubsystem).
+
+See [AI_SYSTEMS_INTEGRATION.md](../AI_SYSTEMS_INTEGRATION.md) for the full Godot→UE5→Mistspire map.
+
 ## OpenXR rules
 
 Canonical agent rules (no second session / no shipping `xrWaitFrame` / action set `mistspire_gameplay`): [AGENTS.md](../../AGENTS.md). Binding JSON index: [interaction_profiles/openxr/](../../interaction_profiles/openxr/). Runtime notes: [OPENXR_RUNTIMES.md](OPENXR_RUNTIMES.md).

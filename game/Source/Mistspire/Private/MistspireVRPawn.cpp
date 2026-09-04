@@ -1395,27 +1395,27 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 					BiomeName = TEXT("ambient_crystal");
 					ReverbName = TEXT("reverb_crystal");
 					break;
-			case EMistspireBiomeType::Void:
-				BiomeName = TEXT("ambient_void");
-				ReverbName = TEXT("reverb_void");
-				break;
-			case EMistspireBiomeType::Tundra:
-				BiomeName = TEXT("ambient_tundra");
-				ReverbName = TEXT("reverb_tundra");
-				break;
-			case EMistspireBiomeType::Aether:
-				BiomeName = TEXT("ambient_aether");
-				ReverbName = TEXT("reverb_aether");
-				break;
-			case EMistspireBiomeType::Sanctum:
-				BiomeName = TEXT("ambient_sanctum");
-				ReverbName = TEXT("reverb_sanctum");
-				break;
-			case EMistspireBiomeType::Pinnacle:
-				BiomeName = TEXT("ambient_pinnacle");
-				ReverbName = TEXT("reverb_pinnacle");
-				break;
-			default: break;
+				case EMistspireBiomeType::Void:
+					BiomeName = TEXT("ambient_void");
+					ReverbName = TEXT("reverb_void");
+					break;
+				case EMistspireBiomeType::Tundra:
+					BiomeName = TEXT("ambient_tundra");
+					ReverbName = TEXT("reverb_tundra");
+					break;
+				case EMistspireBiomeType::Aether:
+					BiomeName = TEXT("ambient_aether");
+					ReverbName = TEXT("reverb_aether");
+					break;
+				case EMistspireBiomeType::Sanctum:
+					BiomeName = TEXT("ambient_sanctum");
+					ReverbName = TEXT("reverb_sanctum");
+					break;
+				case EMistspireBiomeType::Pinnacle:
+					BiomeName = TEXT("ambient_pinnacle");
+					ReverbName = TEXT("reverb_pinnacle");
+					break;
+				default: break;
 			}
 			if (!BiomeName.IsNone())
 			{
@@ -1959,12 +1959,12 @@ void AMistspireVRPawn::UpdateWristHUD()
 				case EMistspireBiomeType::Forest:  BiomeName = NSLOCTEXT("Mistspire", "BiomeForest", "FOREST");  BiomeColor = FColor( 26, 153,  51); break;
 				case EMistspireBiomeType::Ember:   BiomeName = NSLOCTEXT("Mistspire", "BiomeEmber", "EMBER");   BiomeColor = FColor(204,  38,  13); break;
 				case EMistspireBiomeType::Crystal: BiomeName = NSLOCTEXT("Mistspire", "BiomeCrystal", "CRYSTAL"); BiomeColor = FColor( 51, 204, 255); break;
-			case EMistspireBiomeType::Void:    BiomeName = NSLOCTEXT("Mistspire", "BiomeVoid", "VOID");    BiomeColor = FColor( 13,  13,  38); break;
-			case EMistspireBiomeType::Tundra:  BiomeName = NSLOCTEXT("Mistspire", "BiomeTundra", "TUNDRA");  BiomeColor = FColor(200, 210, 230); break;
-			case EMistspireBiomeType::Aether:  BiomeName = NSLOCTEXT("Mistspire", "BiomeAether", "AETHER");  BiomeColor = FColor(153,  51, 255); break;
-			case EMistspireBiomeType::Sanctum: BiomeName = NSLOCTEXT("Mistspire", "BiomeSanctum", "SANCTUM"); BiomeColor = FColor( 26,   0,  77); break;
-			case EMistspireBiomeType::Pinnacle:BiomeName = NSLOCTEXT("Mistspire", "BiomePinnacle", "PINNACLE");BiomeColor = FColor(255, 242, 204); break;
-			default:                           BiomeName = FText::GetEmpty();                              BiomeColor = FColor::White; break;
+				case EMistspireBiomeType::Void:    BiomeName = NSLOCTEXT("Mistspire", "BiomeVoid", "VOID");    BiomeColor = FColor( 13,  13,  38); break;
+				case EMistspireBiomeType::Tundra:  BiomeName = NSLOCTEXT("Mistspire", "BiomeTundra", "TUNDRA");  BiomeColor = FColor(200, 210, 230); break;
+				case EMistspireBiomeType::Aether:  BiomeName = NSLOCTEXT("Mistspire", "BiomeAether", "AETHER");  BiomeColor = FColor(153,  51, 255); break;
+				case EMistspireBiomeType::Sanctum: BiomeName = NSLOCTEXT("Mistspire", "BiomeSanctum", "SANCTUM"); BiomeColor = FColor( 26,   0,  77); break;
+				case EMistspireBiomeType::Pinnacle:BiomeName = NSLOCTEXT("Mistspire", "BiomePinnacle", "PINNACLE");BiomeColor = FColor(255, 242, 204); break;
+				default:                           BiomeName = FText::GetEmpty();                              BiomeColor = FColor::White; break;
 			}
 			BiomeWristText->SetText(BiomeName);
 			BiomeWristText->SetTextRenderColor(BiomeColor);
