@@ -12,6 +12,14 @@
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "HAL/IConsoleManager.h"
+#if WITH_EDITOR
+#include "Editor.h"
+#include "Engine/Level.h"
+#include "Engine/LevelScriptActor.h"
+#include "FileHelpers.h"
+#include "Subsystems/EditorActorSubsystem.h"
+#include "UObject/UObjectIterator.h"
+#endif
 
 static void MistspireAltitudeStats(const TArray<FString>& Args)
 {
@@ -344,3 +352,99 @@ static FAutoConsoleCommand CmdMistspireVisualIntensity(
 	TEXT("mistspire.VisualIntensity"),
 	TEXT("Set visual effects intensity multiplier (0-2)."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireVisualIntensity));
+
+#if WITH_EDITOR
+/** Same repair as the editor toast "Map Corruption: Multiple Level Script Actors" → Repair Map. */
+static void MistspireRepairLevelScriptActors(const TArray<FString>&)
+{
+	if (!GEditor)
+	{
+		UE_LOG(LogMistspire, Error, TEXT("mistspire.RepairLevelScriptActors: GEditor is null."));
+		return;
+	}
+
+	UWorld* World = GEditor->GetEditorWorldContext(/*bEnsureIsGWorld=*/false).World();
+	if (!World || World->WorldType != EWorldType::Editor)
+	{
+		UE_LOG(LogMistspire, Error,
+			TEXT("mistspire.RepairLevelScriptActors: load AncientWorld in the editor viewport (not PIE)."));
+		return;
+	}
+
+	ULevel* Level = World->PersistentLevel;
+	if (!Level)
+	{
+		UE_LOG(LogMistspire, Error, TEXT("mistspire.RepairLevelScriptActors: no persistent level."));
+		return;
+	}
+
+	ALevelScriptActor* Primary = Level->GetLevelScriptActor();
+	if (!Primary)
+	{
+		for (TObjectIterator<ALevelScriptActor> It; It; ++It)
+		{
+			if (It->GetOuter() == Level)
+			{
+				Primary = *It;
+				break;
+			}
+		}
+	}
+
+	if (!Primary)
+	{
+		UE_LOG(LogMistspire, Warning, TEXT("mistspire.RepairLevelScriptActors: no LevelScriptActor found."));
+		return;
+	}
+
+	TArray<ALevelScriptActor*> Extras = Primary->FindSiblingLevelScriptActors();
+	UE_LOG(LogMistspire, Log, TEXT("Primary LSA: %s | extras: %d"), *Primary->GetPathName(), Extras.Num());
+
+	UEditorActorSubsystem* EditorActorSubsystem = GEditor->GetEditorSubsystem<UEditorActorSubsystem>();
+	if (!EditorActorSubsystem)
+	{
+		UE_LOG(LogMistspire, Error, TEXT("mistspire.RepairLevelScriptActors: EditorActorSubsystem missing."));
+		return;
+	}
+
+	int32 Destroyed = 0;
+	for (ALevelScriptActor* LSA : Extras)
+	{
+		if (!IsValid(LSA))
+		{
+			continue;
+		}
+		UE_LOG(LogMistspire, Log, TEXT("Deleting extra LevelScriptActor: %s"), *LSA->GetPathName());
+		if (EditorActorSubsystem->DestroyActor(LSA))
+		{
+			++Destroyed;
+		}
+		else
+		{
+			LSA->Rename(nullptr, GetTransientPackage(), REN_DontCreateRedirectors | REN_AllowPackageLinkerMismatch);
+			LSA->MarkAsGarbage();
+			++Destroyed;
+			UE_LOG(LogMistspire, Warning, TEXT("DestroyActor failed; marked garbage + moved to transient: %s"), *LSA->GetName());
+		}
+	}
+
+	if (Destroyed <= 0)
+	{
+		UE_LOG(LogMistspire, Warning,
+			TEXT("No extra LSAs removed. Reload the map and click Repair Map on the bottom-right toast within 10s."));
+		return;
+	}
+
+	Level->MarkPackageDirty();
+	World->MarkPackageDirty();
+	const bool bSaved = FEditorFileUtils::SaveLevel(Level);
+	UE_LOG(LogMistspire, Log,
+		TEXT("Removed %d extra LevelScriptActor(s). SaveLevel=%s. Close and reopen AncientWorld; Ensure must not return."),
+		Destroyed, bSaved ? TEXT("ok") : TEXT("FAILED — Ctrl+S the map manually"));
+}
+
+static FAutoConsoleCommand CmdMistspireRepairLevelScriptActors(
+	TEXT("mistspire.RepairLevelScriptActors"),
+	TEXT("Delete duplicate LevelScriptActors (AncientWorld cook Ensure). Editor only — not PIE."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireRepairLevelScriptActors));
+#endif // WITH_EDITOR

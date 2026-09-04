@@ -20,5 +20,15 @@ public class Mistspire : ModuleRules
 			"Slate",
 			"SlateCore",
 		});
+
+		// Editor-only: mistspire.RepairLevelScriptActors (duplicate AncientWorld LSA cook fix).
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[]
+			{
+				"UnrealEd",
+				"EditorSubsystem",
+			});
+		}
 	}
 }

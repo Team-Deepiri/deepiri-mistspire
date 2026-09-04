@@ -40,6 +40,42 @@ Missing Echo / sample Blueprint actors are expected (those depend on Valley game
 
 `AMistspireGameMode::SanitizeDemoViewportOverlays` suppresses the editor **Outdated HLODs** / **BLUEPRINT COMPILE ERROR** banners and clears Valley dirt-mask / film-grain post-process borders.
 
+## Packaging blocker — duplicate Level Script Actor
+
+Cook/package fails with:
+
+`Detected the creation of more than one LevelScriptActor (...AncientWorld_C_1, ...AncientWorld_C_0)`
+
+PIE can still work. Both instances live in `AncientContent/Maps/AncientWorld.umap` (Valley file via the junction), not in ExternalActors. Mistspire does not need Valley’s level Blueprint logic.
+
+### Official engine repair (try this first)
+
+On map load the editor can show a bottom-right toast: **“Map Corruption: Multiple Level Script Actors”** → click **Repair Map** within ~10 seconds (easy to miss / dismiss). Then **Ctrl+S**, clear Message Log, reopen the map. The Ensure must not return on load.
+
+### Console repair (Mistspire)
+
+After Live Coding / compiling the game module with AncientWorld open in the **editor** (not PIE):
+
+```
+mistspire.RepairLevelScriptActors
+```
+
+This is the same destroy path as **Repair Map**. Then reopen the map and confirm the Ensure is gone. Close the editor before packaging.
+
+### Clear the Level Blueprint (optional cleanup)
+
+Valley’s Level Blueprint calls missing systems (GameplayAbilities, Soundscape, Ancient Game Mode). Emptying the graph avoids compile spam but does **not** by itself remove duplicate `AncientWorld_C_0` / `_1` instances.
+
+1. **Blueprints → Open Level Blueprint** → Ctrl+A → Delete (all graphs) → Compile (0 fatal) → Save map.
+
+Terrain + MistspireGameMode keep working without Valley’s level script.
+
+### Python (optional)
+
+`PythonScriptPlugin` is not enabled in Mistspire by default — [`tools/fix_duplicate_level_script_actors.py`](../../tools/fix_duplicate_level_script_actors.py) only works after enabling that plugin. Prefer **Repair Map** or `mistspire.RepairLevelScriptActors`.
+
+Edits apply to the Valley project’s umap through the junction.
+
 ## Recreate junctions (if deleted)
 
 ```powershell
