@@ -136,7 +136,7 @@ Run commands in order. Check **Output Log** (`Window → Developer Tools → Out
 
 | Command | Expected result | Proves |
 |---------|-----------------|--------|
-| `mistspire.TeleportUp 20000` | Move near first seeded summit (`summit_valley_gate` at Z=20000) | Summit registry coordinates |
+| `mistspire.TeleportUp 50000` | Move near first seeded summit (`summit_valley_gate` at Z=50000 / 0.5 km) | Summit registry coordinates |
 | Wait / move slightly | Possible summit-reached notification if within **500 cm** of summit point | Summit detection |
 | `mistspire.SaveProgress` | Log: `Mistspire: progress saved.` | Save subsystem |
 | Restart PIE, then `mistspire.LoadProgress` | Log: `Mistspire: progress loaded.`; PB altitude restored | Load on start |

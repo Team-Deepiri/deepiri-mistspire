@@ -36,3 +36,7 @@ ArchivedBuilds/
 native/xr-sandbox/build/
 __pycache__/
 *.py[cod]
+
+# Local agent/build review artifacts
+_build_logs/
+

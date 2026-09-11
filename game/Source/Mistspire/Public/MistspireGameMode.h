@@ -26,8 +26,11 @@ protected:
 	void DeferredNonVRSetup();
 	bool HasGroundUnderLocation(const FVector& Location) const;
 	FVector ResolveNonVRSpawnLocation() const;
+	void TryApplyDemoPresentation();
 
 	FTimerHandle NonVRPlaygroundTimerHandle;
+	FTimerHandle DemoPresentationWaitHandle;
 	int32 NonVRPlaygroundAttempts = 0;
+	bool bDemoPresentationApplied = false;
 	static constexpr int32 NonVRPlaygroundMaxAttempts = 20; // 20 * 0.25s = 5s
 };

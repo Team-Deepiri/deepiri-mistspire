@@ -63,7 +63,12 @@ mistspire.TeleportUp 5000
 mistspire.AltitudeStats
 mistspire.RefillSurvival
 mistspire.ToggleSettings
+mistspire.DemoMode 1
+mistspire.DemoTour 0
+mistspire.ApplyDemoPresentation
 ```
+
+Full owner recording sequence: [DEMO_RECORDING.md](DEMO_RECORDING.md).
 
 In the editor, **Esc stops PIE**. Use `mistspire.ToggleSettings` (tilde console) to open/close the settings menu instead. Packaged builds still use Esc.
 ## Troubleshooting input

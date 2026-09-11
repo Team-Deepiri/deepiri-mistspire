@@ -35,4 +35,4 @@ if (-not $UEEditor) {
 }
 
 $UProject = Join-Path $Root "game\Mistspire.uproject"
-& $UEEditor $UProject -nonvr
+& $UEEditor $UProject -nonvr -demoworld

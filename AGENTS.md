@@ -16,6 +16,19 @@
 | `game/Config/DefaultEngine.ini` | Linux Vulkan SM5/SM6 + Win64 D3D12 SM5/SM6 |
 | `.github/workflows/` | Hosted CI (`validate.yml`, `codeql.yml`, reusable `ci-gate.yml`); see [`.github/codeql/README.md`](.github/codeql/README.md) |
 | `docs/setup/NONVR_MODE.md` | Keyboard/mouse play without a headset |
+| `docs/setup/DEMO_RECORDING.md` | Owner demo console sequence + Windows launch |
+| `.cursor/mcp.json` | Cursor Unreal MCP client (`http://127.0.0.1:8000/mcp`) |
+
+## Unreal MCP (UE 5.8 map editing)
+
+Epic’s **Unreal MCP** plugin (`ModelContextProtocol`) runs inside the editor. Clients: Cursor, Claude Code (`claude`), Antigravity (`agy`).
+
+1. Open `game/Mistspire.uproject` in **UE 5.8** (plugins `ModelContextProtocol` + `AllToolsets` enabled in the `.uproject`).
+2. Wait for the editor to finish loading. Auto-start should bind `http://127.0.0.1:8000/mcp`. If not: console `ModelContextProtocol.StartServer`.
+3. Health check: `GET http://127.0.0.1:8000/mcp` → **405** means the server is up.
+4. Reload MCP in the client after the editor is up. Optional: console `ModelContextProtocol.GenerateClientConfig Cursor` (writes `.cursor/mcp.json`).
+
+Do **not** expose port 8000 beyond localhost. Prefer Antigravity (`agy`) or Claude Code (`claude`) when Cursor subagents are unavailable.
 
 ## Rules for agents
 
@@ -90,6 +103,10 @@ Bindings include: `move`, `strafe`, `turn`, `grip`, `jump`, `climb`, `grapple`, 
 - `mistspire.AIThink` / `mistspire.GOAPPlan <goal>`
 - `mistspire.SpawnGhostSim` / `mistspire.StateMachineDebug`
 - `mistspire.ObservationStart [intervalS]` / `mistspire.ObservationStop`
+- `mistspire.DemoMode 1` / CLI `-demoworld` — HUD + welcome dialogue + wandering ghosts
+- `mistspire.DemoTour 0`…`9` — teleport biome mid-bands with forced visuals
+- `mistspire.ApplyDemoPresentation` — re-run demo presentation
+- Owner recording sheet: [docs/setup/DEMO_RECORDING.md](docs/setup/DEMO_RECORDING.md)
 - Full command list: see [docs/gameplay/IMMERSION.md](docs/gameplay/IMMERSION.md).
 
 ## Immersion stack

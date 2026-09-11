@@ -12,6 +12,7 @@
 #include "MistspireDialogueSubsystem.h"
 #include "MistspireObservationRecorder.h"
 #include "MistspireEntitySubsystem.h"
+#include "MistspireDemoMode.h"
 #include "AI/MistspireStateMachine.h"
 #include "AI/MistspireAIController.h"
 #include "AI/MistspireGOAP.h"
@@ -551,3 +552,68 @@ static FAutoConsoleCommand CmdMistspireVisualIntensity(
 	TEXT("mistspire.VisualIntensity"),
 	TEXT("Set visual effects intensity multiplier (0-2)."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireVisualIntensity));
+
+static void MistspireDemoTour(const TArray<FString>& Args)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+
+	int32 Index = 0;
+	if (Args.Num() > 0)
+	{
+		Index = FCString::Atoi(*Args[0]);
+	}
+
+	if (!MistspireDemoMode::TeleportToBiomeIndex(GWorld, Index, Index >= 0))
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("Mistspire DemoTour: usage mistspire.DemoTour [0-9] or -1 to clear forced visuals."));
+		return;
+	}
+
+	if (Index < 0)
+	{
+		return;
+	}
+
+	if (UMistspireDialogueSubsystem* Dialogue = GWorld->GetSubsystem<UMistspireDialogueSubsystem>())
+	{
+		static const FName LineByBand[] = {
+			TEXT("companion_greeting"),
+			TEXT("ghost_whisper"),
+			TEXT("summit_breath"),
+			TEXT("storm_warning"),
+			TEXT("shelter_warmth"),
+			TEXT("ghost_whisper"),
+			TEXT("oxygen_low"),
+			TEXT("zenith_glow"),
+			TEXT("summit_breath"),
+			TEXT("zenith_glow")
+		};
+		if (Index >= 0 && Index < UE_ARRAY_COUNT(LineByBand))
+		{
+			Dialogue->Speak(LineByBand[Index]);
+		}
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireDemoTour(
+	TEXT("mistspire.DemoTour"),
+	TEXT("Teleport to biome mid-band 0-9 (force visuals). mistspire.DemoTour -1 clears forced visuals."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireDemoTour));
+
+static void MistspireApplyDemoPresentation(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	MistspireDemoMode::ApplyPresentation(GWorld);
+}
+
+static FAutoConsoleCommand CmdMistspireApplyDemo(
+	TEXT("mistspire.ApplyDemoPresentation"),
+	TEXT("Re-run demo HUD/dialogue/ghost presentation now."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireApplyDemoPresentation));

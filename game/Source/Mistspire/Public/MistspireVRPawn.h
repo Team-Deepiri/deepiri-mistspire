@@ -43,6 +43,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|NonVR")
 	void StartGameplay();
 
+	/** Zero fall/walk velocity and ground cache after debug/demo teleports. */
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Debug")
+	void ResetMotionForDebugTeleport();
+
 	UFUNCTION(BlueprintPure, Category = "Mistspire|NonVR")
 	bool IsSettingsMenuOpen() const { return bSettingsMenuOpen; }
 

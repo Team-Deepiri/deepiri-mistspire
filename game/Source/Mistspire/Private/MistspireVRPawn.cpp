@@ -248,6 +248,27 @@ void AMistspireVRPawn::StartGameplay()
 	ApplyUserSettingsToGameplay();
 }
 
+void AMistspireVRPawn::ResetMotionForDebugTeleport()
+{
+	HorizontalVelocity = FVector::ZeroVector;
+	VerticalVelocityCmPerSec = 0.f;
+	GliderVelocity = FVector::ZeroVector;
+	GliderBoostTimeRemaining = 0.f;
+	ClearNonVRGroundCache();
+	if (bIsClimbing)
+	{
+		StopClimb();
+	}
+	if (bGrappleActive || bGrappleExtending)
+	{
+		ReleaseGrapple();
+	}
+	if (bGliderActive)
+	{
+		ToggleGlider(false);
+	}
+}
+
 void AMistspireVRPawn::ApplyUserSettingsToGameplay()
 {
 	if (UMistspireGameUserSettings* Settings = UMistspireGameUserSettings::Get())
@@ -2694,23 +2715,13 @@ void AMistspireVRPawn::UpdateAltitudeTracking()
 
 	if (UMistspireSummitRegistry* Registry = World->GetSubsystem<UMistspireSummitRegistry>())
 	{
-		static const FName SummitIds[] = {
-			TEXT("summit_valley_gate"),
-			TEXT("summit_mesa_crown"),
-			TEXT("summit_cloud_garden"),
-			TEXT("summit_obelisk_prime"),
-			TEXT("summit_orbital_needle"),
-			TEXT("summit_spire_cathedral"),
-			TEXT("summit_rift_observatory"),
-			TEXT("summit_ember_crown"),
-		};
-		for (FName Id : SummitIds)
+		for (const FMistspireSummitEntry& Entry : Registry->GetSummits())
 		{
-			if (Registry->TryReachSummit(Id, GetActorLocation()))
+			if (Registry->TryReachSummit(Entry.SummitId, GetActorLocation()))
 			{
 				if (AMistspirePlayerState* PS = GetPlayerState<AMistspirePlayerState>())
 				{
-					PS->AddSummit(Id);
+					PS->AddSummit(Entry.SummitId);
 				}
 			}
 		}

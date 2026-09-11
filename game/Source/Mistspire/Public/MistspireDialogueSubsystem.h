@@ -53,15 +53,30 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Mistspire|Dialogue")
 	FName GetLastLineId() const { return LastLineId; }
 
+	/** True while the last spoken line should still be shown on HUD. */
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Dialogue")
+	bool HasActiveLine() const;
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Dialogue")
+	FText GetActiveSpeaker() const;
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Dialogue")
+	FText GetActiveText() const;
+
 	UPROPERTY(BlueprintAssignable, Category = "Mistspire|Dialogue")
 	FOnMistspireDialogueLine OnDialogueLine;
 
 private:
 	void LoadBuiltinLines();
+	void PresentLine(FName LineId, const FText& Speaker, const FText& Text, float DisplaySeconds, bool bAmbient);
 
 	UPROPERTY(Transient)
 	TObjectPtr<UDataTable> DialogueTable;
 
 	TMap<FName, FDialogueLine> BuiltinLines;
 	FName LastLineId = NAME_None;
+	FText ActiveSpeaker;
+	FText ActiveText;
+	float LineExpireTimeSeconds = -1.f;
+	bool bActiveLineAmbient = false;
 };

@@ -1,48 +1,73 @@
-{
-	"FileVersion": 3,
-	"EngineAssociation": "5.8",
-	"Category": "",
-	"Description": "Mistspire - mist + spire. Vertical VR exploration.",
-	"Modules": [
-		{
-			"Name": "Mistspire",
-			"Type": "Runtime",
-			"LoadingPhase": "Default"
-		}
-	],
-	"Plugins": [
-		{
-			"Name": "EnhancedInput",
-			"Enabled": true
-		},
-		{
-			"Name": "XRBase",
-			"Enabled": true
-		},
-		{
-			"Name": "OpenXR",
-			"Enabled": true
-		},
-		{
-			"Name": "OpenXRHandTracking",
-			"Enabled": true,
-			"Optional": true
-		},
-		{
-			"Name": "CableComponent",
-			"Enabled": true
-		},
-		{
-			"Name": "OnlineSubsystemSteam",
-			"Enabled": true
-		},
-		{
-			"Name": "MistspireOpenXRNative",
-			"Enabled": true
-		}
-	],
-	"TargetPlatforms": [
-		"Linux",
-		"Win64"
-	]
-}
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.8",
+	"Category": "",
+	"Description": "Mistspire - mist + spire. Vertical VR exploration.",
+	"Modules": [
+		{
+			"Name": "Mistspire",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "EnhancedInput",
+			"Enabled": true
+		},
+		{
+			"Name": "XRBase",
+			"Enabled": true
+		},
+		{
+			"Name": "OpenXR",
+			"Enabled": true
+		},
+		{
+			"Name": "OpenXRHandTracking",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "CableComponent",
+			"Enabled": true
+		},
+		{
+			"Name": "OnlineSubsystemSteam",
+			"Enabled": true
+		},
+		{
+			"Name": "MistspireOpenXRNative",
+			"Enabled": true
+		},
+		{
+			"Name": "ModelContextProtocol",
+			"Enabled": true,
+			"TargetAllowList": [ "Editor" ]
+		},
+		{
+			"Name": "AllToolsets",
+			"Enabled": true,
+			"TargetAllowList": [ "Editor" ]
+		},
+		{
+			"Name": "EditorToolset",
+			"Enabled": true,
+			"TargetAllowList": [ "Editor" ]
+		},
+		{
+			"Name": "PCGToolset",
+			"Enabled": true,
+			"TargetAllowList": [ "Editor" ]
+		},
+		{
+			"Name": "PythonScriptPlugin",
+			"Enabled": true,
+			"TargetAllowList": [ "Editor" ]
+		}
+	],
+	"TargetPlatforms": [
+		"Linux",
+		"Win64"
+	]
+}

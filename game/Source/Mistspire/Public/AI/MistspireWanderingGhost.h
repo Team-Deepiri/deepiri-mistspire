@@ -39,6 +39,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|AI")
 	float BehaviorChangeIntervalSeconds = 6.f;
 
+	/** True when spawned by mistspire.ApplyDemoPresentation / DemoMode. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|AI")
+	bool bSpawnedForDemo = false;
+
 private:
 	void PickNextBehavior();
 
