@@ -19,6 +19,7 @@ public:
 	void LogAltitudeStats();
 
 	static bool IsHudEnabled();
+	static bool IsControlsHintEnabled();
 	static void SetHudEnabled(bool bEnabled);
 
 private:

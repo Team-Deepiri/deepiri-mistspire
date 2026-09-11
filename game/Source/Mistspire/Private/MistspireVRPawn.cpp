@@ -12,6 +12,14 @@
 #include "MistspireWorldAtlasSubsystem.h"
 #include "MistspireInteriorSubsystem.h"
 #include "MistspireAudioSubsystem.h"
+#include "MistspireInputMode.h"
+#include "MistspireInteractionSubsystem.h"
+#include "MistspireGameUserSettings.h"
+#include "MistspireSettingsPanel.h"
+#include "MistspireNarrativeSubsystem.h"
+#include "MistspireLoreShard.h"
+#include "EnhancedInputComponent.h"
+#include "InputActionValue.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -23,8 +31,32 @@
 #include "MotionControllerComponent.h"
 #include "IMotionController.h"
 #include "GameFramework/PlayerController.h"
+#include "Engine/GameViewportClient.h"
+#include "Engine/Engine.h"
+#include "Framework/Application/SlateApplication.h"
+#include "InputCoreTypes.h"
 #include "Net/UnrealNetwork.h"
 #include "Engine/World.h"
+#include "CollisionShape.h"
+#include "CollisionQueryParams.h"
+#include "Widgets/SOverlay.h"
+
+namespace
+{
+	constexpr float MaxLocomotionRpcDeltaCm = 2500.f;
+	constexpr float MaxTeleportRpcDistanceCm = 2500.f;
+	constexpr float NonVRGroundSkinCm = 0.5f;
+	constexpr float NonVRGroundContactGapCm = 2.f;
+	constexpr float NonVRGroundProbeRadiusCm = 4.f;
+	/** Ignore tiny Z corrections (stops jitter between rock contact points). */
+	constexpr float NonVRGroundSnapDeadzoneCm = 1.75f;
+	/** Stationary: ignore support Z changes smaller than this (pebbles/debris). */
+	constexpr float NonVRStationarySupportStickCm = 8.f;
+	/** Treat as standing still for support sticking (cm/s). */
+	constexpr float NonVRStationarySpeedCmPerSec = 35.f;
+	/** Falling faster than this skips walk-follow snaps so jumps can finish. */
+	constexpr float NonVRFallFollowCancelCmPerSec = -120.f;
+}
 
 AMistspireVRPawn::AMistspireVRPawn()
 {
@@ -34,6 +66,7 @@ AMistspireVRPawn::AMistspireVRPawn()
 
 	Capsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("Capsule"));
 	Capsule->InitCapsuleSize(34.f, 88.f);
+	Capsule->SetCollisionProfileName(TEXT("Pawn"));
 	Capsule->SetIsReplicated(true);
 	SetRootComponent(Capsule);
 
@@ -97,6 +130,7 @@ AMistspireVRPawn::AMistspireVRPawn()
 	NotificationText->SetHorizontalAlignment(EHTA_Center);
 	NotificationText->SetWorldSize(3.f);
 	NotificationText->SetText(FText::GetEmpty());
+	NotificationText->SetHiddenInGame(true);
 
 	RightHandController = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("RightHandController"));
 	RightHandController->SetupAttachment(Capsule);
@@ -122,7 +156,21 @@ AMistspireVRPawn::AMistspireVRPawn()
 	GrappleCable = CreateDefaultSubobject<UCableComponent>(TEXT("GrappleCable"));
 	GrappleCable->SetupAttachment(VisualRightHand);
 	GrappleCable->SetHiddenInGame(true);
-	GrappleCable->CableLength = 0.f;
+	GrappleCable->bAttachStart = true;
+	GrappleCable->bAttachEnd = true;
+	GrappleCable->EndLocation = FVector::ZeroVector;
+	GrappleCable->CableLength = 100.f;
+	GrappleCable->NumSegments = 1;
+	GrappleCable->SolverIterations = 16;
+	GrappleCable->bEnableStiffness = true;
+	GrappleCable->CableGravityScale = 0.f;
+	GrappleCable->CableWidth = 4.f;
+	GrappleCable->bUseSubstepping = true;
+	GrappleCable->SubstepTime = 0.005f;
+
+	GrappleAnchor = CreateDefaultSubobject<USceneComponent>(TEXT("GrappleAnchor"));
+	GrappleAnchor->SetupAttachment(Capsule);
+	GrappleCable->SetAttachEndToComponent(GrappleAnchor);
 
 	GliderMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GliderMesh"));
 	GliderMesh->SetupAttachment(VRCamera);
@@ -149,10 +197,22 @@ void AMistspireVRPawn::BeginPlay()
 {
 	Super::BeginPlay();
 	LocomotionSpeedCmPerSec = DefaultLocomotionSpeedCmPerSec;
+	bNonVRMode = FMistspireInputMode::IsNonVRMode(GetWorld());
+	FMistspireInputMode::ApplyRendererOverrides(bNonVRMode);
 
 	if (Capsule)
 	{
 		Capsule->SetGenerateOverlapEvents(true);
+	}
+
+	if (bNonVRMode)
+	{
+		bGameplayStarted = false;
+		ConfigureNonVRMode();
+	}
+	else
+	{
+		bGameplayStarted = true;
 	}
 
 	if (UWorld* World = GetWorld())
@@ -164,8 +224,334 @@ void AMistspireVRPawn::BeginPlay()
 	}
 }
 
+void AMistspireVRPawn::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	ApplyNonVRPlayerControllerSettings();
+}
+
+void AMistspireVRPawn::NotifyControllerChanged()
+{
+	Super::NotifyControllerChanged();
+	ApplyNonVRPlayerControllerSettings();
+}
+
+void AMistspireVRPawn::StartGameplay()
+{
+	if (bGameplayStarted)
+	{
+		return;
+	}
+
+	bGameplayStarted = true;
+	ApplyNonVRPlayerControllerSettings();
+	ApplyUserSettingsToGameplay();
+}
+
+void AMistspireVRPawn::ApplyUserSettingsToGameplay()
+{
+	if (UMistspireGameUserSettings* Settings = UMistspireGameUserSettings::Get())
+	{
+		Settings->ApplyGameplaySettings(this);
+	}
+}
+
+void AMistspireVRPawn::ToggleSettingsMenu()
+{
+	if (!bNonVRMode || !bGameplayStarted)
+	{
+		return;
+	}
+
+	if (bSettingsMenuOpen)
+	{
+		CloseSettingsMenu(true);
+	}
+	else
+	{
+		OpenSettingsMenu();
+	}
+}
+
+void AMistspireVRPawn::OpenSettingsMenu()
+{
+	if (bSettingsMenuOpen || !GEngine || !GEngine->GameViewport)
+	{
+		return;
+	}
+
+	bSettingsMenuOpen = true;
+	NonVRMoveForward = 0.f;
+	NonVRMoveRight = 0.f;
+	CachedMoveInput = FVector2D::ZeroVector;
+	HorizontalVelocity = FVector::ZeroVector;
+	bNonVRClimbHeld = false;
+	bNonVRSprintHeld = false;
+
+	TSharedRef<SMistspireSettingsPanel> Panel = SNew(SMistspireSettingsPanel)
+		.OwnerPawn(this)
+		.OnClosed(FOnMistspireSettingsClosed::CreateLambda([this]()
+		{
+			CloseSettingsMenu(true);
+		}));
+
+	TSharedRef<SWidget> Content =
+		SNew(SOverlay)
+		+ SOverlay::Slot()
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Center)
+		[
+			Panel
+		];
+
+	SettingsMenuWidget = Content;
+	GEngine->GameViewport->AddViewportWidgetContent(Content, 100);
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->bShowMouseCursor = true;
+		// GameAndUI keeps Escape reachable; UIOnly sets viewport IgnoreInput and blocks Esc close.
+		FInputModeGameAndUI InputMode;
+		InputMode.SetWidgetToFocus(Panel);
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		InputMode.SetHideCursorDuringCapture(false);
+		PC->SetInputMode(InputMode);
+		FSlateApplication::Get().SetKeyboardFocus(Panel, EFocusCause::SetDirectly);
+	}
+}
+
+void AMistspireVRPawn::CloseSettingsMenu(bool bSaveSettings)
+{
+	if (!bSettingsMenuOpen)
+	{
+		return;
+	}
+
+	bSettingsMenuOpen = false;
+
+	if (GEngine && GEngine->GameViewport && SettingsMenuWidget.IsValid())
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(SettingsMenuWidget.ToSharedRef());
+	}
+	SettingsMenuWidget.Reset();
+
+	if (bSaveSettings)
+	{
+		if (UMistspireGameUserSettings* Settings = UMistspireGameUserSettings::Get())
+		{
+			Settings->ApplyGameplaySettings(this);
+			Settings->SaveSettings();
+		}
+	}
+
+	ApplyNonVRPlayerControllerSettings();
+}
+
+void AMistspireVRPawn::PollSettingsMenuToggle()
+{
+	if (!bNonVRMode || !bGameplayStarted || bSettingsMenuOpen)
+	{
+		// Esc while open is handled by SMistspireSettingsPanel::OnKeyDown.
+		return;
+	}
+
+	const APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC || !PC->WasInputKeyJustPressed(EKeys::Escape))
+	{
+		return;
+	}
+
+	OpenSettingsMenu();
+}
+
+bool AMistspireVRPawn::TryConsumeStartScreenInput() const
+{
+	const APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC)
+	{
+		return false;
+	}
+
+	return PC->WasInputKeyJustPressed(EKeys::AnyKey)
+		|| PC->WasInputKeyJustPressed(EKeys::LeftMouseButton)
+		|| PC->WasInputKeyJustPressed(EKeys::RightMouseButton)
+		|| PC->WasInputKeyJustPressed(EKeys::MiddleMouseButton);
+}
+
+void AMistspireVRPawn::ApplyNonVRPlayerControllerSettings()
+{
+	if (!bNonVRMode || !bGameplayStarted || bSettingsMenuOpen)
+	{
+		return;
+	}
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->bShowMouseCursor = false;
+		PC->SetInputMode(FInputModeGameOnly());
+		FMistspireInputMode::AddNonVRMappingContext(PC, NonVRMappingContext);
+	}
+}
+
+void AMistspireVRPawn::ConfigureNonVRMode()
+{
+	bUseControllerRotationYaw = true;
+
+	if (VRCamera)
+	{
+		VRCamera->bUsePawnControlRotation = true;
+		VRCamera->SetRelativeLocation(FVector(0.f, 0.f, NonVREyeHeightCm));
+	}
+
+	if (VisualLeftHand) VisualLeftHand->SetHiddenInGame(true, true);
+	if (VisualRightHand) VisualRightHand->SetHiddenInGame(true, true);
+	if (FullBodyMesh) FullBodyMesh->SetHiddenInGame(true, true);
+	if (LeftHandController) LeftHandController->SetHiddenInGame(true, true);
+	if (RightHandController) RightHandController->SetHiddenInGame(true, true);
+
+	if (ComfortVignette)
+	{
+		ComfortVignette->bEnabled = false;
+		ComfortVignette->BlendWeight = 0.f;
+	}
+
+	if (NotificationText)
+	{
+		NotificationText->SetHiddenInGame(true);
+	}
+
+	if (GrappleCable && VRCamera)
+	{
+		GrappleCable->AttachToComponent(VRCamera, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		// Fallback; while grappling PlaceNonVRGrappleCableStart pushes the root past the bottom of the view.
+		GrappleCable->SetRelativeLocation(FVector(40.f, 45.f, -160.f));
+	}
+
+	ApplyNonVRPlayerControllerSettings();
+	ApplyUserSettingsToGameplay();
+}
+
+FVector AMistspireVRPawn::GetInteractionTraceStart() const
+{
+	if (VRCamera)
+	{
+		return VRCamera->GetComponentLocation();
+	}
+	return GetActorLocation();
+}
+
+FVector AMistspireVRPawn::GetInteractionTraceEnd(float MaxDistanceCm) const
+{
+	const FVector Forward = VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector();
+	return GetInteractionTraceStart() + Forward * MaxDistanceCm;
+}
+
+void AMistspireVRPawn::PollNonVRInput()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	CachedMoveInput = FVector2D(NonVRMoveRight, NonVRMoveForward);
+	CachedTurnInput = 0.f;
+
+	float Speed = DefaultLocomotionSpeedCmPerSec;
+	if (bIsClimbing || bNonVRClimbHeld)
+	{
+		Speed = DefaultLocomotionSpeedCmPerSec * 0.55f;
+	}
+	else if (bGliderActive)
+	{
+		Speed = DefaultLocomotionSpeedCmPerSec * 1.5f;
+	}
+	else if (bNonVRSprintHeld)
+	{
+		Speed = SprintSpeedCmPerSec;
+	}
+	LocomotionSpeedCmPerSec = Speed;
+
+	if (bNonVRClimbHeld)
+	{
+		const FVector TraceStart = GetInteractionTraceStart();
+		const FVector TraceEnd = TraceStart + (VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector()) * 120.f;
+		FHitResult Hit;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(NonVRClimbTrace), false, this);
+		const bool bHit = World->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params)
+			&& Hit.bBlockingHit;
+		// Only vertical-ish surfaces count as climbable (not the boulder top / ground).
+		const bool bNearClimbable = bHit && Hit.ImpactNormal.Z < 0.55f;
+
+		if (bNearClimbable)
+		{
+			NonVRClimbMissFrames = 0;
+			if (!bIsClimbing)
+			{
+				StartClimb();
+			}
+		}
+		else if (bIsClimbing)
+		{
+			++NonVRClimbMissFrames;
+			// Crest / look-away flicker: require several misses before dropping off the wall.
+			if (NonVRClimbMissFrames >= 8)
+			{
+				StopClimb();
+			}
+		}
+	}
+	else if (bIsClimbing)
+	{
+		StopClimb();
+	}
+}
+
+void AMistspireVRPawn::OnClimbPressed()
+{
+	if (!bNonVRMode || !bGameplayStarted || bSettingsMenuOpen) return;
+	bNonVRClimbHeld = true;
+}
+void AMistspireVRPawn::OnClimbReleased()
+{
+	if (!bNonVRMode) return;
+	bNonVRClimbHeld = false;
+	if (bIsClimbing) StopClimb();
+}
+void AMistspireVRPawn::OnSprintPressed()
+{
+	if (!bNonVRMode || !bGameplayStarted || bSettingsMenuOpen) return;
+	bNonVRSprintHeld = true;
+}
+void AMistspireVRPawn::OnSprintReleased()
+{
+	if (!bNonVRMode) return;
+	bNonVRSprintHeld = false;
+}
+void AMistspireVRPawn::OnGrapplePressed()
+{
+	if (bNonVRMode && bGameplayStarted && !bSettingsMenuOpen)
+	{
+		TryGrappleShot();
+	}
+}
+void AMistspireVRPawn::OnGliderPressed() { if (bNonVRMode && bGameplayStarted && !bSettingsMenuOpen) ToggleGlider(!bGliderActive); }
+void AMistspireVRPawn::OnTeleportPressed() { if (bNonVRMode && bGameplayStarted && !bSettingsMenuOpen) TeleportForward(TeleportForwardCm); }
+void AMistspireVRPawn::OnInteractPressed()
+{
+	if (!bNonVRMode || !bGameplayStarted || bSettingsMenuOpen)
+	{
+		return;
+	}
+	if (UMistspireInteractionSubsystem* Interact = GetWorld()->GetSubsystem<UMistspireInteractionSubsystem>())
+	{
+		Interact->TryInteractFromPawn(this);
+	}
+}
+
 void AMistspireVRPawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	CloseSettingsMenu(false);
 	if (UWorld* World = GetWorld())
 	{
 		if (UMistspireSummitRegistry* Registry = World->GetSubsystem<UMistspireSummitRegistry>())
@@ -183,7 +569,44 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 	if (IsLocallyControlled())
 	{
 		UWorld* World = GetWorld();
-		PollXRInput();
+		if (bNonVRMode && !bGameplayStarted)
+		{
+			if (TryConsumeStartScreenInput())
+			{
+				StartGameplay();
+			}
+			else
+			{
+				CachedMoveInput = FVector2D::ZeroVector;
+				NonVRMoveForward = 0.f;
+				NonVRMoveRight = 0.f;
+				HorizontalVelocity = FVector::ZeroVector;
+				UpdateNonVRGravity(DeltaTime);
+				UpdateAltitudeTracking();
+				return;
+			}
+		}
+
+		PollSettingsMenuToggle();
+
+		if (bSettingsMenuOpen)
+		{
+			CachedMoveInput = FVector2D::ZeroVector;
+			NonVRMoveForward = 0.f;
+			NonVRMoveRight = 0.f;
+			HorizontalVelocity = FVector::ZeroVector;
+			UpdateAltitudeTracking();
+			return;
+		}
+
+		if (bNonVRMode)
+		{
+			PollNonVRInput();
+		}
+		else
+		{
+			PollXRInput();
+		}
 		
 		if (bIsClimbing)
 		{
@@ -196,8 +619,24 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		else
 		{
 			ApplySmoothLocomotion(CachedMoveInput, DeltaTime);
-			ApplyVerticalVelocity(VerticalVelocityCmPerSec * DeltaTime);
-			VerticalVelocityCmPerSec = FMath::FInterpTo(VerticalVelocityCmPerSec, 0.f, DeltaTime, 4.f);
+			if (bNonVRMode)
+			{
+				// Grapple owns vertical motion — gravity/ground snap would pin you to rocks.
+				if (!bGrappleActive && !bGrappleExtending)
+				{
+					UpdateNonVRGravity(DeltaTime);
+				}
+			}
+			else
+			{
+				ApplyVerticalVelocity(VerticalVelocityCmPerSec * DeltaTime);
+				VerticalVelocityCmPerSec = FMath::FInterpTo(VerticalVelocityCmPerSec, 0.f, DeltaTime, 4.f);
+			}
+		}
+
+		if (bNonVRMode)
+		{
+			UpdateNonVRCameraBob(DeltaTime);
 		}
 		
 		UpdateAltitudeTracking();
@@ -225,6 +664,7 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			if (NotificationTimer <= 0.f && NotificationText)
 			{
 				NotificationText->SetText(FText::GetEmpty());
+				NotificationText->SetHiddenInGame(true);
 			}
 		}
 
@@ -241,8 +681,8 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			Atlas->UpdateDistrictFromPlayerLocation(GetActorLocation());
 		}
 
-		// Comfort Vignette based on rotation, speed, exhaustion, and hypoxia
-		if (ComfortVignette)
+		// Comfort Vignette based on rotation, speed, exhaustion, and hypoxia (VR only)
+		if (ComfortVignette && !bNonVRMode)
 		{
 			float TurnFactor = FMath::Abs(CachedTurnInput);
 			float SpeedFactor = GliderVelocity.Size() / 4000.f;
@@ -252,38 +692,15 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 			ComfortVignette->BlendWeight = FMath::FInterpTo(ComfortVignette->BlendWeight, Intensity, DeltaTime, 5.f);
 		}
 
-		// Grapple Physics Pull (hold trigger to reel faster)
+		// Grapple: extend tip to world anchor, then pull (hold trigger to reel faster)
 		if (bGrappleActive)
 		{
-			float PullStrength = 1200.f;
-			if (UMistspireXRActionSubsystem* XRInput = World->GetSubsystem<UMistspireXRActionSubsystem>())
-			{
-				if (XRInput->GetInputState().bGrapplePressed)
-				{
-					PullStrength = 2200.f;
-				}
-			}
-
-			FVector ToAnchor = GrappleAnchorPoint - GetActorLocation();
-			float Dist = ToAnchor.Size();
-			if (Dist > 100.f)
-			{
-				FVector PullForce = ToAnchor.GetSafeNormal() * PullStrength * DeltaTime;
-				AddActorWorldOffset(PullForce, true);
-				
-				if (GetLocalRole() < ROLE_Authority)
-				{
-					Server_ApplySmoothLocomotion(PullForce);
-				}
-			}
-			else
-			{
-				bGrappleActive = false;
-				GrappleCable->SetHiddenInGame(true);
-			}
+			UpdateGrapple(DeltaTime);
 		}
 
-		// Physical Hand Collisions
+		// Physical Hand Collisions (VR only)
+		if (!bNonVRMode)
+		{
 		auto UpdateHandPhysics = [&](USkeletalMeshComponent* VisualHand, UMotionControllerComponent* HandController)
 		{
 			if (!VisualHand || !HandController) return;
@@ -340,6 +757,7 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 				RightHolster->SetRelativeRotation(BodyRot);
 			}
 		}
+		}
 
 		// Weather-Specific Haptics (Static Electricity, Storm Turbulence)
 		if (World)
@@ -362,7 +780,6 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 		}
 
 		// Adrenaline & Heartbeat Haptics (Scale with Exhaustion, Hypoxia, and Panic)
-		static float HeartbeatTimer = 0.f;
 		HeartbeatTimer += DeltaTime;
 		
 		float SpeedFactor = GliderVelocity.Size() / 3000.f;
@@ -419,6 +836,96 @@ void AMistspireVRPawn::Tick(float DeltaTime)
 void AMistspireVRPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	bNonVRMode = FMistspireInputMode::IsNonVRMode(GetWorld());
+	if (!bNonVRMode)
+	{
+		return;
+	}
+
+	BindNonVREnhancedInput(Cast<UEnhancedInputComponent>(PlayerInputComponent));
+	ApplyNonVRPlayerControllerSettings();
+}
+
+void AMistspireVRPawn::BindNonVREnhancedInput(UEnhancedInputComponent* EnhancedInputComponent)
+{
+	if (!EnhancedInputComponent)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Mistspire non-VR requires EnhancedInputComponent (DefaultInput.ini DefaultInputComponentClass)."));
+		return;
+	}
+
+	if (!NonVRMappingContext || !NonVRMoveAction)
+	{
+		FMistspireNonVREnhancedInput Built;
+		FMistspireInputMode::CreateNonVREnhancedInput(this, Built);
+		NonVRMappingContext = Built.MappingContext;
+		NonVRMoveAction = Built.Move;
+		NonVRLookAction = Built.Look;
+		NonVRJumpAction = Built.Jump;
+		NonVRClimbAction = Built.Climb;
+		NonVRSprintAction = Built.Sprint;
+		NonVRGrappleAction = Built.Grapple;
+		NonVRGliderAction = Built.Glider;
+		NonVRTeleportAction = Built.Teleport;
+		NonVRInteractAction = Built.Interact;
+	}
+
+	if (!NonVRMappingContext || !NonVRMoveAction || !NonVRLookAction)
+	{
+		return;
+	}
+
+	EnhancedInputComponent->BindAction(NonVRMoveAction, ETriggerEvent::Triggered, this, &AMistspireVRPawn::OnNonVRMove);
+	EnhancedInputComponent->BindAction(NonVRMoveAction, ETriggerEvent::Completed, this, &AMistspireVRPawn::OnNonVRMove);
+	EnhancedInputComponent->BindAction(NonVRLookAction, ETriggerEvent::Triggered, this, &AMistspireVRPawn::OnNonVRLook);
+	EnhancedInputComponent->BindAction(NonVRJumpAction, ETriggerEvent::Started, this, &AMistspireVRPawn::TryJump);
+	EnhancedInputComponent->BindAction(NonVRClimbAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnClimbPressed);
+	EnhancedInputComponent->BindAction(NonVRClimbAction, ETriggerEvent::Completed, this, &AMistspireVRPawn::OnClimbReleased);
+	EnhancedInputComponent->BindAction(NonVRSprintAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnSprintPressed);
+	EnhancedInputComponent->BindAction(NonVRSprintAction, ETriggerEvent::Completed, this, &AMistspireVRPawn::OnSprintReleased);
+	EnhancedInputComponent->BindAction(NonVRGrappleAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnGrapplePressed);
+	EnhancedInputComponent->BindAction(NonVRGliderAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnGliderPressed);
+	EnhancedInputComponent->BindAction(NonVRTeleportAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnTeleportPressed);
+	EnhancedInputComponent->BindAction(NonVRInteractAction, ETriggerEvent::Started, this, &AMistspireVRPawn::OnInteractPressed);
+}
+
+void AMistspireVRPawn::OnNonVRMove(const FInputActionValue& Value)
+{
+	if (!bGameplayStarted || bSettingsMenuOpen)
+	{
+		NonVRMoveRight = 0.f;
+		NonVRMoveForward = 0.f;
+		return;
+	}
+
+	const FVector2D Axis = Value.Get<FVector2D>();
+	NonVRMoveRight = Axis.X;
+	NonVRMoveForward = Axis.Y;
+}
+
+void AMistspireVRPawn::OnNonVRLook(const FInputActionValue& Value)
+{
+	if (!bNonVRMode || !bGameplayStarted || bSettingsMenuOpen)
+	{
+		return;
+	}
+
+	float Sensitivity = 1.f;
+	if (const UMistspireGameUserSettings* Settings = UMistspireGameUserSettings::Get())
+	{
+		Sensitivity = Settings->GetMouseSensitivity();
+	}
+
+	const FVector2D Axis = Value.Get<FVector2D>() * Sensitivity;
+	if (!FMath::IsNearlyZero(Axis.X))
+	{
+		AddControllerYawInput(Axis.X);
+	}
+	if (!FMath::IsNearlyZero(Axis.Y))
+	{
+		AddControllerPitchInput(Axis.Y);
+	}
 }
 
 void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -435,11 +942,26 @@ void AMistspireVRPawn::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 void AMistspireVRPawn::ShowNotification(const FString& Message, float Duration)
 {
-	if (NotificationText)
+	if (bNonVRMode)
 	{
-		NotificationText->SetText(FText::FromString(Message));
-		NotificationTimer = Duration;
+		if (UWorld* World = GetWorld())
+		{
+			if (UMistspireNarrativeSubsystem* Narr = World->GetSubsystem<UMistspireNarrativeSubsystem>())
+			{
+				Narr->PushLine(FText::FromString(Message), Duration);
+			}
+		}
+		return;
 	}
+
+	if (!NotificationText)
+	{
+		return;
+	}
+
+	NotificationText->SetHiddenInGame(false);
+	NotificationText->SetText(FText::FromString(Message));
+	NotificationTimer = Duration;
 }
 
 void AMistspireVRPawn::PollXRInput()
@@ -525,26 +1047,66 @@ void AMistspireVRPawn::PollXRInput()
 
 void AMistspireVRPawn::ApplySmoothLocomotion(FVector2D MoveInput, float DeltaTime)
 {
-	if (MoveInput.IsNearlyZero() && FMath::IsNearlyZero(CachedTurnInput))
+	const bool bHasMoveInput = !MoveInput.IsNearlyZero(0.01f);
+
+	const float YawDeg = bNonVRMode
+		? GetControlRotation().Yaw
+		: (GetActorRotation().Yaw + CachedTurnInput * TurnRateDegPerSec * DeltaTime);
+	const FRotator YawRot(0.f, YawDeg, 0.f);
+
+	FVector DesiredVelocity = FVector::ZeroVector;
+	if (bHasMoveInput)
+	{
+		const FVector Forward = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
+		const FVector Right = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
+		FVector Wish = Forward * MoveInput.Y + Right * MoveInput.X;
+		Wish.Z = 0.f;
+		Wish = Wish.GetClampedToMaxSize(1.f);
+		DesiredVelocity = Wish * LocomotionSpeedCmPerSec;
+	}
+
+	const float InterpSpeed = bHasMoveInput ? LocomotionAccelInterp : LocomotionBrakeInterp;
+	HorizontalVelocity = FMath::VInterpTo(HorizontalVelocity, DesiredVelocity, DeltaTime, InterpSpeed);
+	HorizontalVelocity.Z = 0.f;
+
+	if (HorizontalVelocity.SizeSquared() < 1.f)
+	{
+		HorizontalVelocity = FVector::ZeroVector;
+	}
+
+	if (bNonVRMode)
+	{
+		FRotator BodyRot = GetActorRotation();
+		BodyRot.Yaw = YawDeg;
+		SetActorRotation(BodyRot);
+	}
+
+	if (HorizontalVelocity.IsNearlyZero())
 	{
 		return;
 	}
 
-	const FRotator YawRot(0.f, GetActorRotation().Yaw + CachedTurnInput * TurnRateDegPerSec * DeltaTime, 0.f);
-	const FVector Forward = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
-	const FVector Right = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
-	const FVector Delta = (Forward * MoveInput.Y + Right * MoveInput.X) * LocomotionSpeedCmPerSec * DeltaTime;
+	const FVector Delta = HorizontalVelocity * DeltaTime;
+	if (bNonVRMode)
+	{
+		ApplyNonVRWalkDelta(Delta);
+	}
+	else
+	{
+		FHitResult Hit;
+		AddActorWorldOffset(Delta, true, &Hit);
+	}
 
-	FHitResult Hit;
-	AddActorWorldOffset(Delta, true, &Hit);
-	
 	if (GetLocalRole() < ROLE_Authority)
 	{
 		Server_ApplySmoothLocomotion(Delta);
 	}
 }
 
-bool AMistspireVRPawn::Server_ApplySmoothLocomotion_Validate(FVector Delta) { return true; }
+bool AMistspireVRPawn::Server_ApplySmoothLocomotion_Validate(FVector Delta)
+{
+	return Delta.SizeSquared() <= FMath::Square(MaxLocomotionRpcDeltaCm);
+}
 void AMistspireVRPawn::Server_ApplySmoothLocomotion_Implementation(FVector Delta)
 {
 	AddActorWorldOffset(Delta, true);
@@ -572,6 +1134,62 @@ void AMistspireVRPawn::SetHandGrip(bool bIsLeft, bool bGripped)
 
 void AMistspireVRPawn::UpdateClimbingMovement(float DeltaTime)
 {
+	if (bNonVRMode)
+	{
+		ClearNonVRGroundCache();
+		VerticalVelocityCmPerSec = 0.f;
+
+		const float ClimbSpeed = LocomotionSpeedCmPerSec;
+		FVector ClimbDelta(0.f, 0.f, ClimbSpeed * DeltaTime);
+
+		const FVector Forward = VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector();
+		const FVector FlatFwd = FVector(Forward.X, Forward.Y, 0.f).GetSafeNormal();
+
+		// Always ease slightly into the wall so we stay attached; W adds more forward cresting.
+		const float IntoWall = FMath::IsNearlyZero(NonVRMoveForward, 0.01f) ? 0.25f : NonVRMoveForward;
+		if (!FlatFwd.IsNearlyZero() && IntoWall > 0.f)
+		{
+			ClimbDelta += FlatFwd * IntoWall * ClimbSpeed * 0.55f * DeltaTime;
+		}
+
+		FHitResult Hit;
+		AddActorWorldOffset(ClimbDelta, true, &Hit);
+
+		if (Hit.bBlockingHit)
+		{
+			// Hit a walkable top while rising — mantle onto it instead of vibrating on the lip.
+			if (IsFloorHit(Hit))
+			{
+				SnapFeetToGround(Hit);
+				if (!FlatFwd.IsNearlyZero())
+				{
+					AddActorWorldOffset(FlatFwd * 35.f, true);
+				}
+				StopClimb();
+				return;
+			}
+
+			const FVector Remaining = ClimbDelta * (1.f - Hit.Time);
+			const FVector Slide = FVector::VectorPlaneProject(Remaining, Hit.ImpactNormal);
+			if (!Slide.IsNearlyZero(0.5f))
+			{
+				AddActorWorldOffset(Slide, true);
+			}
+		}
+
+		if (TryNonVRClimbMantle())
+		{
+			StopClimb();
+			return;
+		}
+
+		if (GetLocalRole() < ROLE_Authority)
+		{
+			Server_ApplySmoothLocomotion(ClimbDelta);
+		}
+		return;
+	}
+
 	FVector TotalDelta = FVector::ZeroVector;
 	int32 ActiveHands = 0;
 
@@ -666,6 +1284,25 @@ void AMistspireVRPawn::UpdateGlidingMovement(float DeltaTime)
 	// 5. Apply movement
 	FHitResult Hit;
 	AddActorWorldOffset(GliderVelocity * DeltaTime, true, &Hit);
+
+	if (bNonVRMode)
+	{
+		if (IsFloorHit(Hit))
+		{
+			SnapFeetToGround(Hit);
+			GliderVelocity.Z = FMath::Max(0.f, GliderVelocity.Z);
+			ToggleGlider(false);
+		}
+		else
+		{
+			EnforceNonVRGroundConstraint(false);
+			if (IsGrounded())
+			{
+				GliderVelocity.Z = FMath::Max(0.f, GliderVelocity.Z);
+				ToggleGlider(false);
+			}
+		}
+	}
 
 	if (GetLocalRole() < ROLE_Authority)
 	{
@@ -803,7 +1440,6 @@ void AMistspireVRPawn::UpdateImmersiveAudio(float DeltaTime)
 	}
 
 	// Physiology sounds (timered to avoid spam)
-	static float PhysTimer = 0.f;
 	PhysTimer += DeltaTime;
 	if (AudioSys && PhysTimer >= 2.f)
 	{
@@ -937,7 +1573,7 @@ void AMistspireVRPawn::UpdateAtmosphericEffects(float DeltaTime)
 			
 			const float Temp = Env->GetTemperatureCelsius(Altitude);
 			const float Aurora = Env->GetAuroraIntensity(Altitude);
-			if (ComfortVignette)
+			if (ComfortVignette && !bNonVRMode)
 			{
 				float FrostIntensity = (Temp < 0.f) ? FMath::Clamp(-Temp / 50.f, 0.f, 0.35f) : 0.f;
 				float AuroraGlow = Aurora * 0.25f;
@@ -949,11 +1585,23 @@ void AMistspireVRPawn::UpdateAtmosphericEffects(float DeltaTime)
 
 FVector AMistspireVRPawn::GetLeftHandWorldLocation() const
 {
+	if (bNonVRMode)
+	{
+		const FVector Forward = VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector();
+		const FVector Origin = GetInteractionTraceStart();
+		return Origin + Forward * 50.f - FVector(15.f, 0.f, 0.f);
+	}
 	return LeftHandController ? LeftHandController->GetComponentLocation() : GetActorLocation();
 }
 
 FVector AMistspireVRPawn::GetRightHandWorldLocation() const
 {
+	if (bNonVRMode)
+	{
+		const FVector Forward = VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector();
+		const FVector Origin = GetInteractionTraceStart();
+		return Origin + Forward * 50.f + FVector(15.f, 0.f, 0.f);
+	}
 	return RightHandController ? RightHandController->GetComponentLocation() : GetActorLocation();
 }
 
@@ -991,28 +1639,88 @@ void AMistspireVRPawn::ApplyWindCrystalBoost(float DurationSeconds, float Stamin
 
 void AMistspireVRPawn::TryMantle(float DeltaTime)
 {
-	if (bIsClimbing || bGliderActive || !Capsule || !LeftHandController || !RightHandController)
+	if (bNonVRMode || bIsClimbing || bGliderActive || !Capsule)
 	{
 		return;
 	}
 
-	const float HandHeight = FMath::Max(
-		LeftHandController->GetRelativeLocation().Z,
-		RightHandController->GetRelativeLocation().Z);
-	if (HandHeight < Capsule->GetScaledCapsuleHalfHeight() * 0.55f)
+	float ReachHeight = Capsule->GetScaledCapsuleHalfHeight() * 0.55f;
+	if (LeftHandController && RightHandController)
+	{
+		ReachHeight = FMath::Max(
+			LeftHandController->GetRelativeLocation().Z,
+			RightHandController->GetRelativeLocation().Z);
+	}
+
+	if (ReachHeight < Capsule->GetScaledCapsuleHalfHeight() * 0.55f)
 	{
 		return;
 	}
 
+	const FVector Forward = GetActorForwardVector();
 	const FVector Start = GetActorLocation();
-	const FVector End = Start + GetActorForwardVector() * 90.f + FVector(0.f, 0.f, 130.f);
+	const FVector End = Start + Forward * 90.f + FVector(0.f, 0.f, 130.f);
 	FHitResult Hit;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(MistspireMantle), false, this);
 	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params) && Hit.bBlockingHit)
 	{
-		const FVector MantleDelta = FVector(0.f, 0.f, 95.f) + GetActorForwardVector() * 45.f;
+		const FVector MantleDelta = FVector(0.f, 0.f, 95.f) + Forward * 45.f;
 		AddActorWorldOffset(MantleDelta * FMath::Min(DeltaTime * 10.f, 1.f), true);
 	}
+}
+
+bool AMistspireVRPawn::TryNonVRClimbMantle()
+{
+	UWorld* World = GetWorld();
+	if (!World || !Capsule || !bNonVRMode)
+	{
+		return false;
+	}
+
+	const FVector FlatFwd = FVector(
+		(VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector()).X,
+		(VRCamera ? VRCamera->GetForwardVector() : GetActorForwardVector()).Y,
+		0.f).GetSafeNormal();
+	if (FlatFwd.IsNearlyZero())
+	{
+		return false;
+	}
+
+	const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+	// Probe just ahead and above the feet for a walkable ledge top.
+	const FVector LedgeProbeStart = GetActorLocation() + FlatFwd * 45.f + FVector(0.f, 0.f, HalfHeight * 0.35f);
+	const FVector LedgeProbeEnd = LedgeProbeStart - FVector(0.f, 0.f, HalfHeight + 40.f);
+
+	FHitResult LedgeHit;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(NonVRClimbMantle), false, this);
+	const bool bHit = World->SweepSingleByChannel(
+		LedgeHit, LedgeProbeStart, LedgeProbeEnd, FQuat::Identity, ECC_WorldStatic,
+		FCollisionShape::MakeSphere(NonVRGroundProbeRadiusCm), Params);
+
+	if (!bHit || !IsFloorHit(LedgeHit))
+	{
+		return false;
+	}
+
+	const float GapToLedge = (GetActorLocation().Z - HalfHeight) - LedgeHit.ImpactPoint.Z;
+	// Only mantle when the ledge is near foot height or slightly below the capsule mid.
+	if (GapToLedge < -NonVRMaxStepHeightCm || GapToLedge > HalfHeight * 0.85f)
+	{
+		return false;
+	}
+
+	SnapFeetToGround(LedgeHit);
+	AddActorWorldOffset(FlatFwd * 40.f, true);
+
+	FHitResult SettleHit;
+	if (ProbeGround(SettleHit, NonVRMaxStepHeightCm))
+	{
+		SnapFeetToGround(SettleHit);
+	}
+
+	HorizontalVelocity = FVector::ZeroVector;
+	VerticalVelocityCmPerSec = 0.f;
+	return true;
 }
 
 void AMistspireVRPawn::UpdateBeaconPulseHaptics()
@@ -1050,23 +1758,176 @@ void AMistspireVRPawn::UpdateBeaconPulseHaptics()
 
 void AMistspireVRPawn::TryGrappleShot()
 {
-	if (bGrappleActive || !RightHandController || !VRCamera)
+	if (bGrappleActive || bGrappleExtending)
+	{
+		ReleaseGrapple();
+		return;
+	}
+
+	if (!VRCamera)
 	{
 		return;
 	}
 
-	const FVector Start = GetRightHandWorldLocation();
-	const FVector End = Start + VRCamera->GetForwardVector() * GrappleTraceDistanceCm;
+	FVector Start;
+	FVector End;
+	if (bNonVRMode)
+	{
+		Start = VRCamera->GetComponentLocation();
+		End = Start + VRCamera->GetForwardVector() * GrappleTraceDistanceCm;
+	}
+	else
+	{
+		if (!RightHandController)
+		{
+			return;
+		}
+		Start = GetRightHandWorldLocation();
+		End = Start + VRCamera->GetForwardVector() * GrappleTraceDistanceCm;
+	}
 
 	FHitResult Hit;
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(MistspireGrapple), false, this);
 	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params) && Hit.bBlockingHit)
 	{
 		FireGrapple(Hit.ImpactPoint);
-		if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+		if (!bNonVRMode)
 		{
-			XR->TriggerHapticVibration(false, 0.6f, 0.1f, 120.f);
+			if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+			{
+				XR->TriggerHapticVibration(false, 0.6f, 0.1f, 120.f);
+			}
 		}
+	}
+}
+
+void AMistspireVRPawn::PlaceNonVRGrappleCableStart()
+{
+	if (!bNonVRMode || !GrappleCable || !VRCamera)
+	{
+		return;
+	}
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC)
+	{
+		return;
+	}
+
+	int32 SizeX = 0;
+	int32 SizeY = 0;
+	PC->GetViewportSize(SizeX, SizeY);
+	if (SizeX <= 0 || SizeY <= 0)
+	{
+		GrappleCable->SetRelativeLocation(FVector(40.f, 45.f, -160.f));
+		return;
+	}
+
+	// Deproject a point below the bottom edge (slightly right) so the cable root / end-cap is off-screen.
+	FVector WorldPos, WorldDir;
+	const float ScreenX = static_cast<float>(SizeX) * 0.62f;
+	const float ScreenY = static_cast<float>(SizeY) * 1.12f;
+	if (!PC->DeprojectScreenPositionToWorld(ScreenX, ScreenY, WorldPos, WorldDir))
+	{
+		GrappleCable->SetRelativeLocation(FVector(40.f, 45.f, -160.f));
+		return;
+	}
+
+	// Nudge further along the ray so the start sits past the near plane / bottom bezel.
+	const FVector CamLoc = VRCamera->GetComponentLocation();
+	const FVector Start = WorldPos + WorldDir * 25.f;
+	const FVector ToStart = Start - CamLoc;
+	// Keep a minimum distance below the camera so FOV changes still clip the tip.
+	const FVector ClampedStart = CamLoc + ToStart.GetClampedToSize(80.f, 250.f);
+	GrappleCable->SetWorldLocation(ClampedStart);
+}
+
+void AMistspireVRPawn::UpdateGrappleCableVisual(const FVector& CableEndWorld)
+{
+	if (GrappleAnchor)
+	{
+		GrappleAnchor->SetWorldLocation(CableEndWorld);
+	}
+
+	if (GrappleCable)
+	{
+		if (bNonVRMode)
+		{
+			PlaceNonVRGrappleCableStart();
+		}
+
+		const FVector Start = GrappleCable->GetComponentLocation();
+		// Exact span (no slack) so the sim stays taut while pulling.
+		GrappleCable->CableLength = FMath::Max(10.f, FVector::Dist(Start, CableEndWorld));
+		GrappleCable->CableGravityScale = 0.f;
+		GrappleCable->bEnableStiffness = true;
+		GrappleCable->SetHiddenInGame(false);
+	}
+}
+
+void AMistspireVRPawn::UpdateGrapple(float DeltaTime)
+{
+	const FVector CableStart = GrappleCable ? GrappleCable->GetComponentLocation() : GetActorLocation();
+
+	if (bGrappleExtending)
+	{
+		const float Dist = FVector::Dist(CableStart, GrappleAnchorPoint);
+		const float Step = Dist > KINDA_SMALL_NUMBER
+			? (GrappleExtendSpeedCmPerSec * DeltaTime) / Dist
+			: 1.f;
+		GrappleExtendAlpha = FMath::Clamp(GrappleExtendAlpha + Step, 0.f, 1.f);
+		const FVector Tip = FMath::Lerp(CableStart, GrappleAnchorPoint, GrappleExtendAlpha);
+		UpdateGrappleCableVisual(Tip);
+
+		if (GrappleExtendAlpha >= 1.f)
+		{
+			bGrappleExtending = false;
+			UpdateGrappleCableVisual(GrappleAnchorPoint);
+		}
+		return;
+	}
+
+	UpdateGrappleCableVisual(GrappleAnchorPoint);
+
+	float PullStrength = 1200.f;
+	if (UWorld* World = GetWorld())
+	{
+		if (UMistspireXRActionSubsystem* XRInput = World->GetSubsystem<UMistspireXRActionSubsystem>())
+		{
+			if (XRInput->GetInputState().bGrapplePressed)
+			{
+				PullStrength = 2200.f;
+			}
+		}
+	}
+
+	FVector ToAnchor = GrappleAnchorPoint - GetActorLocation();
+	float Dist = ToAnchor.Size();
+	if (Dist > 100.f)
+	{
+		FVector PullForce = ToAnchor.GetSafeNormal() * PullStrength * DeltaTime;
+		FHitResult GrappleHit;
+		AddActorWorldOffset(PullForce, true, &GrappleHit);
+
+		// Slide along rock faces instead of jamming into them (common on uneven maps).
+		if (GrappleHit.bBlockingHit)
+		{
+			const FVector Remaining = PullForce * (1.f - GrappleHit.Time);
+			const FVector Slide = FVector::VectorPlaneProject(Remaining, GrappleHit.ImpactNormal);
+			if (!Slide.IsNearlyZero(0.5f))
+			{
+				AddActorWorldOffset(Slide, true);
+			}
+		}
+
+		if (GetLocalRole() < ROLE_Authority)
+		{
+			Server_ApplySmoothLocomotion(PullForce);
+		}
+	}
+	else
+	{
+		ReleaseGrapple();
 	}
 }
 
@@ -1170,16 +2031,415 @@ void AMistspireVRPawn::HandleSummitReached(FName SummitId)
 	CurrentOxygen = FMath::Min(MaxOxygen, CurrentOxygen + 25.f);
 }
 
-void AMistspireVRPawn::ApplyVerticalVelocity(float DeltaCm)
+void AMistspireVRPawn::ApplyVerticalVelocity(float DeltaCm, FHitResult* OutHit)
 {
-	if (!FMath::IsNearlyZero(DeltaCm))
+	if (FMath::IsNearlyZero(DeltaCm))
 	{
-		AddActorWorldOffset(FVector(0.f, 0.f, DeltaCm), true);
+		return;
 	}
+
+	FHitResult Hit;
+	AddActorWorldOffset(FVector(0.f, 0.f, DeltaCm), true, &Hit);
+	if (OutHit)
+	{
+		*OutHit = Hit;
+	}
+}
+
+bool AMistspireVRPawn::IsFloorHit(const FHitResult& Hit) const
+{
+	return Hit.bBlockingHit && FVector::DotProduct(Hit.ImpactNormal, FVector::UpVector) > 0.5f;
+}
+
+bool AMistspireVRPawn::ProbeGround(FHitResult& OutHit, float ExtraDownCm) const
+{
+	const UWorld* World = GetWorld();
+	if (!World || !Capsule)
+	{
+		return false;
+	}
+
+	const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+	const FVector Start = GetActorLocation() - FVector(0.f, 0.f, HalfHeight - NonVRGroundProbeRadiusCm);
+	const FVector End = Start - FVector(0.f, 0.f, ExtraDownCm);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(NonVRGroundProbe), false, this);
+	const bool bHit = World->SweepSingleByChannel(
+		OutHit, Start, End, FQuat::Identity, ECC_WorldStatic,
+		FCollisionShape::MakeSphere(NonVRGroundProbeRadiusCm), Params);
+	return bHit && IsFloorHit(OutHit);
+}
+
+void AMistspireVRPawn::ClearNonVRGroundCache()
+{
+	bNonVRHasSupportCache = false;
+	bNonVRGroundedSticky = false;
+	NonVRCachedSupportZ = 0.f;
+}
+
+void AMistspireVRPawn::SnapFeetToGround(const FHitResult& GroundHit)
+{
+	if (!Capsule)
+	{
+		return;
+	}
+
+	const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+	const FVector Loc = GetActorLocation();
+	float SupportZ = GroundHit.ImpactPoint.Z;
+	const bool bStationary = HorizontalVelocity.SizeSquared() < FMath::Square(NonVRStationarySpeedCmPerSec);
+	const UWorld* World = GetWorld();
+	const float Dt = World ? World->GetDeltaSeconds() : (1.f / 60.f);
+
+	if (bNonVRHasSupportCache)
+	{
+		const float Diff = SupportZ - NonVRCachedSupportZ;
+		if (bStationary)
+		{
+			// Standing on pebble fields: keep the last solid height unless we clearly stepped.
+			if (FMath::Abs(Diff) < NonVRStationarySupportStickCm)
+			{
+				SupportZ = NonVRCachedSupportZ;
+			}
+			else
+			{
+				NonVRCachedSupportZ = SupportZ;
+			}
+		}
+		else
+		{
+			// Walking: ease support height so debris does not pop the camera.
+			NonVRCachedSupportZ = FMath::FInterpTo(NonVRCachedSupportZ, SupportZ, Dt, 10.f);
+			SupportZ = NonVRCachedSupportZ;
+		}
+	}
+	else
+	{
+		NonVRCachedSupportZ = SupportZ;
+		bNonVRHasSupportCache = true;
+	}
+
+	bNonVRGroundedSticky = true;
+
+	const float DesiredZ = SupportZ + HalfHeight + NonVRGroundSkinCm;
+	const float DeltaZ = DesiredZ - Loc.Z;
+
+	if (FMath::Abs(DeltaZ) < NonVRGroundSnapDeadzoneCm)
+	{
+		VerticalVelocityCmPerSec = 0.f;
+		GliderVelocity.Z = FMath::Max(0.f, GliderVelocity.Z);
+		return;
+	}
+
+	VerticalVelocityCmPerSec = 0.f;
+	GliderVelocity.Z = FMath::Max(0.f, GliderVelocity.Z);
+
+	FHitResult MoveHit;
+	AddActorWorldOffset(FVector(0.f, 0.f, DeltaZ), true, &MoveHit);
+	if (MoveHit.bBlockingHit && !IsFloorHit(MoveHit) && DeltaZ > 0.f)
+	{
+		return;
+	}
+}
+
+void AMistspireVRPawn::ApplyNonVRWalkDelta(const FVector& InDelta)
+{
+	FVector Delta = InDelta;
+	Delta.Z = 0.f;
+	if (Delta.IsNearlyZero())
+	{
+		return;
+	}
+
+	const bool bGrappling = bGrappleActive || bGrappleExtending;
+
+	FHitResult Hit;
+	AddActorWorldOffset(Delta, true, &Hit);
+
+	if (Hit.bBlockingHit)
+	{
+		const FVector Remaining = Delta * (1.f - Hit.Time);
+		if (Remaining.SizeSquared() > 1.f)
+		{
+			const bool bAllowStep = !bGrappling && VerticalVelocityCmPerSec <= 10.f;
+			if (!(bAllowStep && TryNonVRStepUp(Remaining)))
+			{
+				FVector WallNormal = Hit.ImpactNormal;
+				WallNormal.Z = 0.f;
+				if (WallNormal.Normalize())
+				{
+					FVector Slide = FVector::VectorPlaneProject(Remaining, WallNormal);
+					Slide.Z = 0.f;
+					if (!Slide.IsNearlyZero(0.5f))
+					{
+						FHitResult SlideHit;
+						AddActorWorldOffset(Slide, true, &SlideHit);
+						if (bAllowStep && SlideHit.bBlockingHit)
+						{
+							TryNonVRStepUp(Slide * (1.f - SlideHit.Time));
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (!bGrappling)
+	{
+		// Contour-follow only while moving — standing still must not chase pebble hits.
+		if (HorizontalVelocity.SizeSquared() >= FMath::Square(NonVRStationarySpeedCmPerSec))
+		{
+			FollowNonVRGroundAfterMove();
+		}
+	}
+}
+
+bool AMistspireVRPawn::TryNonVRStepUp(const FVector& RemainingHorizontal)
+{
+	if (!Capsule || RemainingHorizontal.SizeSquared() < 1.f)
+	{
+		return false;
+	}
+
+	const FVector SavedLoc = GetActorLocation();
+	const FRotator SavedRot = GetActorRotation();
+	const float StepUp = NonVRMaxStepHeightCm;
+
+	FHitResult UpHit;
+	AddActorWorldOffset(FVector(0.f, 0.f, StepUp), true, &UpHit);
+	if (UpHit.bBlockingHit && UpHit.Time < 0.15f)
+	{
+		SetActorLocationAndRotation(SavedLoc, SavedRot, false, nullptr, ETeleportType::TeleportPhysics);
+		return false;
+	}
+
+	FHitResult FwdHit;
+	AddActorWorldOffset(RemainingHorizontal, true, &FwdHit);
+	if (FwdHit.bBlockingHit && FwdHit.Time <= KINDA_SMALL_NUMBER)
+	{
+		SetActorLocationAndRotation(SavedLoc, SavedRot, false, nullptr, ETeleportType::TeleportPhysics);
+		return false;
+	}
+
+	FHitResult DownHit;
+	AddActorWorldOffset(FVector(0.f, 0.f, -(StepUp + 8.f)), true, &DownHit);
+
+	FHitResult GroundHit;
+	if (IsFloorHit(DownHit))
+	{
+		SnapFeetToGround(DownHit);
+		return true;
+	}
+	if (ProbeGround(GroundHit, StepUp + 12.f))
+	{
+		SnapFeetToGround(GroundHit);
+		return true;
+	}
+
+	SetActorLocationAndRotation(SavedLoc, SavedRot, false, nullptr, ETeleportType::TeleportPhysics);
+	return false;
+}
+
+void AMistspireVRPawn::FollowNonVRGroundAfterMove()
+{
+	if (!Capsule)
+	{
+		return;
+	}
+
+	// Rising jump or a real fall: gravity / landing sweep owns Z.
+	if (VerticalVelocityCmPerSec > 10.f || VerticalVelocityCmPerSec < NonVRFallFollowCancelCmPerSec)
+	{
+		return;
+	}
+
+	FHitResult GroundHit;
+	if (!ProbeGround(GroundHit, NonVRMaxStepHeightCm))
+	{
+		return;
+	}
+
+	const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+	const float DesiredZ = GroundHit.ImpactPoint.Z + HalfHeight + NonVRGroundSkinCm;
+	const float DeltaZ = DesiredZ - GetActorLocation().Z;
+
+	if (FMath::Abs(DeltaZ) < NonVRGroundSnapDeadzoneCm)
+	{
+		return;
+	}
+
+	if (DeltaZ < -0.1f && -DeltaZ <= NonVRMaxStepHeightCm)
+	{
+		SnapFeetToGround(GroundHit);
+	}
+	else if (DeltaZ > 0.1f && DeltaZ <= NonVRMaxStepHeightCm)
+	{
+		SnapFeetToGround(GroundHit);
+	}
+}
+
+void AMistspireVRPawn::EnforceNonVRGroundConstraint(bool bSkipWhileReelingUpward)
+{
+	if (!bNonVRMode || !Capsule)
+	{
+		return;
+	}
+
+	FHitResult GroundHit;
+	if (!ProbeGround(GroundHit, FMath::Max(NonVRGroundSnapMaxGapCm, 400.f)))
+	{
+		return;
+	}
+
+	const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+	const float GapToGround = (GetActorLocation().Z - HalfHeight) - GroundHit.ImpactPoint.Z;
+
+	if (GapToGround < -NonVRGroundSkinCm)
+	{
+		SnapFeetToGround(GroundHit);
+		return;
+	}
+
+	if (bSkipWhileReelingUpward)
+	{
+		return;
+	}
+
+	if (GapToGround <= NonVRGroundContactGapCm)
+	{
+		SnapFeetToGround(GroundHit);
+	}
+}
+
+void AMistspireVRPawn::UpdateNonVRGravity(float DeltaTime)
+{
+	if (VerticalVelocityCmPerSec > 10.f)
+	{
+		ClearNonVRGroundCache();
+	}
+
+	const bool bStationary = HorizontalVelocity.SizeSquared() < FMath::Square(NonVRStationarySpeedCmPerSec);
+
+	// Already planted and not moving: hold Z — do not re-probe pebbles every tick.
+	if (bStationary && bNonVRGroundedSticky && bNonVRHasSupportCache && VerticalVelocityCmPerSec <= 0.f)
+	{
+		const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+		const float GapCached = (GetActorLocation().Z - HalfHeight) - NonVRCachedSupportZ;
+		if (GapCached >= -NonVRGroundSkinCm && GapCached <= NonVRGroundContactGapCm + 3.f)
+		{
+			VerticalVelocityCmPerSec = 0.f;
+			return;
+		}
+	}
+
+	FHitResult GroundHit;
+	if (ProbeGround(GroundHit, NonVRGroundSnapMaxGapCm))
+	{
+		const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+		const float GapToGround = (GetActorLocation().Z - HalfHeight) - GroundHit.ImpactPoint.Z;
+
+		if (GapToGround < -NonVRGroundSkinCm)
+		{
+			SnapFeetToGround(GroundHit);
+			return;
+		}
+
+		if (VerticalVelocityCmPerSec <= 0.f && GapToGround <= NonVRGroundContactGapCm)
+		{
+			if (bStationary && bNonVRGroundedSticky)
+			{
+				VerticalVelocityCmPerSec = 0.f;
+				return;
+			}
+			SnapFeetToGround(GroundHit);
+			return;
+		}
+	}
+	else if (VerticalVelocityCmPerSec <= 0.f)
+	{
+		// Lost nearby support while not rising — clear sticky so IsGrounded is honest.
+		ClearNonVRGroundCache();
+	}
+
+	VerticalVelocityCmPerSec -= NonVRGravityCmPerSec2 * DeltaTime;
+
+	FHitResult MoveHit;
+	ApplyVerticalVelocity(VerticalVelocityCmPerSec * DeltaTime, &MoveHit);
+
+	if (VerticalVelocityCmPerSec <= 0.f && IsFloorHit(MoveHit))
+	{
+		SnapFeetToGround(MoveHit);
+	}
+}
+
+void AMistspireVRPawn::UpdateNonVRCameraBob(float DeltaTime)
+{
+	if (!VRCamera || !bNonVRMode)
+	{
+		return;
+	}
+
+	float BobScale = 1.f;
+	if (const UMistspireGameUserSettings* Settings = UMistspireGameUserSettings::Get())
+	{
+		if (!Settings->IsViewBobbingEnabled())
+		{
+			VRCamera->SetRelativeLocation(FVector(0.f, 0.f, NonVREyeHeightCm));
+			NonVRHeadBobWeight = 0.f;
+			return;
+		}
+		BobScale = Settings->GetViewBobScale();
+	}
+
+	const float Speed2D = HorizontalVelocity.Size();
+	const float WalkRef = FMath::Max(1.f, DefaultLocomotionSpeedCmPerSec);
+	const bool bBobbing = !bIsClimbing && !bGliderActive && !bGrappleActive
+		&& IsGrounded() && Speed2D > NonVRStationarySpeedCmPerSec;
+
+	float TargetWeight = 0.f;
+	if (bBobbing)
+	{
+		TargetWeight = FMath::Clamp(Speed2D / WalkRef, 0.f, 1.35f);
+		NonVRHeadBobPhase += DeltaTime * NonVRHeadBobStrideHz * TargetWeight * (2.f * PI);
+		if (NonVRHeadBobPhase > 2.f * PI * 64.f)
+		{
+			NonVRHeadBobPhase = FMath::Fmod(NonVRHeadBobPhase, 2.f * PI);
+		}
+	}
+
+	NonVRHeadBobWeight = FMath::FInterpTo(NonVRHeadBobWeight, TargetWeight, DeltaTime, bBobbing ? 8.f : 10.f);
+
+	float BobY = 0.f;
+	float BobZ = 0.f;
+	if (NonVRHeadBobWeight > 0.01f)
+	{
+		BobZ = FMath::Sin(NonVRHeadBobPhase * 2.f) * NonVRHeadBobVerticalCm * NonVRHeadBobWeight * BobScale;
+		BobY = FMath::Sin(NonVRHeadBobPhase) * NonVRHeadBobLateralCm * NonVRHeadBobWeight * BobScale;
+	}
+
+	VRCamera->SetRelativeLocation(FVector(0.f, BobY, NonVREyeHeightCm + BobZ));
+}
+
+bool AMistspireVRPawn::IsGrounded() const
+{
+	if (bNonVRMode)
+	{
+		return bNonVRGroundedSticky && VerticalVelocityCmPerSec <= 50.f;
+	}
+
+	FHitResult Hit;
+	if (!ProbeGround(Hit, NonVRGroundContactGapCm))
+	{
+		return false;
+	}
+
+	const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+	const float GapToGround = (GetActorLocation().Z - HalfHeight) - Hit.ImpactPoint.Z;
+	return GapToGround <= NonVRGroundContactGapCm;
 }
 
 void AMistspireVRPawn::ApplyTeleport(const FVector& TargetLocation)
 {
+	HorizontalVelocity = FVector::ZeroVector;
 	SetActorLocation(TargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
 	if (GetLocalRole() < ROLE_Authority)
 	{
@@ -1187,7 +2447,10 @@ void AMistspireVRPawn::ApplyTeleport(const FVector& TargetLocation)
 	}
 }
 
-bool AMistspireVRPawn::Server_ApplyTeleport_Validate(const FVector& TargetLocation) { return true; }
+bool AMistspireVRPawn::Server_ApplyTeleport_Validate(const FVector& TargetLocation)
+{
+	return FVector::DistSquared(GetActorLocation(), TargetLocation) <= FMath::Square(MaxTeleportRpcDistanceCm);
+}
 void AMistspireVRPawn::Server_ApplyTeleport_Implementation(const FVector& TargetLocation)
 {
 	SetActorLocation(TargetLocation, false, nullptr, ETeleportType::TeleportPhysics);
@@ -1195,13 +2458,67 @@ void AMistspireVRPawn::Server_ApplyTeleport_Implementation(const FVector& Target
 
 void AMistspireVRPawn::TeleportForward(float DistanceCm)
 {
-	const FVector Target = GetActorLocation() + VRCamera->GetForwardVector() * DistanceCm;
+	const float ClampedDistance = FMath::Clamp(DistanceCm, 0.f, TeleportForwardCm);
+	const FVector Target = GetActorLocation() + VRCamera->GetForwardVector() * ClampedDistance;
 	ApplyTeleport(Target);
+}
+
+void AMistspireVRPawn::ReceiveLoreShardLocal(const FText& Title, const FText& Body)
+{
+	if (UMistspireNarrativeSubsystem* Narr = GetWorld()->GetSubsystem<UMistspireNarrativeSubsystem>())
+	{
+		Narr->PushLine(FText::Format(
+			NSLOCTEXT("Mistspire", "LoreShard", "{0} — {1}"),
+			Title, Body), 8.f);
+	}
+
+	if (!bNonVRMode)
+	{
+		if (UMistspireXRActionSubsystem* XR = GetWorld()->GetSubsystem<UMistspireXRActionSubsystem>())
+		{
+			XR->TriggerHapticVibration(true, 0.2f, 0.08f, 110.f);
+		}
+	}
+}
+
+void AMistspireVRPawn::DeliverLoreShard(const FText& Title, const FText& Body)
+{
+	if (IsLocallyControlled())
+	{
+		ReceiveLoreShardLocal(Title, Body);
+	}
+	else if (GetNetMode() != NM_Client)
+	{
+		ClientReceiveLoreShard(Title, Body);
+	}
+}
+
+void AMistspireVRPawn::ClientReceiveLoreShard_Implementation(const FText& Title, const FText& Body)
+{
+	ReceiveLoreShardLocal(Title, Body);
+}
+
+bool AMistspireVRPawn::Server_CollectLoreShard_Validate(AMistspireLoreShard* Shard)
+{
+	return Shard != nullptr;
+}
+
+void AMistspireVRPawn::Server_CollectLoreShard_Implementation(AMistspireLoreShard* Shard)
+{
+	if (!Shard || Shard->IsCollected())
+	{
+		return;
+	}
+	Shard->ApplyCollection(this);
 }
 
 void AMistspireVRPawn::StartClimb()
 {
 	bIsClimbing = true;
+	NonVRClimbMissFrames = 0;
+	HorizontalVelocity = FVector::ZeroVector;
+	VerticalVelocityCmPerSec = 0.f;
+	ClearNonVRGroundCache();
 	LocomotionSpeedCmPerSec = DefaultLocomotionSpeedCmPerSec * 0.55f;
 	if (GetLocalRole() < ROLE_Authority)
 	{
@@ -1215,7 +2532,19 @@ void AMistspireVRPawn::Server_StartClimb_Implementation() { bIsClimbing = true; 
 void AMistspireVRPawn::StopClimb()
 {
 	bIsClimbing = false;
+	NonVRClimbMissFrames = 0;
 	LocomotionSpeedCmPerSec = bGliderActive ? DefaultLocomotionSpeedCmPerSec * 1.5f : DefaultLocomotionSpeedCmPerSec;
+
+	// If we stopped on solid ground (crested a boulder), plant feet once.
+	if (bNonVRMode)
+	{
+		FHitResult GroundHit;
+		if (ProbeGround(GroundHit, NonVRMaxStepHeightCm))
+		{
+			SnapFeetToGround(GroundHit);
+		}
+	}
+
 	if (GetLocalRole() < ROLE_Authority)
 	{
 		Server_StopClimb();
@@ -1228,12 +2557,17 @@ void AMistspireVRPawn::Server_StopClimb_Implementation() { bIsClimbing = false; 
 void AMistspireVRPawn::FireGrapple(FVector WorldTarget)
 {
 	bGrappleActive = true;
+	bGrappleExtending = true;
+	GrappleExtendAlpha = 0.f;
 	GrappleAnchorPoint = WorldTarget;
-	
+	ClearNonVRGroundCache();
+
 	if (GrappleCable)
 	{
+		GrappleCable->SetAttachEndToComponent(GrappleAnchor);
+		GrappleCable->EndLocation = FVector::ZeroVector;
 		GrappleCable->SetHiddenInGame(false);
-		GrappleCable->SetWorldLocation(WorldTarget);
+		UpdateGrappleCableVisual(GrappleCable->GetComponentLocation());
 	}
 
 	if (UMistspireAudioSubsystem* Audio = GetWorld()->GetSubsystem<UMistspireAudioSubsystem>())
@@ -1253,6 +2587,29 @@ void AMistspireVRPawn::Server_FireGrapple_Implementation(FVector WorldTarget)
 	FireGrapple(WorldTarget);
 }
 
+void AMistspireVRPawn::ReleaseGrapple()
+{
+	bGrappleActive = false;
+	bGrappleExtending = false;
+	GrappleExtendAlpha = 0.f;
+
+	if (GrappleCable)
+	{
+		GrappleCable->SetHiddenInGame(true);
+	}
+
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		Server_ReleaseGrapple();
+	}
+}
+
+bool AMistspireVRPawn::Server_ReleaseGrapple_Validate() { return true; }
+void AMistspireVRPawn::Server_ReleaseGrapple_Implementation()
+{
+	ReleaseGrapple();
+}
+
 void AMistspireVRPawn::ToggleGlider(bool bEnable)
 {
 	bGliderActive = bEnable;
@@ -1265,11 +2622,18 @@ void AMistspireVRPawn::ToggleGlider(bool bEnable)
 
 	if (bGliderActive)
 	{
-		GliderVelocity = GetVelocity();
-		if (GliderVelocity.IsNearlyZero())
+		GliderVelocity = HorizontalVelocity;
+		GliderVelocity.Z = VerticalVelocityCmPerSec;
+		if (GliderVelocity.SizeSquared2D() < 100.f)
 		{
-			GliderVelocity = GetActorForwardVector() * LocomotionSpeedCmPerSec;
+			GliderVelocity += GetActorForwardVector() * LocomotionSpeedCmPerSec;
 		}
+		HorizontalVelocity = FVector::ZeroVector;
+	}
+	else
+	{
+		VerticalVelocityCmPerSec = GliderVelocity.Z;
+		HorizontalVelocity = FVector(GliderVelocity.X, GliderVelocity.Y, 0.f);
 	}
 
 	if (GetLocalRole() < ROLE_Authority)
@@ -1283,7 +2647,20 @@ void AMistspireVRPawn::Server_ToggleGlider_Implementation(bool bEnable) { bGlide
 
 void AMistspireVRPawn::TryJump()
 {
-	VerticalVelocityCmPerSec = JumpImpulseCmPerSec;
+	if (bNonVRMode)
+	{
+		if (!bGameplayStarted || bSettingsMenuOpen || !IsGrounded() || VerticalVelocityCmPerSec > 0.f)
+		{
+			return;
+		}
+		VerticalVelocityCmPerSec = NonVRJumpImpulseCmPerSec;
+		ClearNonVRGroundCache();
+	}
+	else
+	{
+		VerticalVelocityCmPerSec = JumpImpulseCmPerSec;
+	}
+
 	if (GetLocalRole() < ROLE_Authority)
 	{
 		Server_TryJump();

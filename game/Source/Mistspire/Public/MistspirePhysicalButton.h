@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "MistspireInteractable.h"
 #include "MistspirePhysicalButton.generated.h"
 
 class UStaticMeshComponent;
@@ -17,7 +18,7 @@ enum class EMistspireButtonAction : uint8
 };
 
 UCLASS()
-class MISTSPIRE_API AMistspirePhysicalButton : public AActor
+class MISTSPIRE_API AMistspirePhysicalButton : public AActor, public IMistspireInteractable
 {
 	GENERATED_BODY()
 
@@ -27,6 +28,8 @@ public:
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnButtonPressed);
 	UPROPERTY(BlueprintAssignable, Category = "Mistspire|Interaction")
 	FOnButtonPressed OnButtonPressed;
+
+	virtual void MistspireInteract_Implementation(AActor* InteractInstigator) override;
 
 protected:
 	virtual void BeginPlay() override;

@@ -1,18 +1,20 @@
 #include "MistspireAltitudeDebugSubsystem.h"
 #include "MistspireAltitudeSubsystem.h"
-#include "MistspireEnvironmentSubsystem.h"
-#include "MistspireZoneSubsystem.h"
-#include "MistspireWorldAtlasSubsystem.h"
-#include "MistspireInteriorSubsystem.h"
-#include "MistspireVRPawn.h"
+#include "MistspireGameUserSettings.h"
+#include "MistspireInputMode.h"
 #include "Engine/Engine.h"
-#include "GameFramework/PlayerController.h"
 #include "HAL/IConsoleManager.h"
 
 static TAutoConsoleVariable<int32> CVarMistspireShowAltitudeHud(
 	TEXT("mistspire.ShowAltitudeHUD"),
 	1,
 	TEXT("Draw immersive survival HUD on screen (0=off, 1=on)."),
+	ECVF_Default);
+
+static TAutoConsoleVariable<int32> CVarMistspireShowControls(
+	TEXT("mistspire.ShowControls"),
+	-1,
+	TEXT("Override control-hint HUD: -1=use settings (default), 0=force off, 1=force on."),
 	ECVF_Default);
 
 static TAutoConsoleVariable<int32> CVarMistspireAltitudeLogInterval(
@@ -24,6 +26,24 @@ static TAutoConsoleVariable<int32> CVarMistspireAltitudeLogInterval(
 bool UMistspireAltitudeDebugSubsystem::IsHudEnabled()
 {
 	return CVarMistspireShowAltitudeHud.GetValueOnGameThread() != 0;
+}
+
+bool UMistspireAltitudeDebugSubsystem::IsControlsHintEnabled()
+{
+	const int32 Override = CVarMistspireShowControls.GetValueOnGameThread();
+	if (Override == 0)
+	{
+		return false;
+	}
+	if (Override > 0)
+	{
+		return true;
+	}
+	if (const UMistspireGameUserSettings* Settings = UMistspireGameUserSettings::Get())
+	{
+		return Settings->IsControlsHintEnabled();
+	}
+	return false;
 }
 
 void UMistspireAltitudeDebugSubsystem::SetHudEnabled(bool bEnabled)
@@ -43,6 +63,8 @@ TStatId UMistspireAltitudeDebugSubsystem::GetStatId() const
 
 void UMistspireAltitudeDebugSubsystem::Tick(float DeltaTime)
 {
+	// Visual HUD is drawn by AMistspireHUD (Canvas) — not AddOnScreenDebugMessage —
+	// so Engine never shows "'DisableAllScreenMessages' to suppress".
 	UWorld* World = GetWorld();
 	if (!World)
 	{
@@ -53,57 +75,6 @@ void UMistspireAltitudeDebugSubsystem::Tick(float DeltaTime)
 	if (!Alt)
 	{
 		return;
-	}
-
-	const float CurrentM = Alt->GetCurrentAltitudeCm() / 100.f;
-	const float BestM = Alt->GetPersonalBestAltitudeCm() / 100.f;
-
-	if (IsHudEnabled() && GEngine)
-	{
-		FString Line1 = FString::Printf(TEXT("Mistspire  %.0f m   BEST %.0f m"), CurrentM, BestM);
-
-		if (UMistspireZoneSubsystem* Zone = World->GetSubsystem<UMistspireZoneSubsystem>())
-		{
-			Line1 += FString::Printf(TEXT("   [%s]"), *UMistspireZoneSubsystem::GetZoneDisplayName(Zone->GetCurrentZone()).ToString());
-		}
-
-		if (UMistspireWorldAtlasSubsystem* Atlas = World->GetSubsystem<UMistspireWorldAtlasSubsystem>())
-		{
-			Line1 += FString::Printf(TEXT("   { %s }"),
-				*UMistspireWorldAtlasSubsystem::GetDistrictDisplayName(Atlas->GetCurrentDistrict()).ToString());
-		}
-
-		GEngine->AddOnScreenDebugMessage(INDEX_NONE, 0.f, FColor::Cyan, Line1);
-
-		if (UMistspireInteriorSubsystem* Interior = World->GetSubsystem<UMistspireInteriorSubsystem>())
-		{
-			if (Interior->IsInsideInterior())
-			{
-				GEngine->AddOnScreenDebugMessage(
-					3, 0.f, FColor::Yellow,
-					FString::Printf(TEXT("INTERIOR: %s"), *Interior->GetCurrentBuildingId().ToString()));
-			}
-		}
-
-		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
-		{
-			GEngine->AddOnScreenDebugMessage(
-				1, 0.f, FColor::Silver,
-				FString::Printf(TEXT("Weather: %s"), *Env->GetWeatherDisplayName().ToString()));
-		}
-
-		if (APlayerController* PC = World->GetFirstPlayerController())
-		{
-			if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(PC->GetPawn()))
-			{
-				GEngine->AddOnScreenDebugMessage(
-					2, 0.f, FColor::Green,
-					FString::Printf(TEXT("STA %.0f%%  O2 %.0f%%  P %.2f atm"),
-						100.f * Pawn->GetStaminaPercent(),
-						100.f * Pawn->GetOxygenPercent(),
-						Pawn->GetAtmosphericPressure()));
-			}
-		}
 	}
 
 	const float Interval = static_cast<float>(CVarMistspireAltitudeLogInterval.GetValueOnGameThread());

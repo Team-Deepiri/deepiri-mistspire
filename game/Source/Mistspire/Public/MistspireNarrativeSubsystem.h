@@ -33,6 +33,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Mistspire|Narrative")
 	FText GetLastLine() const { return LastLine; }
 
+	/** True while the last PushLine should still be shown on HUD. */
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Narrative")
+	bool HasActiveLine() const;
+
+	UFUNCTION(BlueprintPure, Category = "Mistspire|Narrative")
+	FText GetActiveLine() const;
+
 	UPROPERTY(BlueprintAssignable, Category = "Mistspire|Narrative")
 	FOnMistspireNarrativeLine OnNarrativeLine;
 
@@ -47,5 +54,6 @@ private:
 	void HandleDistrictChanged(EMistspireWorldDistrict OldDistrict, EMistspireWorldDistrict NewDistrict);
 
 	FText LastLine;
+	float LineExpireTimeSeconds = -1.f;
 	int32 LastMilestoneKm = -1;
 };

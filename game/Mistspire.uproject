@@ -12,6 +12,14 @@
 	],
 	"Plugins": [
 		{
+			"Name": "EnhancedInput",
+			"Enabled": true
+		},
+		{
+			"Name": "XRBase",
+			"Enabled": true
+		},
+		{
 			"Name": "OpenXR",
 			"Enabled": true
 		},

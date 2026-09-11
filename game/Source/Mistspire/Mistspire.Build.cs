@@ -17,6 +17,9 @@ public class Mistspire : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"RenderCore",
+			"XRBase",
+			"Slate",
+			"SlateCore",
 		});
 	}
 }

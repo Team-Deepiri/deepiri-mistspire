@@ -57,14 +57,29 @@ void UMistspireNarrativeSubsystem::Deinitialize()
 void UMistspireNarrativeSubsystem::PushLine(const FText& Line, float DisplaySeconds)
 {
 	LastLine = Line;
+	const UWorld* World = GetWorld();
+	const float Now = World ? World->GetTimeSeconds() : 0.f;
+	LineExpireTimeSeconds = Now + FMath::Max(0.5f, DisplaySeconds);
 	OnNarrativeLine.Broadcast(Line);
+}
 
-	if (GEngine)
+bool UMistspireNarrativeSubsystem::HasActiveLine() const
+{
+	if (LastLine.IsEmpty())
 	{
-		GEngine->AddOnScreenDebugMessage(
-			-1, DisplaySeconds, FColor::Silver,
-			FString::Printf(TEXT("> %s"), *Line.ToString()));
+		return false;
 	}
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+	return World->GetTimeSeconds() <= LineExpireTimeSeconds;
+}
+
+FText UMistspireNarrativeSubsystem::GetActiveLine() const
+{
+	return HasActiveLine() ? LastLine : FText::GetEmpty();
 }
 
 void UMistspireNarrativeSubsystem::HandleZoneChanged(EMistspireAltitudeZone OldZone, EMistspireAltitudeZone NewZone)
