@@ -81,7 +81,12 @@ static void MistspireRefillSurvival(const TArray<FString>&)
 	{
 		return;
 	}
-	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(GWorld->GetFirstPlayerController()->GetPawn()))
+	APlayerController* PC = GWorld->GetFirstPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(PC->GetPawn()))
 	{
 		Pawn->ApplyShelterRefill(100.f, 100.f, 1.f);
 	}
@@ -193,7 +198,12 @@ static void MistspireTeleportDistrict(const TArray<FString>& Args)
 		const TArray<FMistspireDistrictEntry>& Districts = Atlas->GetDistricts();
 		if (Districts.IsValidIndex(Index))
 		{
-			if (APawn* Pawn = GWorld->GetFirstPlayerController()->GetPawn())
+			APlayerController* PC = GWorld->GetFirstPlayerController();
+			if (!PC)
+			{
+				return;
+			}
+			if (APawn* Pawn = PC->GetPawn())
 			{
 				const FVector Target = Districts[Index].BoundsCenter + FVector(0, 0, 25000.f);
 				Pawn->SetActorLocation(Target, false, nullptr, ETeleportType::TeleportPhysics);
@@ -208,7 +218,12 @@ static void MistspireExitInterior(const TArray<FString>&)
 	{
 		return;
 	}
-	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(GWorld->GetFirstPlayerController()->GetPawn()))
+	APlayerController* PC = GWorld->GetFirstPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(PC->GetPawn()))
 	{
 		if (UMistspireInteriorSubsystem* Interior = GWorld->GetSubsystem<UMistspireInteriorSubsystem>())
 		{
@@ -247,7 +262,9 @@ static FAutoConsoleCommand CmdMistspireRespawnWorldMarkers(
 static void MistspireShowAltitudeHUD(const TArray<FString>& Args)
 {
 	if (!GWorld) return;
-	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(GWorld->GetFirstPlayerController()->GetPawn()))
+	APlayerController* PC = GWorld->GetFirstPlayerController();
+	if (!PC) return;
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(PC->GetPawn()))
 	{
 		uint8 Show = 1;
 		if (Args.Num() > 0) Show = FMath::Clamp(FCString::Atoi(*Args[0]), 0, 1);
@@ -648,19 +665,27 @@ static void MistspireDemoJoeBeat(const TArray<FString>&)
 		return;
 	}
 
-	UWorld* World = GWorld;
+	TWeakObjectPtr<UWorld> WeakWorld(GWorld);
 	UE_LOG(LogTemp, Log, TEXT("Mistspire DemoJoeBeat: starting Speak / ghost / AI / GOAP sequence."));
 
-	auto Speak = [World](FName LineId)
+	auto Speak = [](UWorld* World, FName LineId)
 	{
+		if (!World)
+		{
+			return;
+		}
 		if (UMistspireDialogueSubsystem* Dialogue = World->GetSubsystem<UMistspireDialogueSubsystem>())
 		{
 			Dialogue->Speak(LineId);
 		}
 	};
 
-	auto EnsureAI = [World]() -> AMistspireAIController*
+	auto EnsureAI = [](UWorld* World) -> AMistspireAIController*
 	{
+		if (!World)
+		{
+			return nullptr;
+		}
 		for (TActorIterator<AMistspireAIController> It(World); It; ++It)
 		{
 			if (IsValid(*It))
@@ -674,12 +699,13 @@ static void MistspireDemoJoeBeat(const TArray<FString>&)
 			AMistspireAIController::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, Params);
 	};
 
-	Speak(TEXT("companion_greeting"));
+	Speak(GWorld, TEXT("companion_greeting"));
 
 	FTimerHandle GhostHandle;
-	World->GetTimerManager().SetTimer(GhostHandle, FTimerDelegate::CreateLambda([World, Speak]()
+	GWorld->GetTimerManager().SetTimer(GhostHandle, FTimerDelegate::CreateLambda([WeakWorld, Speak]()
 	{
-		if (!IsValid(World))
+		UWorld* World = WeakWorld.Get();
+		if (!World)
 		{
 			return;
 		}
@@ -691,17 +717,18 @@ static void MistspireDemoJoeBeat(const TArray<FString>&)
 		FActorSpawnParameters Params;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		World->SpawnActor<AMistspireWanderingGhost>(SpawnLocation, FRotator::ZeroRotator, Params);
-		Speak(TEXT("ghost_whisper"));
+		Speak(World, TEXT("ghost_whisper"));
 	}), 1.5f, false);
 
 	FTimerHandle ThinkHandle;
-	World->GetTimerManager().SetTimer(ThinkHandle, FTimerDelegate::CreateLambda([World, EnsureAI]()
+	GWorld->GetTimerManager().SetTimer(ThinkHandle, FTimerDelegate::CreateLambda([WeakWorld, EnsureAI]()
 	{
-		if (!IsValid(World))
+		UWorld* World = WeakWorld.Get();
+		if (!World)
 		{
 			return;
 		}
-		if (AMistspireAIController* AI = EnsureAI())
+		if (AMistspireAIController* AI = EnsureAI(World))
 		{
 			FMistspireAIWorldState State = AMistspireAIController::SnapshotFromPawn(
 				World->GetFirstPlayerController() ? World->GetFirstPlayerController()->GetPawn() : nullptr,
@@ -737,13 +764,14 @@ static void MistspireDemoJoeBeat(const TArray<FString>&)
 	}), 3.5f, false);
 
 	FTimerHandle CloseHandle;
-	World->GetTimerManager().SetTimer(CloseHandle, FTimerDelegate::CreateLambda([World, Speak]()
+	GWorld->GetTimerManager().SetTimer(CloseHandle, FTimerDelegate::CreateLambda([WeakWorld, Speak]()
 	{
-		if (!IsValid(World))
+		UWorld* World = WeakWorld.Get();
+		if (!World)
 		{
 			return;
 		}
-		Speak(TEXT("summit_breath"));
+		Speak(World, TEXT("summit_breath"));
 		UE_LOG(LogTemp, Log, TEXT("Mistspire DemoJoeBeat: complete."));
 	}), 5.5f, false);
 }

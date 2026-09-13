@@ -135,10 +135,15 @@ void AMistspirePhysicalButton::ExecuteBuiltInAction()
 
 void AMistspirePhysicalButton::MistspireInteract_Implementation(AActor* InteractInstigator)
 {
-	if (!bIsPressed)
+	if (bIsPressed)
 	{
-		bIsPressed = true;
-		OnButtonPressed.Broadcast();
-		ExecuteBuiltInAction();
+		return;
 	}
+
+	bIsPressed = true;
+	OnButtonPressed.Broadcast();
+	ExecuteBuiltInAction();
+
+	// Ray / non-VR interact never depresses the physics pad, so clear the latch for re-press.
+	bIsPressed = false;
 }
