@@ -1,0 +1,135 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Math/Color.h"
+
+/**
+ * Shared Demo Spire helix layout — stations, summit IDs, and tints.
+ * Used by summit seeds, DemoTour teleports, and AMistspireDemoClimbScaffold.
+ */
+namespace MistspireDemoSpire
+{
+	inline constexpr int32 StationCount = 10;
+	inline constexpr float HelixRadiusCm = 2500.f;
+	inline constexpr float AngleStepDeg = 36.f;
+	/** Valley floor top sits near Z=0; PlayerStart ~200 cm above. */
+	inline constexpr float ValleyFloorZCm = 0.f;
+	inline constexpr float PlayerStartZCm = 200.f;
+	/** Local station stair run height (12 × 40 cm). */
+	inline constexpr float VignetteHeightCm = 480.f;
+	/** Approach stair rise — must stay ≤ NonVRMaxStepHeightCm (45). */
+	inline constexpr float ApproachStepZCm = 40.f;
+	/** End of walkable approach helix; grapple highway continues to Mist. */
+	inline constexpr float ApproachEndZCm = 6000.f;
+	/** Helix angular sweep (degrees) so consecutive 40 cm stairs have ≥90 cm tread. */
+	inline constexpr float ApproachSweepDeg = 450.f;
+	/** Capsule half-height (~88) + margin for DemoTour landings. */
+	inline constexpr float TourLandingClearanceCm = 120.f;
+
+	inline constexpr float StationAltitudeCm[StationCount] = {
+		50000.f,   // Mist
+		200000.f,  // Arid
+		400000.f,  // Forest
+		600000.f,  // Ember
+		800000.f,  // Crystal
+		1050000.f, // Void
+		1300000.f, // Tundra
+		1500000.f, // Aether
+		1700000.f, // Sanctum
+		1900000.f  // Pinnacle
+	};
+
+	inline const TCHAR* SummitIds[StationCount] = {
+		TEXT("summit_valley_gate"),
+		TEXT("summit_mesa_crown"),
+		TEXT("summit_cloud_garden"),
+		TEXT("summit_ember_crown"),
+		TEXT("summit_rift_observatory"),
+		TEXT("summit_spire_cathedral"),
+		TEXT("summit_obelisk_prime"),
+		TEXT("summit_aether_span"),
+		TEXT("summit_sanctum_crown"),
+		TEXT("summit_orbital_needle")
+	};
+
+	inline const TCHAR* BiomeNames[StationCount] = {
+		TEXT("Mist"), TEXT("Arid"), TEXT("Forest"), TEXT("Ember"), TEXT("Crystal"),
+		TEXT("Void"), TEXT("Tundra"), TEXT("Aether"), TEXT("Sanctum"), TEXT("Pinnacle")
+	};
+
+	inline float GetStationYawDeg(int32 Index)
+	{
+		return static_cast<float>(Index) * AngleStepDeg;
+	}
+
+	inline FVector GetStationLocation(int32 Index)
+	{
+		if (Index < 0 || Index >= StationCount)
+		{
+			return FVector::ZeroVector;
+		}
+		const float AngleRad = FMath::DegreesToRadians(GetStationYawDeg(Index));
+		return FVector(
+			HelixRadiusCm * FMath::Cos(AngleRad),
+			HelixRadiusCm * FMath::Sin(AngleRad),
+			StationAltitudeCm[Index]);
+	}
+
+	/** Safe DemoTour / teleport landing above pad top. */
+	inline FVector GetTourLandingLocation(int32 Index)
+	{
+		const FVector Station = GetStationLocation(Index);
+		return Station + FVector(0.f, 0.f, TourLandingClearanceCm);
+	}
+
+	inline FVector GetValleySpawnLocation()
+	{
+		// Offset from central mast so the opening frame reads the Valley Gate.
+		return FVector(350.f, 0.f, PlayerStartZCm);
+	}
+
+	inline FName GetSummitId(int32 Index)
+	{
+		if (Index < 0 || Index >= StationCount)
+		{
+			return NAME_None;
+		}
+		return FName(SummitIds[Index]);
+	}
+
+	inline FLinearColor GetBiomeTint(int32 Index)
+	{
+		switch (Index)
+		{
+		case 0: return FLinearColor(0.45f, 0.55f, 0.70f); // Mist cool grey-blue
+		case 1: return FLinearColor(0.72f, 0.45f, 0.28f); // Arid rust-ochre
+		case 2: return FLinearColor(0.28f, 0.52f, 0.32f); // Forest green
+		case 3: return FLinearColor(0.42f, 0.22f, 0.16f); // Ember readable charcoal-rust
+		case 4: return FLinearColor(0.35f, 0.75f, 0.85f); // Crystal teal
+		case 5: return FLinearColor(0.28f, 0.22f, 0.42f); // Void purple-grey (readable)
+		case 6: return FLinearColor(0.78f, 0.85f, 0.92f); // Tundra ice
+		case 7: return FLinearColor(0.62f, 0.52f, 0.82f); // Aether lilac
+		case 8: return FLinearColor(0.82f, 0.68f, 0.35f); // Sanctum gold
+		case 9: return FLinearColor(0.85f, 0.92f, 1.00f); // Pinnacle cyan-white
+		default: return FLinearColor::Gray;
+		}
+	}
+
+	inline FLinearColor GetBiomeLightColor(int32 Index)
+	{
+		switch (Index)
+		{
+		case 0: return FLinearColor(0.35f, 0.55f, 1.0f);
+		case 1: return FLinearColor(1.0f, 0.55f, 0.25f);
+		case 2: return FLinearColor(0.35f, 0.85f, 0.40f);
+		case 3: return FLinearColor(1.0f, 0.35f, 0.08f);
+		case 4: return FLinearColor(0.25f, 0.90f, 1.0f);
+		case 5: return FLinearColor(0.55f, 0.20f, 0.90f);
+		case 6: return FLinearColor(0.70f, 0.85f, 1.0f);
+		case 7: return FLinearColor(0.75f, 0.55f, 1.0f);
+		case 8: return FLinearColor(1.0f, 0.80f, 0.35f);
+		case 9: return FLinearColor(0.85f, 0.95f, 1.0f);
+		default: return FLinearColor::White;
+		}
+	}
+}

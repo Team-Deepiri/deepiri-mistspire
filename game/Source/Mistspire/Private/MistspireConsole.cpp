@@ -13,6 +13,7 @@
 #include "MistspireObservationRecorder.h"
 #include "MistspireEntitySubsystem.h"
 #include "MistspireDemoMode.h"
+#include "MistspireDemoClimbScaffold.h"
 #include "AI/MistspireStateMachine.h"
 #include "AI/MistspireAIController.h"
 #include "AI/MistspireGOAP.h"
@@ -617,3 +618,24 @@ static FAutoConsoleCommand CmdMistspireApplyDemo(
 	TEXT("mistspire.ApplyDemoPresentation"),
 	TEXT("Re-run demo HUD/dialogue/ghost presentation now."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireApplyDemoPresentation));
+
+static void MistspireRebuildDemoScaffold(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	if (AMistspireDemoClimbScaffold* Scaffold = AMistspireDemoClimbScaffold::EnsureInWorld(GWorld))
+	{
+		UE_LOG(LogTemp, Log, TEXT("Mistspire: DemoClimbScaffold rebuilt at %s"), *Scaffold->GetName());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Mistspire: failed to spawn DemoClimbScaffold."));
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireRebuildDemoScaffold(
+	TEXT("mistspire.RebuildDemoScaffold"),
+	TEXT("Spawn or rebuild the Demo Spire climb scaffold (geometry + immersion props)."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireRebuildDemoScaffold));

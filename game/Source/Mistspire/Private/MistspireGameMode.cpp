@@ -26,6 +26,8 @@
 #include "MistspireObservationRecorder.h"
 #include "MistspireLeaderboardService.h"
 #include "MistspireDemoMode.h"
+#include "MistspireDemoSpireLayout.h"
+#include "MistspireDemoClimbScaffold.h"
 #include "AI/MistspireAIController.h"
 
 AMistspireGameMode::AMistspireGameMode()
@@ -47,6 +49,38 @@ void AMistspireGameMode::StartPlay()
 
 	if (UWorld* World = GetWorld())
 	{
+		if (MistspireDemoMode::IsEnabled())
+		{
+			AMistspireDemoClimbScaffold::EnsureInWorld(World);
+
+			// Land the player at the Valley Gate after scaffold exists.
+			TWeakObjectPtr<UWorld> WeakWorld(World);
+			World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateLambda([WeakWorld]()
+			{
+				UWorld* WorldInner = WeakWorld.Get();
+				if (!WorldInner)
+				{
+					return;
+				}
+				if (APlayerController* PC = WorldInner->GetFirstPlayerController())
+				{
+					if (APawn* Pawn = PC->GetPawn())
+					{
+						const FVector Spawn = MistspireDemoSpire::GetValleySpawnLocation();
+						if (AMistspireVRPawn* MistPawn = Cast<AMistspireVRPawn>(Pawn))
+						{
+							MistPawn->ResetMotionForDebugTeleport();
+							MistPawn->ApplyTeleport(Spawn);
+						}
+						else
+						{
+							Pawn->SetActorLocation(Spawn, false, nullptr, ETeleportType::TeleportPhysics);
+						}
+					}
+				}
+			}));
+		}
+
 		World->GetSubsystem<UMistspireAltitudeDebugSubsystem>();
 
 		if (UGameInstance* GI = World->GetGameInstance())
@@ -114,16 +148,30 @@ void AMistspireGameMode::SeedDefaultSummits()
 		return;
 	}
 
-	Registry->RegisterSummit(TEXT("summit_valley_gate"), FVector(0.f, 0.f, 50000.f), 50000.f);           // Mist
-	Registry->RegisterSummit(TEXT("summit_mesa_crown"), FVector(25000.f, 0.f, 200000.f), 200000.f);       // Arid
-	Registry->RegisterSummit(TEXT("summit_cloud_garden"), FVector(0.f, 25000.f, 400000.f), 400000.f);     // Forest
-	Registry->RegisterSummit(TEXT("summit_ember_crown"), FVector(-25000.f, 0.f, 600000.f), 600000.f);     // Ember
-	Registry->RegisterSummit(TEXT("summit_rift_observatory"), FVector(0.f, -25000.f, 800000.f), 800000.f); // Crystal
-	Registry->RegisterSummit(TEXT("summit_spire_cathedral"), FVector(30000.f, 30000.f, 1050000.f), 1050000.f); // Void
-	Registry->RegisterSummit(TEXT("summit_obelisk_prime"), FVector(-30000.f, 30000.f, 1300000.f), 1300000.f); // Tundra
-	Registry->RegisterSummit(TEXT("summit_aether_span"), FVector(30000.f, -30000.f, 1500000.f), 1500000.f); // Aether
-	Registry->RegisterSummit(TEXT("summit_sanctum_crown"), FVector(-30000.f, -30000.f, 1700000.f), 1700000.f); // Sanctum
-	Registry->RegisterSummit(TEXT("summit_orbital_needle"), FVector(0.f, 0.f, 1900000.f), 1900000.f);     // Pinnacle
+	if (MistspireDemoMode::IsEnabled())
+	{
+		// Demo Spire helix — keep in sync with MistspireDemoSpireLayout / AMistspireDemoClimbScaffold.
+		for (int32 i = 0; i < MistspireDemoSpire::StationCount; ++i)
+		{
+			Registry->RegisterSummit(
+				MistspireDemoSpire::GetSummitId(i),
+				MistspireDemoSpire::GetStationLocation(i),
+				MistspireDemoSpire::StationAltitudeCm[i]);
+		}
+		return;
+	}
+
+	// Non-demo: spread summits for beacon bearing / open-world play.
+	Registry->RegisterSummit(TEXT("summit_valley_gate"), FVector(0.f, 0.f, 50000.f), 50000.f);
+	Registry->RegisterSummit(TEXT("summit_mesa_crown"), FVector(25000.f, 0.f, 200000.f), 200000.f);
+	Registry->RegisterSummit(TEXT("summit_cloud_garden"), FVector(0.f, 25000.f, 400000.f), 400000.f);
+	Registry->RegisterSummit(TEXT("summit_ember_crown"), FVector(-25000.f, 0.f, 600000.f), 600000.f);
+	Registry->RegisterSummit(TEXT("summit_rift_observatory"), FVector(0.f, -25000.f, 800000.f), 800000.f);
+	Registry->RegisterSummit(TEXT("summit_spire_cathedral"), FVector(30000.f, 30000.f, 1050000.f), 1050000.f);
+	Registry->RegisterSummit(TEXT("summit_obelisk_prime"), FVector(-30000.f, 30000.f, 1300000.f), 1300000.f);
+	Registry->RegisterSummit(TEXT("summit_aether_span"), FVector(30000.f, -30000.f, 1500000.f), 1500000.f);
+	Registry->RegisterSummit(TEXT("summit_sanctum_crown"), FVector(-30000.f, -30000.f, 1700000.f), 1700000.f);
+	Registry->RegisterSummit(TEXT("summit_orbital_needle"), FVector(0.f, 0.f, 1900000.f), 1900000.f);
 }
 
 void AMistspireGameMode::SeedWorldAtlas()
@@ -272,6 +320,11 @@ bool AMistspireGameMode::HasGroundUnderLocation(const FVector& Location) const
 
 FVector AMistspireGameMode::ResolveNonVRSpawnLocation() const
 {
+	if (MistspireDemoMode::IsEnabled())
+	{
+		return MistspireDemoSpire::GetValleySpawnLocation();
+	}
+
 	const UWorld* World = GetWorld();
 	if (!World)
 	{
@@ -291,6 +344,13 @@ void AMistspireGameMode::EnsureNonVRPlayground()
 	UWorld* World = GetWorld();
 	if (!World)
 	{
+		return;
+	}
+
+	// Demo Spire already provides valley floor + climb geometry.
+	if (MistspireDemoMode::IsEnabled())
+	{
+		UE_LOG(LogTemp, Log, TEXT("Mistspire non-VR: demo scaffold provides playground geometry."));
 		return;
 	}
 

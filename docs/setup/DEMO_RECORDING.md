@@ -44,14 +44,16 @@ Or in console after PIE: `mistspire.DemoMode 1` then `mistspire.ApplyDemoPresent
 
 ## Summit registry (demo altitudes)
 
-Seeds sit near biome mid-bands (cm), offset from origin XY for a compact teleport tour: Mist 0.5 km, Arid 2 km, Forest 4 km, Ember 6 km, Crystal 8 km, Void 10.5 km, Tundra 13 km, Aether 15 km, Sanctum 17 km, Pinnacle 19 km.
+Seeds follow the **Demo Spire helix** ([DEMO_WORLD.md](../gameplay/DEMO_WORLD.md)): Mist 0.5 km … Pinnacle 19 km at radius 2500 cm, 36° steps. `mistspire.DemoTour` lands on those pads.
 
 `mistspire.DemoTour -1` clears forced biome visuals after the tour.
 
-## Unreal MCP (map pass later)
+Geometry: auto-spawned by `AMistspireDemoClimbScaffold` under `-demoworld`, or `mistspire.RebuildDemoScaffold`.
 
-With the editor up: `http://127.0.0.1:8000/mcp` should return **405**. Clients: Cursor, `claude`, `agy`. See [AGENTS.md](../../AGENTS.md).
+## Unreal MCP (optional polish)
+
+With the editor up: streamable HTTP at `http://127.0.0.1:8000/mcp`. Clients: Cursor, `claude`, `agy`. See [AGENTS.md](../../AGENTS.md).
 
 ## Out of scope for this sheet
 
-C++ climb scaffold, PCG biome meshes, Valley of the Ancient.
+Production PCG biome meshes, Valley of the Ancient.

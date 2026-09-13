@@ -5,6 +5,7 @@
 #include "MistspireGameState.h"
 #include "MistspireVRPawn.h"
 #include "MistspireVisualEnhancementSubsystem.h"
+#include "MistspireDemoSpireLayout.h"
 #include "AI/MistspireWanderingGhost.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -23,22 +24,6 @@ static TAutoConsoleVariable<int32> CVarMistspireDemoMode(
 
 namespace
 {
-	/** Mid-band altitudes (cm) aligned with BiomeFromAltitude in MistspireEnvironmentSubsystem. */
-	constexpr float GDemoBiomeMidCm[] = {
-		50000.f,   // Mist 0–1 km
-		200000.f,  // Arid 1–3 km
-		400000.f,  // Forest 3–5 km
-		600000.f,  // Ember 5–7 km
-		800000.f,  // Crystal 7–9 km
-		1050000.f, // Void 9–12 km
-		1300000.f, // Tundra 12–14 km
-		1500000.f, // Aether 14–16 km
-		1700000.f, // Sanctum 16–18 km
-		1900000.f  // Pinnacle 18–20 km
-	};
-
-	constexpr int32 GDemoBiomeCount = UE_ARRAY_COUNT(GDemoBiomeMidCm);
-
 	bool IsPlayWorld(const UWorld* World)
 	{
 		return World
@@ -151,7 +136,7 @@ bool MistspireDemoMode::TeleportToBiomeIndex(UWorld* World, int32 BiomeIndex, bo
 		return true;
 	}
 
-	if (BiomeIndex < 0 || BiomeIndex >= GDemoBiomeCount)
+	if (BiomeIndex < 0 || BiomeIndex >= MistspireDemoSpire::StationCount)
 	{
 		return false;
 	}
@@ -163,9 +148,7 @@ bool MistspireDemoMode::TeleportToBiomeIndex(UWorld* World, int32 BiomeIndex, bo
 		return false;
 	}
 
-	const float TargetZ = GDemoBiomeMidCm[BiomeIndex];
-	// Offset XY so we do not land exactly on summit markers at origin.
-	const FVector Loc(15000.f, 15000.f, TargetZ);
+	const FVector Loc = MistspireDemoSpire::GetTourLandingLocation(BiomeIndex);
 
 	if (AMistspireVRPawn* MistPawn = Cast<AMistspireVRPawn>(Pawn))
 	{
@@ -190,6 +173,7 @@ bool MistspireDemoMode::TeleportToBiomeIndex(UWorld* World, int32 BiomeIndex, bo
 		}
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Mistspire DemoTour: biome index %d -> Z=%.0f cm"), BiomeIndex, TargetZ);
+	UE_LOG(LogTemp, Log, TEXT("Mistspire DemoTour: biome index %d -> %s (%.0f, %.0f, %.0f)"),
+		BiomeIndex, MistspireDemoSpire::BiomeNames[BiomeIndex], Loc.X, Loc.Y, Loc.Z);
 	return true;
 }

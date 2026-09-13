@@ -52,15 +52,22 @@ The altitude-to-biome mapping is driven by `UMistspireEnvironmentSubsystem::Biom
 
 ## Summits (seeded in C++)
 
+Demo / default seeds use the **Demo Spire helix** — see [DEMO_WORLD.md](DEMO_WORLD.md) and `MistspireDemoSpireLayout.h`.
+
 | ID | Theme |
 |----|-------|
-| `summit_valley_gate` | Tutorial exit |
-| `summit_mesa_crown` | First major climb |
-| `summit_cloud_garden` | Sky island |
-| `summit_obelisk_prime` | Tallest authored spire |
-| `summit_orbital_needle` | Endgame |
+| `summit_valley_gate` | Tutorial exit / Mist station |
+| `summit_mesa_crown` | Arid mesa |
+| `summit_cloud_garden` | Forest sky island |
+| `summit_ember_crown` | Ember crown |
+| `summit_rift_observatory` | Crystal observatory |
+| `summit_spire_cathedral` | Void cathedral |
+| `summit_obelisk_prime` | Tundra obelisk |
+| `summit_aether_span` | Aether span |
+| `summit_sanctum_crown` | Sanctum plinth |
+| `summit_orbital_needle` | Endgame needle |
 
-Reposition in editor after creating `Main_WP`.
+Reposition via layout header + `mistspire.RebuildDemoScaffold` (prefer over hand-moving scattered seeds).
 
 ## Traversal
 
