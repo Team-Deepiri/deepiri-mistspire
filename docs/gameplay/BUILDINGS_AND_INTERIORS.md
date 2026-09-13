@@ -22,6 +22,8 @@ Interiors are spaced along **+X** starting at `X = 5,000,000 cm` (50 km), **800 
 | `building_valley_gear` | (5800000, 0, 20000) |
 | … | +800000 X per index |
 
+Demo Spire (`-demoworld`): Mist Inn **exterior door** is at ~(700, -400, 150) near valley spawn; pocket geometry is runtime-built by `AMistspireDemoClimbScaffold` at the valley-inn origin above. See [DEMO_WORLD.md](DEMO_WORLD.md).
+
 See `SeedProductionWorld()` in `MistspireWorldAtlasSubsystem.cpp` for the full list.
 
 ## Authoring in editor

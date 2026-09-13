@@ -107,6 +107,7 @@ Bindings include: `move`, `strafe`, `turn`, `grip`, `jump`, `climb`, `grapple`, 
 - `mistspire.DemoTour 0`…`9` — teleport biome mid-bands with forced visuals
 - `mistspire.ApplyDemoPresentation` — re-run demo presentation
 - `mistspire.RebuildDemoScaffold` — spawn/rebuild Demo Spire geometry + immersion props
+- `mistspire.DemoJoeBeat` — Speak / ghost / AIThink / GOAP recording sequence
 - Owner recording sheet: [docs/setup/DEMO_RECORDING.md](docs/setup/DEMO_RECORDING.md)
 - Demo world layout: [docs/gameplay/DEMO_WORLD.md](docs/gameplay/DEMO_WORLD.md)
 - Full command list: see [docs/gameplay/IMMERSION.md](docs/gameplay/IMMERSION.md).

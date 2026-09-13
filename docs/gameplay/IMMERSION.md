@@ -76,6 +76,10 @@ mistspire.LoadProgress
 mistspire.VisualDebug
 mistspire.ForceBiomeVisuals 4
 mistspire.DebugAudioStats
+mistspire.DemoTour 0            # 0–9 mid-band tour; -1 clears
+mistspire.RebuildDemoScaffold
+mistspire.DemoJoeBeat
+mistspire.ApplyDemoPresentation
 ```
 
 ## Huge world & buildings

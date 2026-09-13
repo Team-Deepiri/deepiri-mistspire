@@ -2,6 +2,7 @@
 #include "MistspireBuildingEntrance.h"
 #include "MistspireInteriorExit.h"
 #include "MistspirePOIMarker.h"
+#include "MistspireDemoSpireLayout.h"
 #include "Engine/World.h"
 
 FText UMistspireWorldAtlasSubsystem::GetDistrictDisplayName(EMistspireWorldDistrict District)
@@ -173,7 +174,15 @@ void UMistspireWorldAtlasSubsystem::SeedProductionWorld()
 		return FVector(5000000.f + PocketIndex++ * 800000.f, 0.f, 20000.f);
 	};
 
-	AddBuilding(TEXT("building_valley_inn"), TEXT("valley_haven"), FVector(12000, -8000, 18000), PocketOffset(), TEXT("Mist Inn"), TEXT("Warm air spills from the door."));
+	// Door sits next to Demo Spire valley spawn; interior is the first atlas pocket (shared constant).
+	AddBuilding(
+		TEXT("building_valley_inn"),
+		TEXT("valley_haven"),
+		MistspireDemoSpire::GetMistInnDoorLocation(),
+		MistspireDemoSpire::GetMistInnInteriorSpawn(),
+		TEXT("Mist Inn"),
+		TEXT("Warm air spills from the door."));
+	++PocketIndex; // keep subsequent pocket spacing aligned with prior layout
 	AddBuilding(TEXT("building_valley_gear"), TEXT("valley_haven"), FVector(-15000, 22000, 17500), PocketOffset(), TEXT("Rope & Rivet"), TEXT("Climbing gear clinks inside."));
 	AddBuilding(TEXT("building_mist_tea"), TEXT("mistmarket"), FVector(710000, 12000, 22000), PocketOffset(), TEXT("White Tea House"), TEXT("Steam masks the entrance."));
 	AddBuilding(TEXT("building_mist_cartographer"), TEXT("mistmarket"), FVector(695000, -18000, 21500), PocketOffset(), TEXT("Cartographer's Shed"), TEXT("Maps rustle."));

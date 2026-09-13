@@ -47,10 +47,12 @@ protected:
 private:
 	void ClearBuiltActors();
 	void BuildValley();
+	void BuildMistInnPocket();
 	void BuildApproachHelix();
 	void BuildStation(int32 StationIndex);
 	void BuildDistantSilhouettes();
 	void SpawnImmersionForStation(int32 StationIndex, const FVector& StationLoc);
+	void SpawnValleyImmersionProps();
 
 	UStaticMeshComponent* AddCube(
 		const FName& NameBase,

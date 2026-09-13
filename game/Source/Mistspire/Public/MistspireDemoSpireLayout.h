@@ -88,6 +88,21 @@ namespace MistspireDemoSpire
 		return FVector(350.f, 0.f, PlayerStartZCm);
 	}
 
+	/** Mist Inn exterior door — camera-reachable from valley spawn. */
+	inline FVector GetMistInnDoorLocation()
+	{
+		return FVector(700.f, -400.f, 150.f);
+	}
+
+	/**
+	 * Mist Inn pocket interior origin (matches atlas building_valley_inn first pocket).
+	 * Geometry is runtime-built by AMistspireDemoClimbScaffold under -demoworld.
+	 */
+	inline FVector GetMistInnInteriorSpawn()
+	{
+		return FVector(5000000.f, 0.f, 20000.f);
+	}
+
 	inline FName GetSummitId(int32 Index)
 	{
 		if (Index < 0 || Index >= StationCount)

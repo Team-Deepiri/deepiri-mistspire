@@ -39,4 +39,5 @@ __pycache__/
 
 # Local agent/build review artifacts
 _build_logs/
+docs/gameplay/_demo_spire_*
 

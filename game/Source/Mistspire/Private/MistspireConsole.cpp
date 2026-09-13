@@ -22,6 +22,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "HAL/IConsoleManager.h"
+#include "TimerManager.h"
 
 static void MistspireAltitudeStats(const TArray<FString>& Args)
 {
@@ -639,3 +640,115 @@ static FAutoConsoleCommand CmdMistspireRebuildDemoScaffold(
 	TEXT("mistspire.RebuildDemoScaffold"),
 	TEXT("Spawn or rebuild the Demo Spire climb scaffold (geometry + immersion props)."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireRebuildDemoScaffold));
+
+static void MistspireDemoJoeBeat(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+
+	UWorld* World = GWorld;
+	UE_LOG(LogTemp, Log, TEXT("Mistspire DemoJoeBeat: starting Speak / ghost / AI / GOAP sequence."));
+
+	auto Speak = [World](FName LineId)
+	{
+		if (UMistspireDialogueSubsystem* Dialogue = World->GetSubsystem<UMistspireDialogueSubsystem>())
+		{
+			Dialogue->Speak(LineId);
+		}
+	};
+
+	auto EnsureAI = [World]() -> AMistspireAIController*
+	{
+		for (TActorIterator<AMistspireAIController> It(World); It; ++It)
+		{
+			if (IsValid(*It))
+			{
+				return *It;
+			}
+		}
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		return World->SpawnActor<AMistspireAIController>(
+			AMistspireAIController::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, Params);
+	};
+
+	Speak(TEXT("companion_greeting"));
+
+	FTimerHandle GhostHandle;
+	World->GetTimerManager().SetTimer(GhostHandle, FTimerDelegate::CreateLambda([World, Speak]()
+	{
+		if (!IsValid(World))
+		{
+			return;
+		}
+		FVector SpawnLocation = FVector(600.f, 200.f, 400.f);
+		if (const APawn* Pawn = World->GetFirstPlayerController() ? World->GetFirstPlayerController()->GetPawn() : nullptr)
+		{
+			SpawnLocation = Pawn->GetActorLocation() + FVector(400.f, 200.f, 200.f);
+		}
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		World->SpawnActor<AMistspireWanderingGhost>(SpawnLocation, FRotator::ZeroRotator, Params);
+		Speak(TEXT("ghost_whisper"));
+	}), 1.5f, false);
+
+	FTimerHandle ThinkHandle;
+	World->GetTimerManager().SetTimer(ThinkHandle, FTimerDelegate::CreateLambda([World, EnsureAI]()
+	{
+		if (!IsValid(World))
+		{
+			return;
+		}
+		if (AMistspireAIController* AI = EnsureAI())
+		{
+			FMistspireAIWorldState State = AMistspireAIController::SnapshotFromPawn(
+				World->GetFirstPlayerController() ? World->GetFirstPlayerController()->GetPawn() : nullptr,
+				World);
+			AI->UpdateWorldState(State);
+			const FMistspireUtilityDecision Decision = AI->RunUtilityDecision();
+			UE_LOG(LogTemp, Log, TEXT("Mistspire DemoJoeBeat: utility = %s (%.2f)"),
+				Decision.bValid ? *Decision.DecisionName.ToString() : TEXT("none"), Decision.Score);
+		}
+
+		FMistspireGOAPState Goal;
+		Goal.Facts.FindOrAdd(TEXT("BeaconReached")) = true;
+		const FMistspireAIWorldState State = AMistspireAIController::SnapshotFromPawn(
+			World->GetFirstPlayerController() ? World->GetFirstPlayerController()->GetPawn() : nullptr,
+			World);
+		const FMistspireGOAPState Start = AMistspireAIController::BuildGOAPStartState(State);
+		const TArray<FMistspireGOAPAction> Actions = UMistspireGOAPPlanner::BuildMistspireActionLibrary();
+		TArray<FMistspireGOAPAction> Plan;
+		if (UMistspireGOAPPlanner::Plan(Start, Goal, Actions, Plan))
+		{
+			FString PlanText;
+			for (const FMistspireGOAPAction& Action : Plan)
+			{
+				if (!PlanText.IsEmpty())
+				{
+					PlanText += TEXT(" -> ");
+				}
+				PlanText += Action.ActionName.ToString();
+			}
+			UE_LOG(LogTemp, Log, TEXT("Mistspire DemoJoeBeat: GOAP [%s]"),
+				PlanText.IsEmpty() ? TEXT("(goal satisfied)") : *PlanText);
+		}
+	}), 3.5f, false);
+
+	FTimerHandle CloseHandle;
+	World->GetTimerManager().SetTimer(CloseHandle, FTimerDelegate::CreateLambda([World, Speak]()
+	{
+		if (!IsValid(World))
+		{
+			return;
+		}
+		Speak(TEXT("summit_breath"));
+		UE_LOG(LogTemp, Log, TEXT("Mistspire DemoJoeBeat: complete."));
+	}), 5.5f, false);
+}
+
+static FAutoConsoleCommand CmdMistspireDemoJoeBeat(
+	TEXT("mistspire.DemoJoeBeat"),
+	TEXT("Owner recording: Speak companion_greeting → ghost → AIThink/GOAP → summit_breath."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireDemoJoeBeat));

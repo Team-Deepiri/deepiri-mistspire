@@ -5,6 +5,7 @@
 #include "MistspireOxygenCanister.h"
 #include "MistspireWindCrystal.h"
 #include "MistspireLoreShard.h"
+#include "MistspirePhysicalButton.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SceneComponent.h"
@@ -96,6 +97,7 @@ void AMistspireDemoClimbScaffold::Rebuild()
 	}
 
 	BuildValley();
+	BuildMistInnPocket();
 	BuildCentralMast();
 	if (bSpawnApproachHelix)
 	{
@@ -113,7 +115,12 @@ void AMistspireDemoClimbScaffold::Rebuild()
 		BuildDistantSilhouettes();
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Mistspire DemoClimbScaffold: rebuilt %d stations + valley/approach/shaft."),
+	if (bSpawnImmersionProps)
+	{
+		SpawnValleyImmersionProps();
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("Mistspire DemoClimbScaffold: rebuilt %d stations + valley/Mist Inn/approach/shaft."),
 		MistspireDemoSpire::StationCount);
 }
 
@@ -261,14 +268,105 @@ void AMistspireDemoClimbScaffold::BuildValley()
 	AddCube(TEXT("ArchLintel"), FVector(-250.f, 0.f, 620.f), FVector(1.4f, 9.f, 1.f), Identity, MistTint);
 	AddCube(TEXT("BrazierPlinth"), FVector(-100.f, 0.f, 40.f), FVector(1.f, 1.f, 0.8f), Identity, FLinearColor(0.2f, 0.35f, 0.7f));
 
+	// Mist Inn porch marker near the atlas door (readable from valley spawn).
+	const FVector InnDoor = MistspireDemoSpire::GetMistInnDoorLocation();
+	AddCube(TEXT("InnPorch"), InnDoor + FVector(0.f, 0.f, -10.f), FVector(4.f, 4.f, 0.2f), Identity, FLinearColor(0.35f, 0.28f, 0.22f));
+	AddCube(TEXT("InnFrameL"), InnDoor + FVector(0.f, -90.f, 160.f), FVector(0.4f, 0.4f, 3.2f), Identity, FLinearColor(0.4f, 0.3f, 0.22f));
+	AddCube(TEXT("InnFrameR"), InnDoor + FVector(0.f, 90.f, 160.f), FVector(0.4f, 0.4f, 3.2f), Identity, FLinearColor(0.4f, 0.3f, 0.22f));
+	AddCube(TEXT("InnLintel"), InnDoor + FVector(0.f, 0.f, 330.f), FVector(0.5f, 2.2f, 0.4f), Identity, FLinearColor(0.45f, 0.32f, 0.2f));
+
 	UPointLightComponent* Brazier = NewObject<UPointLightComponent>(
 		this, MakeUniqueObjectName(this, UPointLightComponent::StaticClass(), TEXT("ValleyBrazierLight")));
 	Brazier->SetupAttachment(Root);
 	Brazier->SetWorldLocation(FVector(-100.f, 0.f, 120.f));
 	Brazier->SetLightColor(MistspireDemoSpire::GetBiomeLightColor(0));
-	Brazier->SetIntensity(8000.f);
-	Brazier->SetAttenuationRadius(1200.f);
+	Brazier->SetIntensity(10000.f);
+	Brazier->SetAttenuationRadius(1400.f);
 	Brazier->RegisterComponent();
+
+	UPointLightComponent* InnGlow = NewObject<UPointLightComponent>(
+		this, MakeUniqueObjectName(this, UPointLightComponent::StaticClass(), TEXT("InnPorchLight")));
+	InnGlow->SetupAttachment(Root);
+	InnGlow->SetWorldLocation(InnDoor + FVector(0.f, 0.f, 280.f));
+	InnGlow->SetLightColor(FLinearColor(1.f, 0.72f, 0.4f));
+	InnGlow->SetIntensity(6000.f);
+	InnGlow->SetAttenuationRadius(900.f);
+	InnGlow->RegisterComponent();
+}
+
+void AMistspireDemoClimbScaffold::BuildMistInnPocket()
+{
+	const FVector Origin = MistspireDemoSpire::GetMistInnInteriorSpawn();
+	const FRotator Identity = FRotator::ZeroRotator;
+	const FLinearColor WarmWood(0.42f, 0.30f, 0.18f);
+	const FLinearColor WarmFloor(0.28f, 0.22f, 0.16f);
+	const FLinearColor Hearth(0.55f, 0.25f, 0.12f);
+
+	// Simple pocket room (~8×6×4 m) around atlas interior spawn.
+	AddCube(TEXT("InnFloor"), Origin + FVector(0.f, 0.f, -20.f), FVector(8.f, 6.f, 0.4f), Identity, WarmFloor);
+	AddCube(TEXT("InnCeiling"), Origin + FVector(0.f, 0.f, 400.f), FVector(8.f, 6.f, 0.3f), Identity, WarmWood);
+	AddCube(TEXT("InnWallBack"), Origin + FVector(-400.f, 0.f, 180.f), FVector(0.3f, 6.f, 4.f), Identity, WarmWood);
+	AddCube(TEXT("InnWallL"), Origin + FVector(0.f, -300.f, 180.f), FVector(8.f, 0.3f, 4.f), Identity, WarmWood);
+	AddCube(TEXT("InnWallR"), Origin + FVector(0.f, 300.f, 180.f), FVector(8.f, 0.3f, 4.f), Identity, WarmWood);
+	AddCube(TEXT("InnHearth"), Origin + FVector(-280.f, 0.f, 80.f), FVector(1.2f, 2.f, 1.6f), Identity, Hearth);
+	AddCube(TEXT("InnTable"), Origin + FVector(80.f, 120.f, 50.f), FVector(1.5f, 1.f, 0.8f), Identity, WarmWood);
+
+	UPointLightComponent* HearthLight = NewObject<UPointLightComponent>(
+		this, MakeUniqueObjectName(this, UPointLightComponent::StaticClass(), TEXT("InnHearthLight")));
+	HearthLight->SetupAttachment(Root);
+	HearthLight->SetWorldLocation(Origin + FVector(-250.f, 0.f, 160.f));
+	HearthLight->SetLightColor(FLinearColor(1.f, 0.55f, 0.25f));
+	HearthLight->SetIntensity(9000.f);
+	HearthLight->SetAttenuationRadius(1200.f);
+	HearthLight->RegisterComponent();
+}
+
+void AMistspireDemoClimbScaffold::SpawnValleyImmersionProps()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	Params.Owner = this;
+
+	const FVector InnDoor = MistspireDemoSpire::GetMistInnDoorLocation();
+	if (AMistspirePhysicalButton* WeatherBtn = World->SpawnActor<AMistspirePhysicalButton>(
+		InnDoor + FVector(-120.f, 160.f, 40.f), FRotator::ZeroRotator, Params))
+	{
+		WeatherBtn->BuiltInAction = EMistspireButtonAction::CycleWeather;
+#if WITH_EDITOR
+		WeatherBtn->SetActorLabel(TEXT("DemoWeatherButton"));
+#endif
+		SpawnedPropActors.Add(WeatherBtn);
+	}
+
+	// Door + interior exit come from UMistspireWorldAtlasSubsystem::SpawnAuthoredWorldMarkers
+	// (building_valley_inn now points at GetMistInnDoorLocation / GetMistInnInteriorSpawn).
+
+	const FVector Interior = MistspireDemoSpire::GetMistInnInteriorSpawn();
+	if (AMistspireRestShelter* Shelter = World->SpawnActor<AMistspireRestShelter>(
+		Interior + FVector(120.f, -80.f, 40.f), FRotator::ZeroRotator, Params))
+	{
+#if WITH_EDITOR
+		Shelter->SetActorLabel(TEXT("DemoInnShelter"));
+#endif
+		SpawnedPropActors.Add(Shelter);
+	}
+
+	if (AMistspireLoreShard* Shard = World->SpawnActor<AMistspireLoreShard>(
+		Interior + FVector(-100.f, 140.f, 60.f), FRotator::ZeroRotator, Params))
+	{
+		Shard->LoreTitle = NSLOCTEXT("Mistspire", "InnLoreTitle", "Mist Inn");
+		Shard->LoreBody = NSLOCTEXT("Mistspire", "InnLoreBody", "Warmth below the Gate. Climb when the mist thins.");
+#if WITH_EDITOR
+		Shard->SetActorLabel(TEXT("DemoInnLore"));
+#endif
+		SpawnedPropActors.Add(Shard);
+	}
 }
 
 void AMistspireDemoClimbScaffold::BuildCentralMast()
@@ -446,8 +544,8 @@ void AMistspireDemoClimbScaffold::BuildStation(int32 StationIndex)
 	Light->SetupAttachment(Root);
 	Light->SetWorldLocation(Station + FVector(0.f, 0.f, 250.f));
 	Light->SetLightColor(MistspireDemoSpire::GetBiomeLightColor(StationIndex));
-	Light->SetIntensity(StationIndex >= 3 ? 12000.f : 6000.f);
-	Light->SetAttenuationRadius(1800.f);
+	Light->SetIntensity(StationIndex >= 3 ? 18000.f : 10000.f);
+	Light->SetAttenuationRadius(2400.f);
 	Light->RegisterComponent();
 
 	if (bSpawnImmersionProps)
@@ -543,12 +641,29 @@ void AMistspireDemoClimbScaffold::BuildDistantSilhouettes()
 			Radius * FMath::Cos(AngleRad),
 			Radius * FMath::Sin(AngleRad),
 			MistspireDemoSpire::StationAltitudeCm[i] * 0.35f);
+		const FLinearColor Tint = MistspireDemoSpire::GetBiomeTint(i) * 0.75f;
 		AddCube(
 			*FString::Printf(TEXT("Silhouette_%d"), i),
 			Loc,
-			FVector(30.f, 30.f, 80.f + static_cast<float>(i) * 12.f),
+			FVector(40.f, 40.f, 100.f + static_cast<float>(i) * 16.f),
 			FRotator(0.f, MistspireDemoSpire::GetStationYawDeg(i) + 18.f, 0.f),
-			MistspireDemoSpire::GetBiomeTint(i) * 0.65f,
+			Tint,
 			false);
+		AddCube(
+			*FString::Printf(TEXT("SilhouetteCap_%d"), i),
+			Loc + FVector(0.f, 0.f, 500.f + static_cast<float>(i) * 80.f),
+			FVector(18.f, 18.f, 25.f),
+			FRotator(0.f, MistspireDemoSpire::GetStationYawDeg(i) + 18.f, 0.f),
+			Tint * 1.15f,
+			false);
+
+		UPointLightComponent* Glow = NewObject<UPointLightComponent>(
+			this, MakeUniqueObjectName(this, UPointLightComponent::StaticClass(), *FString::Printf(TEXT("SilhouetteGlow_%d"), i)));
+		Glow->SetupAttachment(Root);
+		Glow->SetWorldLocation(Loc + FVector(0.f, 0.f, 200.f));
+		Glow->SetLightColor(MistspireDemoSpire::GetBiomeLightColor(i));
+		Glow->SetIntensity(40000.f);
+		Glow->SetAttenuationRadius(8000.f);
+		Glow->RegisterComponent();
 	}
 }

@@ -4,7 +4,7 @@ Owner-recording vertical slice for Mistspire. Runtime geometry is spawned by `AM
 
 ## Fantasy
 
-A compact **helix of stone stations** rising through ten mist bands. Empty kilometers between stations stay fog; each station owns a short climb vignette so VR stays readable.
+A compact **helix of stone stations** rising through ten mist bands. Empty kilometers between stations stay fog; each station owns a short climb vignette so VR stays readable. Valley includes a **Mist Inn** porch + pocket interior for a warm camera beat.
 
 ## Layout (source of truth)
 
@@ -15,11 +15,12 @@ Shared constants: [`MistspireDemoSpireLayout.h`](../../game/Source/Mistspire/Pub
 | Helix radius | 2500 cm |
 | Angle step | 36° (10 stations) |
 | Valley floor | Z ≈ 0 |
-| PlayerStart | near (0, 0, 200) |
-| Vignette under pad | 5000 cm |
+| Valley spawn | ~(350, 0, 200) |
+| Mist Inn door | ~(700, -400, 150) |
+| Mist Inn pocket | ~(5 000 000, 0, 20 000) |
 | Approach | Walkable stairs 40 cm rise, 450° helix, StartRadius 2200 |
 | Grapple shaft | Floating pads every 45 m, ±400 Y stagger |
-| Station vignette | Walkable stairs 40 cm × 12 radial into pad |
+| Station vignette | Walkable stairs 40 cm × 12 radial into pad (OutBias ends ~330) |
 | Tour landing clearance | 120 cm above pad |
 
 | Idx | Biome | Z (cm) | Summit ID |
@@ -35,24 +36,27 @@ Shared constants: [`MistspireDemoSpireLayout.h`](../../game/Source/Mistspire/Pub
 | 8 | Sanctum | 1 700 000 | `summit_sanctum_crown` |
 | 9 | Pinnacle | 1 900 000 | `summit_orbital_needle` |
 
-`mistspire.DemoTour N` lands on station pad centers from this table.
+`mistspire.DemoTour N` lands on station pad centers from this table. Inter-station travel for recording is **DemoTour** by design (not a continuous 19 km climb).
 
 ## Modules (greybox)
 
 Engine BasicShapes (cube / cylinder) with biome-tint MIDs:
 
 - Valley floor + Valley Gate arch + brazier light
+- Mist Inn porch + pocket room (hearth, table, warm light)
 - Walkable approach stairs (40 cm) to 60 m, then grapple pad highway to Mist
 - Central lit mast + per-band beacons for vertical readability
-- Per station: large pad, rails, jump stairs into pad, silhouette, point light
-- Distant non-colliding silhouette pillars for parallax
+- Per station: large pad, 3-side rails (RadialOut open), jump stairs into pad, silhouette, point light
+- Distant non-colliding silhouette pillars + glow for parallax
 
 ## Immersion props (spawned with scaffold)
 
 - `AMistspireSummitMarker` on every station (`ReachRadiusCm` 700)
 - `AMistspireRestShelter` + `AMistspireOxygenCanister` on Ember+ (idx ≥ 3)
 - `AMistspireWindCrystal` on Forest, Aether, Pinnacle
-- Lore shard at Mist valley
+- Lore shard at Mist valley + Mist Inn pocket lore
+- Weather cycle button (`AMistspirePhysicalButton`) at Mist Inn porch
+- Mist Inn door (`building_valley_inn`) + interior shelter
 - Valley spawn teleport under `-demoworld`
 
 ## VR / traversal notes
@@ -61,7 +65,7 @@ Engine BasicShapes (cube / cylinder) with biome-tint MIDs:
 - Approach = walkable stairs; Mist ascent after 60 m = **grapple highway** between floating pads
 - Station vignettes = jump stairs into the summit pad (no overhanging climb walls)
 - Pads ≥ 250 cm; station pads 600 cm with comfort rails
-- Recording: walk Mist stairs, grapple a few shaft pads, `DemoTour` for upper biomes
+- Recording: walk Mist stairs, grapple a few shaft pads, enter Mist Inn, `DemoTour` for upper biomes
 
 ## Console
 
@@ -70,6 +74,7 @@ mistspire.RebuildDemoScaffold
 mistspire.DemoTour 0..9
 mistspire.DemoTour -1
 mistspire.ApplyDemoPresentation
+mistspire.DemoJoeBeat
 ```
 
 ## MCP polish (optional)
