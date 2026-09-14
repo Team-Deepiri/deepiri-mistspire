@@ -39,4 +39,6 @@ private:
 	FName CurrentBuildingId = NAME_None;
 	FVector ReturnLocation = FVector::ZeroVector;
 	FRotator ReturnRotation = FRotator::ZeroRotator;
+	/** Game-time until which enter overlaps are ignored (prevents exit→enter bounce). */
+	float EnterIgnoreUntilTime = 0.f;
 };

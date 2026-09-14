@@ -24,6 +24,12 @@ public:
 
 	bool IsCollected() const { return bCollected; }
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Lore")
+	FText LoreTitle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Lore")
+	FText LoreBody;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -32,12 +38,6 @@ protected:
 		int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	void CollectShard(AMistspireVRPawn* Pawn);
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Lore")
-	FText LoreTitle;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Lore")
-	FText LoreBody;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<USphereComponent> ShardSphere;

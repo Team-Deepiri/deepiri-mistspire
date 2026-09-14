@@ -12,6 +12,8 @@
 #include "MistspireDialogueSubsystem.h"
 #include "MistspireObservationRecorder.h"
 #include "MistspireEntitySubsystem.h"
+#include "MistspireDemoMode.h"
+#include "MistspireDemoClimbScaffold.h"
 #include "AI/MistspireStateMachine.h"
 #include "AI/MistspireAIController.h"
 #include "AI/MistspireGOAP.h"
@@ -20,6 +22,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "HAL/IConsoleManager.h"
+#include "TimerManager.h"
 
 static void MistspireAltitudeStats(const TArray<FString>& Args)
 {
@@ -47,6 +50,12 @@ static void MistspireTeleportUp(const TArray<FString>& Args)
 
 	if (APawn* Pawn = GWorld->GetFirstPlayerController() ? GWorld->GetFirstPlayerController()->GetPawn() : nullptr)
 	{
+		// Clear grapple / glider / climb state first: carrying that velocity into a debug hop
+		// yanked the player straight back down or left the rope anchored below them.
+		if (AMistspireVRPawn* MistPawn = Cast<AMistspireVRPawn>(Pawn))
+		{
+			MistPawn->ResetMotionForDebugTeleport();
+		}
 		Pawn->AddActorWorldOffset(FVector(0.f, 0.f, DeltaCm), false, nullptr, ETeleportType::TeleportPhysics);
 	}
 }
@@ -78,7 +87,12 @@ static void MistspireRefillSurvival(const TArray<FString>&)
 	{
 		return;
 	}
-	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(GWorld->GetFirstPlayerController()->GetPawn()))
+	APlayerController* PC = GWorld->GetFirstPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(PC->GetPawn()))
 	{
 		Pawn->ApplyShelterRefill(100.f, 100.f, 1.f);
 	}
@@ -190,7 +204,12 @@ static void MistspireTeleportDistrict(const TArray<FString>& Args)
 		const TArray<FMistspireDistrictEntry>& Districts = Atlas->GetDistricts();
 		if (Districts.IsValidIndex(Index))
 		{
-			if (APawn* Pawn = GWorld->GetFirstPlayerController()->GetPawn())
+			APlayerController* PC = GWorld->GetFirstPlayerController();
+			if (!PC)
+			{
+				return;
+			}
+			if (APawn* Pawn = PC->GetPawn())
 			{
 				const FVector Target = Districts[Index].BoundsCenter + FVector(0, 0, 25000.f);
 				Pawn->SetActorLocation(Target, false, nullptr, ETeleportType::TeleportPhysics);
@@ -205,7 +224,12 @@ static void MistspireExitInterior(const TArray<FString>&)
 	{
 		return;
 	}
-	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(GWorld->GetFirstPlayerController()->GetPawn()))
+	APlayerController* PC = GWorld->GetFirstPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(PC->GetPawn()))
 	{
 		if (UMistspireInteriorSubsystem* Interior = GWorld->GetSubsystem<UMistspireInteriorSubsystem>())
 		{
@@ -244,7 +268,9 @@ static FAutoConsoleCommand CmdMistspireRespawnWorldMarkers(
 static void MistspireShowAltitudeHUD(const TArray<FString>& Args)
 {
 	if (!GWorld) return;
-	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(GWorld->GetFirstPlayerController()->GetPawn()))
+	APlayerController* PC = GWorld->GetFirstPlayerController();
+	if (!PC) return;
+	if (AMistspireVRPawn* Pawn = Cast<AMistspireVRPawn>(PC->GetPawn()))
 	{
 		uint8 Show = 1;
 		if (Args.Num() > 0) Show = FMath::Clamp(FCString::Atoi(*Args[0]), 0, 1);
@@ -551,3 +577,220 @@ static FAutoConsoleCommand CmdMistspireVisualIntensity(
 	TEXT("mistspire.VisualIntensity"),
 	TEXT("Set visual effects intensity multiplier (0-2)."),
 	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireVisualIntensity));
+
+static void MistspireDemoTour(const TArray<FString>& Args)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+
+	int32 Index = 0;
+	if (Args.Num() > 0)
+	{
+		Index = FCString::Atoi(*Args[0]);
+	}
+
+	if (!MistspireDemoMode::TeleportToBiomeIndex(GWorld, Index, Index >= 0))
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("Mistspire DemoTour: usage mistspire.DemoTour [0-9] or -1 to clear forced visuals."));
+		return;
+	}
+
+	if (Index < 0)
+	{
+		return;
+	}
+
+	if (UMistspireDialogueSubsystem* Dialogue = GWorld->GetSubsystem<UMistspireDialogueSubsystem>())
+	{
+		static const FName LineByBand[] = {
+			TEXT("companion_greeting"),
+			TEXT("ghost_whisper"),
+			TEXT("summit_breath"),
+			TEXT("storm_warning"),
+			TEXT("shelter_warmth"),
+			TEXT("ghost_whisper"),
+			TEXT("oxygen_low"),
+			TEXT("zenith_glow"),
+			TEXT("summit_breath"),
+			TEXT("zenith_glow")
+		};
+		if (Index >= 0 && Index < UE_ARRAY_COUNT(LineByBand))
+		{
+			Dialogue->Speak(LineByBand[Index]);
+		}
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireDemoTour(
+	TEXT("mistspire.DemoTour"),
+	TEXT("Teleport to biome mid-band 0-9 (force visuals). mistspire.DemoTour -1 clears forced visuals."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireDemoTour));
+
+static void MistspireApplyDemoPresentation(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	// Mid-session: ensure Mist Inn doors / scaffold if DemoMode is on (idempotent).
+	if (MistspireDemoMode::IsEnabled())
+	{
+		MistspireDemoMode::EnsureDemoRuntime(GWorld);
+	}
+	else
+	{
+		MistspireDemoMode::ApplyPresentation(GWorld);
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireApplyDemo(
+	TEXT("mistspire.ApplyDemoPresentation"),
+	TEXT("Re-run demo HUD/dialogue/ghost presentation now."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireApplyDemoPresentation));
+
+static void MistspireRebuildDemoScaffold(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+	if (AMistspireDemoClimbScaffold* Scaffold = AMistspireDemoClimbScaffold::EnsureInWorld(GWorld))
+	{
+		UE_LOG(LogTemp, Log, TEXT("Mistspire: DemoClimbScaffold rebuilt at %s"), *Scaffold->GetName());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Mistspire: failed to spawn DemoClimbScaffold."));
+	}
+}
+
+static FAutoConsoleCommand CmdMistspireRebuildDemoScaffold(
+	TEXT("mistspire.RebuildDemoScaffold"),
+	TEXT("Spawn or rebuild the Demo Spire climb scaffold (geometry + immersion props)."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireRebuildDemoScaffold));
+
+static void MistspireDemoJoeBeat(const TArray<FString>&)
+{
+	if (!GWorld)
+	{
+		return;
+	}
+
+	TWeakObjectPtr<UWorld> WeakWorld(GWorld);
+	UE_LOG(LogTemp, Log, TEXT("Mistspire DemoJoeBeat: starting Speak / ghost / AI / GOAP sequence."));
+
+	auto Speak = [](UWorld* World, FName LineId)
+	{
+		if (!World)
+		{
+			return;
+		}
+		if (UMistspireDialogueSubsystem* Dialogue = World->GetSubsystem<UMistspireDialogueSubsystem>())
+		{
+			Dialogue->Speak(LineId);
+		}
+	};
+
+	auto EnsureAI = [](UWorld* World) -> AMistspireAIController*
+	{
+		if (!World)
+		{
+			return nullptr;
+		}
+		for (TActorIterator<AMistspireAIController> It(World); It; ++It)
+		{
+			if (IsValid(*It))
+			{
+				return *It;
+			}
+		}
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		return World->SpawnActor<AMistspireAIController>(
+			AMistspireAIController::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, Params);
+	};
+
+	Speak(GWorld, TEXT("companion_greeting"));
+
+	FTimerHandle GhostHandle;
+	GWorld->GetTimerManager().SetTimer(GhostHandle, FTimerDelegate::CreateLambda([WeakWorld, Speak]()
+	{
+		UWorld* World = WeakWorld.Get();
+		if (!World)
+		{
+			return;
+		}
+		FVector SpawnLocation = FVector(600.f, 200.f, 400.f);
+		if (const APawn* Pawn = World->GetFirstPlayerController() ? World->GetFirstPlayerController()->GetPawn() : nullptr)
+		{
+			SpawnLocation = Pawn->GetActorLocation() + FVector(400.f, 200.f, 200.f);
+		}
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		World->SpawnActor<AMistspireWanderingGhost>(SpawnLocation, FRotator::ZeroRotator, Params);
+		Speak(World, TEXT("ghost_whisper"));
+	}), 1.5f, false);
+
+	FTimerHandle ThinkHandle;
+	GWorld->GetTimerManager().SetTimer(ThinkHandle, FTimerDelegate::CreateLambda([WeakWorld, EnsureAI]()
+	{
+		UWorld* World = WeakWorld.Get();
+		if (!World)
+		{
+			return;
+		}
+		if (AMistspireAIController* AI = EnsureAI(World))
+		{
+			FMistspireAIWorldState State = AMistspireAIController::SnapshotFromPawn(
+				World->GetFirstPlayerController() ? World->GetFirstPlayerController()->GetPawn() : nullptr,
+				World);
+			AI->UpdateWorldState(State);
+			const FMistspireUtilityDecision Decision = AI->RunUtilityDecision();
+			UE_LOG(LogTemp, Log, TEXT("Mistspire DemoJoeBeat: utility = %s (%.2f)"),
+				Decision.bValid ? *Decision.DecisionName.ToString() : TEXT("none"), Decision.Score);
+		}
+
+		FMistspireGOAPState Goal;
+		Goal.Facts.FindOrAdd(TEXT("BeaconReached")) = true;
+		const FMistspireAIWorldState State = AMistspireAIController::SnapshotFromPawn(
+			World->GetFirstPlayerController() ? World->GetFirstPlayerController()->GetPawn() : nullptr,
+			World);
+		const FMistspireGOAPState Start = AMistspireAIController::BuildGOAPStartState(State);
+		const TArray<FMistspireGOAPAction> Actions = UMistspireGOAPPlanner::BuildMistspireActionLibrary();
+		TArray<FMistspireGOAPAction> Plan;
+		if (UMistspireGOAPPlanner::Plan(Start, Goal, Actions, Plan))
+		{
+			FString PlanText;
+			for (const FMistspireGOAPAction& Action : Plan)
+			{
+				if (!PlanText.IsEmpty())
+				{
+					PlanText += TEXT(" -> ");
+				}
+				PlanText += Action.ActionName.ToString();
+			}
+			UE_LOG(LogTemp, Log, TEXT("Mistspire DemoJoeBeat: GOAP [%s]"),
+				PlanText.IsEmpty() ? TEXT("(goal satisfied)") : *PlanText);
+		}
+	}), 3.5f, false);
+
+	FTimerHandle CloseHandle;
+	GWorld->GetTimerManager().SetTimer(CloseHandle, FTimerDelegate::CreateLambda([WeakWorld, Speak]()
+	{
+		UWorld* World = WeakWorld.Get();
+		if (!World)
+		{
+			return;
+		}
+		Speak(World, TEXT("summit_breath"));
+		UE_LOG(LogTemp, Log, TEXT("Mistspire DemoJoeBeat: complete."));
+	}), 5.5f, false);
+}
+
+static FAutoConsoleCommand CmdMistspireDemoJoeBeat(
+	TEXT("mistspire.DemoJoeBeat"),
+	TEXT("Owner recording: Speak companion_greeting → ghost → AIThink/GOAP → summit_breath."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&MistspireDemoJoeBeat));

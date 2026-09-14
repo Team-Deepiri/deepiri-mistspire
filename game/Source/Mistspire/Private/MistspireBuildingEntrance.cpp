@@ -6,6 +6,8 @@
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/StaticMesh.h"
 
 AMistspireBuildingEntrance::AMistspireBuildingEntrance()
 {
@@ -18,12 +20,21 @@ AMistspireBuildingEntrance::AMistspireBuildingEntrance()
 
 	DoorFrameMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DoorFrameMesh"));
 	DoorFrameMesh->SetupAttachment(DoorVolume);
+	DoorFrameMesh->SetRelativeLocation(FVector(0.f, 0.f, 0.f));
+	DoorFrameMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	BuildingSign = CreateDefaultSubobject<UTextRenderComponent>(TEXT("BuildingSign"));
 	BuildingSign->SetupAttachment(DoorVolume);
 	BuildingSign->SetRelativeLocation(FVector(0.f, 0.f, 240.f));
 	BuildingSign->SetHorizontalAlignment(EHTA_Center);
 	BuildingSign->SetWorldSize(24.f);
+
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeFinder(TEXT("/Engine/BasicShapes/Cube.Cube"));
+	if (CubeFinder.Succeeded())
+	{
+		DoorFrameMesh->SetStaticMesh(CubeFinder.Object);
+		DoorFrameMesh->SetRelativeScale3D(FVector(0.3f, 2.2f, 3.8f));
+	}
 }
 
 void AMistspireBuildingEntrance::BeginPlay()

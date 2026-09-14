@@ -5,10 +5,13 @@
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireInputMode.h"
 #include "MistspireInteriorSubsystem.h"
+#include "MistspireDialogueSubsystem.h"
 #include "MistspireNarrativeSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "MistspireWorldAtlasSubsystem.h"
 #include "MistspireZoneSubsystem.h"
+#include "MistspireDemoMode.h"
+#include "Systems/MistspireBiomeSubsystem.h"
 #include "CanvasItem.h"
 #include "Engine/Canvas.h"
 #include "Engine/Font.h"
@@ -82,6 +85,16 @@ namespace
 			if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
 			{
 				FString WeatherLine = FString::Printf(TEXT("Weather: %s"), *Env->GetWeatherDisplayName().ToString());
+				static const TCHAR* BiomeNames[] = {
+					TEXT("None"), TEXT("Mist"), TEXT("Arid"), TEXT("Forest"), TEXT("Ember"),
+					TEXT("Crystal"), TEXT("Void"), TEXT("Tundra"), TEXT("Aether"), TEXT("Sanctum"), TEXT("Pinnacle")
+				};
+				const EMistspireBiomeType Biome = Env->GetCurrentBiome();
+				const int32 BiomeIdx = static_cast<int32>(Biome);
+				if (BiomeIdx >= 0 && BiomeIdx < UE_ARRAY_COUNT(BiomeNames))
+				{
+					WeatherLine += FString::Printf(TEXT("   Biome: %s"), BiomeNames[BiomeIdx]);
+				}
 				DrawSlateText(Canvas, WeatherLine, X, Y, LineSize, FLinearColor(0.75f, 0.75f, 0.75f), false, false);
 				Y += LineStep;
 			}
@@ -121,6 +134,19 @@ namespace
 				}
 			}
 
+			if (UMistspireDialogueSubsystem* Dialogue = World->GetSubsystem<UMistspireDialogueSubsystem>())
+			{
+				if (Dialogue->HasActiveLine())
+				{
+					const FString DialogueLine = FString::Printf(TEXT("%s: %s"),
+						*Dialogue->GetActiveSpeaker().ToString(),
+						*Dialogue->GetActiveText().ToString());
+					DrawSlateText(Canvas, DialogueLine, X, Y, LineSize,
+						FLinearColor(0.85f, 0.95f, 1.f), false, false);
+					Y += LineStep;
+				}
+			}
+
 			if (UMistspireNarrativeSubsystem* Narr = World->GetSubsystem<UMistspireNarrativeSubsystem>())
 			{
 				if (Narr->HasActiveLine())
@@ -132,7 +158,7 @@ namespace
 			}
 		}
 
-		if (UMistspireAltitudeDebugSubsystem::IsControlsHintEnabled())
+		if (FMistspireInputMode::IsNonVRMode(World) && UMistspireAltitudeDebugSubsystem::IsControlsHintEnabled())
 		{
 			Y += 8.f;
 			DrawSlateText(Canvas, FMistspireInputMode::GetNonVRControlsHint(), X, Y, 16.f,
@@ -145,7 +171,14 @@ void AMistspireHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-	if (!Canvas || !FMistspireInputMode::IsNonVRMode(GetWorld()))
+	if (!Canvas)
+	{
+		return;
+	}
+
+	const bool bNonVR = FMistspireInputMode::IsNonVRMode(GetWorld());
+	const bool bDemoHud = MistspireDemoMode::IsEnabled() && UMistspireAltitudeDebugSubsystem::IsHudEnabled();
+	if (!bNonVR && !bDemoHud)
 	{
 		return;
 	}
@@ -159,11 +192,11 @@ void AMistspireHUD::DrawHUD()
 	const float CX = Canvas->ClipX * 0.5f;
 	const float CY = Canvas->ClipY * 0.5f;
 
-	if (Pawn && !Pawn->HasGameplayStarted())
+	if (bNonVR && Pawn && !Pawn->HasGameplayStarted())
 	{
-		DrawSlateText(Canvas, TEXT("Mistspire"), CX, CY, 72.f, FLinearColor::White, true, true);
-		DrawSlateText(Canvas, TEXT("Press any key to start"), CX, Canvas->ClipY - 72.f, 28.f,
-			FLinearColor(1.f, 1.f, 1.f, 0.92f), true, true);
+		// Title screen visuals (title, Start/Settings/Credits/Quit) are owned by
+		// SMistspireTitlePanel (AMistspireVRPawn::ShowTitleMenu); avoid drawing a
+		// duplicate canvas title on top of it.
 		return;
 	}
 
@@ -173,6 +206,11 @@ void AMistspireHUD::DrawHUD()
 	}
 
 	DrawGameplayHud(Canvas, GetWorld(), Pawn);
+
+	if (!bNonVR)
+	{
+		return;
+	}
 
 	constexpr float Arm = 10.f;
 	constexpr float Thickness = 1.5f;

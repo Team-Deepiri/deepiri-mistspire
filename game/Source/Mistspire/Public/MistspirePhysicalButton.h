@@ -31,6 +31,15 @@ public:
 
 	virtual void MistspireInteract_Implementation(AActor* InteractInstigator) override;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Interaction")
+	float ActivationThresholdCm = 2.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Interaction")
+	EMistspireButtonAction BuiltInAction = EMistspireButtonAction::None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Interaction")
+	float TeleportUpCm = 3000.f;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -43,15 +52,6 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mistspire|Components")
 	TObjectPtr<UPhysicsConstraintComponent> PhysicsConstraint;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Interaction")
-	float ActivationThresholdCm = 2.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Interaction")
-	EMistspireButtonAction BuiltInAction = EMistspireButtonAction::None;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Interaction")
-	float TeleportUpCm = 3000.f;
 
 private:
 	void ExecuteBuiltInAction();

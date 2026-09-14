@@ -43,11 +43,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|NonVR")
 	void StartGameplay();
 
+	/** Zero fall/walk velocity and ground cache after debug/demo teleports. */
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|Debug")
+	void ResetMotionForDebugTeleport();
+
 	UFUNCTION(BlueprintPure, Category = "Mistspire|NonVR")
 	bool IsSettingsMenuOpen() const { return bSettingsMenuOpen; }
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|NonVR")
 	void ToggleSettingsMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "Mistspire|NonVR")
+	void OpenSettingsMenu();
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|NonVR")
 	void CloseSettingsMenu(bool bSaveSettings = true);
@@ -64,6 +71,9 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_ApplySmoothLocomotion(FVector Delta);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void Server_ApplyGrappleMovement(FVector Delta);
 
 	UFUNCTION(BlueprintCallable, Category = "Mistspire|Traversal")
 	void ApplyTeleport(const FVector& TargetLocation);
@@ -244,7 +254,63 @@ public:
 
 	/** How fast the cable tip travels toward the hit (cm/s) before pull starts. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
-	float GrappleExtendSpeedCmPerSec = 6000.f;
+	float GrappleExtendSpeedCmPerSec = 8000.f;
+
+	/** Pull acceleration toward the anchor once the cable attaches (cm/s²). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
+	float GrapplePullAccelCmPerSec2 = 4800.f;
+
+	/** Multiplier on pull accel while holding the grapple button (reel). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
+	float GrappleReelAccelMultiplier = 1.85f;
+
+	/** Velocity damping while on the cable (higher = less swing carry). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal", meta = (ClampMin = "0.1", ClampMax = "10"))
+	float GrappleDamping = 1.6f;
+
+	/** Max speed while grappling (cm/s). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal", meta = (ClampMin = "500"))
+	float GrappleMaxSpeedCmPerSec = 4400.f;
+
+	/** VR comfort cap on grapple speed (cm/s); non-VR uses GrappleMaxSpeedCmPerSec. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal", meta = (ClampMin = "500"))
+	float GrappleMaxSpeedVRCmPerSec = 3200.f;
+
+	/** Impulse applied along the cable when the pull phase begins (cm/s). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
+	float GrappleLaunchImpulseCmPerSec = 1100.f;
+
+	/** Fraction of grapple velocity kept on release (walk/fall/glide). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal", meta = (ClampMin = "0", ClampMax = "1"))
+	float GrappleReleaseMomentumRetention = 0.82f;
+
+	/** Auto-deploy glider on release when speed exceeds this (cm/s); 0 disables. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
+	float GrappleAutoGliderSpeedThresholdCmPerSec = 1800.f;
+
+	/** Gravity applied during the swing phase (cm/s²). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal", meta = (ClampMin = "0"))
+	float GrappleSwingGravityCmPerSec2 = 1400.f;
+
+	/** Extra pull accel scales with distance / this value (long vertical reels). 0 disables. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal", meta = (ClampMin = "0"))
+	float GrappleDistanceSpeedBoostScale = 3500.f;
+
+	/** Auto-detach when within this distance of the anchor (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal", meta = (ClampMin = "50"))
+	float GrappleReleaseDistanceCm = 120.f;
+
+	/** Begin easing pull accel inside this distance (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal", meta = (ClampMin = "50"))
+	float GrappleSoftStopDistanceCm = 380.f;
+
+	/** Velocity scale applied at auto-release before momentum transfer. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal", meta = (ClampMin = "0", ClampMax = "1"))
+	float GrappleArrivalVelocityScale = 0.65f;
+
+	/** WASD/stick steering accel while on the cable (cm/s²). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
+	float GrappleSteerAccelCmPerSec2 = 1400.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mistspire|Traversal")
 	float DefaultLocomotionSpeedCmPerSec = 400.f;
@@ -371,9 +437,12 @@ public:
 
 private:
 	void ConfigureNonVRMode();
+	void ShowTitleMenu();
+	void HideTitleMenu();
 	void ApplyNonVRPlayerControllerSettings();
 	void ApplyUserSettingsToGameplay();
-	void OpenSettingsMenu();
+	void ApplyMotionFov(float DeltaTime);
+	void ApplyVRTurn(float DeltaTime);
 	bool TryConsumeStartScreenInput() const;
 	void PollNonVRInput();
 	void PollSettingsMenuToggle();
@@ -385,6 +454,8 @@ private:
 	void OnSprintPressed();
 	void OnSprintReleased();
 	void OnGrapplePressed();
+	void OnGrappleHeld();
+	void OnGrappleReleased();
 	void OnGliderPressed();
 	void OnTeleportPressed();
 	void OnInteractPressed();
@@ -409,6 +480,12 @@ private:
 	void UpdateAtmosphericEffects(float DeltaTime);
 	void UpdateWristHUD();
 	void TryGrappleShot();
+	void BeginGrapplePull();
+	bool IsGrappleReelHeld() const;
+	void ApplyGrappleSteerInput(float DeltaTime, const FVector& RadialIn);
+	void ApplyGrappleVelocityDelta(const FVector& Delta);
+	void TransferGrappleMomentumOnRelease(const FVector& ReleaseVel);
+	float GetEffectiveGrappleMaxSpeedCmPerSec() const;
 	void UpdateGrapple(float DeltaTime);
 	void UpdateGrappleCableVisual(const FVector& CableEndWorld);
 	void PlaceNonVRGrappleCableStart();
@@ -464,6 +541,7 @@ private:
 	int32 NonVRClimbMissFrames = 0;
 	bool bNonVRClimbHeld = false;
 	bool bNonVRSprintHeld = false;
+	bool bSnapTurnLatched = false;
 	float VerticalVelocityCmPerSec = 0.f;
 	bool bMenuPressedLast = false;
 	bool bMenuHeld = false;
@@ -472,6 +550,9 @@ private:
 	bool bGrapplePressedLast = false;
 	bool bGliderPressedLast = false;
 	float GrappleExtendAlpha = 0.f;
+	FVector GrappleVelocity = FVector::ZeroVector;
+	float GrappleCableLengthCm = 0.f;
+	bool bGrapplePullInitialized = false;
 	FVector GliderVelocity = FVector::ZeroVector;
 	float GliderBoostTimeRemaining = 0.f;
 	float GliderBoostMultiplier = 1.65f;
@@ -481,4 +562,5 @@ private:
 	float PhysTimer = 0.f;
 
 	TSharedPtr<class SWidget> SettingsMenuWidget;
+	TSharedPtr<class SWidget> TitleMenuWidget;
 };

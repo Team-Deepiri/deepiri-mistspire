@@ -7,7 +7,7 @@
 | Grip | Grab / climb |
 | Left stick | Move + strafe |
 | Right stick X | Turn |
-| Right trigger | **Grapple** (line trace); hold to reel faster; press again to cancel |
+| Right trigger | **Grapple** (line trace → swing/reel); hold to reel faster; release carries momentum (auto-glide at speed) |
 | B button | **Glider** toggle |
 | Menu | Teleport blink forward |
 | Hands high + forward | **Mantle** ledge assist |
@@ -23,11 +23,11 @@ Editor **Play** or packaged `-nonvr`. Full table: [docs/setup/NONVR_MODE.md](../
 | Space | Jump |
 | Left Control (hold) | Climb |
 | Left Shift (hold) | Sprint |
-| F / Right mouse | Grapple (center + aim); press again to cancel |
+| F / Right mouse | Grapple (center + aim); hold to reel; WASD steers on cable; press again to release with momentum |
 | G | Glider toggle |
 | T | Teleport blink |
 | E | Interact |
-| Esc | Settings menu |
+| Esc | Settings (display, controls, audio, gameplay) |
 | Alt+Enter / F11 | Toggle fullscreen |
 
 ## Survival
@@ -48,7 +48,7 @@ Editor **Play** or packaged `-nonvr`. Full table: [docs/setup/NONVR_MODE.md](../
 | `UMistspireCompanionSubsystem` | Spawns **guide spirit** orb toward next summit |
 | `UMistspireGhostClimberSubsystem` | **Ghost pillars** for other players on leaderboard |
 | `UMistspireAmbienceSubsystem` | Tension/mystery levels for wind audio |
-| `UMistspireEnvironmentSubsystem` | Weather, wind, mist, day/night, aurora |
+| `UMistspireEnvironmentSubsystem` | Weather, wind, mist, day/night, aurora; **sky/fog/sun tint** per weather |
 | `UMistspireProgressSubsystem` | Save/load PB altitude + summits |
 | `AMistspireSummitMarker` | Pulsing beacon light + label |
 | `AMistspirePhysicalButton` | VR push button; optional CycleWeather / Refill / TeleportUp |
@@ -68,7 +68,7 @@ mistspire.ShowAltitudeHUD 1
 mistspire.ShowWristAltimeter 1
 mistspire.AltitudeStats
 mistspire.TeleportUp 5000
-mistspire.SetWeather 2          # 0–3
+mistspire.SetWeather 2          # 0=Clear 1=MistStorm 2=Electric 3=ZenithGlow (sky+fog+sun shift)
 mistspire.RefillSurvival
 mistspire.ToggleSettings        # non-VR settings (PIE-safe; Esc stops PIE)
 mistspire.SaveProgress
@@ -76,6 +76,10 @@ mistspire.LoadProgress
 mistspire.VisualDebug
 mistspire.ForceBiomeVisuals 4
 mistspire.DebugAudioStats
+mistspire.DemoTour 0            # 0–9 mid-band tour; -1 clears
+mistspire.RebuildDemoScaffold
+mistspire.DemoJoeBeat
+mistspire.ApplyDemoPresentation
 ```
 
 ## Huge world & buildings

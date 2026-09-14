@@ -30,7 +30,7 @@ if (-not $Exe) {
     exit 1
 }
 
-$LaunchArgs = @("-nonvr")
+$LaunchArgs = @("-nonvr", "-demoworld")
 if ($ForceWindowed) {
     $LaunchArgs += "-windowed"
 }

@@ -36,3 +36,11 @@ ArchivedBuilds/
 native/xr-sandbox/build/
 __pycache__/
 *.py[cod]
+
+# Local agent/build review artifacts
+_build_logs/
+docs/gameplay/_demo_spire_*
+
+# Env kit staging (Poly Haven / Fab source files before uasset import)
+game/Content/Env/Import/
+

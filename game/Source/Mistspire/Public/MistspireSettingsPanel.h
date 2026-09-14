@@ -27,19 +27,66 @@ private:
 	FOnMistspireSettingsClosed OnClosed;
 
 	FReply OnResumeClicked();
+	FReply OnQuitClicked();
+	FReply OnResetDefaultsClicked();
 	FReply OnCycleFullscreenClicked();
+	FReply OnCycleResolutionClicked();
+	FReply OnCycleQualityClicked();
+	FReply OnCycleVSyncClicked();
+
 	void OnSensitivityChanged(float NewValue);
-	void OnBobChanged(ECheckBoxState NewState);
-	void OnControlsHintChanged(ECheckBoxState NewState);
+	void OnBobScaleChanged(float NewValue);
 	void OnFovChanged(float NewValue);
+	void OnMasterVolumeChanged(float NewValue);
+	void OnSfxVolumeChanged(float NewValue);
+	void OnVignetteChanged(float NewValue);
+	void OnMotionFovChanged(float NewValue);
+	void OnHudScaleChanged(float NewValue);
+	void OnSnapDegreesChanged(float NewValue);
+
+	void OnBobChanged(ECheckBoxState NewState);
+	void OnInvertYChanged(ECheckBoxState NewState);
+	void OnControlsHintChanged(ECheckBoxState NewState);
+	void OnAltitudeHudChanged(ECheckBoxState NewState);
+	void OnAutoGliderChanged(ECheckBoxState NewState);
+	void OnSprintToggleChanged(ECheckBoxState NewState);
+	void OnSnapTurnChanged(ECheckBoxState NewState);
+	void OnHighContrastChanged(ECheckBoxState NewState);
 
 	FText GetFullscreenLabel() const;
+	FText GetResolutionLabel() const;
+	FText GetQualityLabel() const;
+	FText GetVSyncLabel() const;
 	FText GetSensitivityLabel() const;
+	FText GetBobScaleLabel() const;
 	FText GetFovLabel() const;
+	FText GetMasterVolumeLabel() const;
+	FText GetSfxVolumeLabel() const;
+	FText GetVignetteLabel() const;
+	FText GetMotionFovLabel() const;
+	FText GetHudScaleLabel() const;
+	FText GetSnapDegreesLabel() const;
+	FText GetAboutLabel() const;
+
 	float GetSensitivityValue() const;
+	float GetBobScaleValue() const;
 	float GetFovValue() const;
+	float GetMasterVolumeValue() const;
+	float GetSfxVolumeValue() const;
+	float GetVignetteValue() const;
+	float GetMotionFovValue() const;
+	float GetHudScaleValue() const;
+	float GetSnapDegreesValue() const;
+
 	ECheckBoxState GetBobState() const;
+	ECheckBoxState GetInvertYState() const;
 	ECheckBoxState GetControlsHintState() const;
+	ECheckBoxState GetAltitudeHudState() const;
+	ECheckBoxState GetAutoGliderState() const;
+	ECheckBoxState GetSprintToggleState() const;
+	ECheckBoxState GetSnapTurnState() const;
+	ECheckBoxState GetHighContrastState() const;
 
 	void ApplyLive();
+	void SaveSettings();
 };

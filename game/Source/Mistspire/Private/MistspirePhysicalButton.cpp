@@ -9,6 +9,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Engine/StaticMesh.h"
 
 AMistspirePhysicalButton::AMistspirePhysicalButton()
 {
@@ -25,6 +27,16 @@ AMistspirePhysicalButton::AMistspirePhysicalButton()
 
 	PhysicsConstraint = CreateDefaultSubobject<UPhysicsConstraintComponent>(TEXT("PhysicsConstraint"));
 	PhysicsConstraint->SetupAttachment(BaseMesh);
+
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeFinder(TEXT("/Engine/BasicShapes/Cube.Cube"));
+	if (CubeFinder.Succeeded())
+	{
+		BaseMesh->SetStaticMesh(CubeFinder.Object);
+		BaseMesh->SetRelativeScale3D(FVector(0.6f, 0.6f, 0.15f));
+		ButtonMesh->SetStaticMesh(CubeFinder.Object);
+		ButtonMesh->SetRelativeLocation(FVector(0.f, 0.f, 18.f));
+		ButtonMesh->SetRelativeScale3D(FVector(0.35f, 0.35f, 0.2f));
+	}
 }
 
 void AMistspirePhysicalButton::BeginPlay()
@@ -123,10 +135,15 @@ void AMistspirePhysicalButton::ExecuteBuiltInAction()
 
 void AMistspirePhysicalButton::MistspireInteract_Implementation(AActor* InteractInstigator)
 {
-	if (!bIsPressed)
+	if (bIsPressed)
 	{
-		bIsPressed = true;
-		OnButtonPressed.Broadcast();
-		ExecuteBuiltInAction();
+		return;
 	}
+
+	bIsPressed = true;
+	OnButtonPressed.Broadcast();
+	ExecuteBuiltInAction();
+
+	// Ray / non-VR interact never depresses the physics pad, so clear the latch for re-press.
+	bIsPressed = false;
 }

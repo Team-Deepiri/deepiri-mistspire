@@ -1,4 +1,5 @@
 #include "MistspireDialogueSubsystem.h"
+#include "Engine/World.h"
 #include "Misc/PackageName.h"
 
 void UMistspireDialogueSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -14,6 +15,45 @@ void UMistspireDialogueSubsystem::Initialize(FSubsystemCollectionBase& Collectio
 			SetDialogueTable(LoadedTable);
 		}
 	}
+}
+
+bool UMistspireDialogueSubsystem::HasActiveLine() const
+{
+	const UWorld* World = GetWorld();
+	return World && LineExpireTimeSeconds > 0.f && World->GetTimeSeconds() < LineExpireTimeSeconds;
+}
+
+FText UMistspireDialogueSubsystem::GetActiveSpeaker() const
+{
+	return HasActiveLine() ? ActiveSpeaker : FText::GetEmpty();
+}
+
+FText UMistspireDialogueSubsystem::GetActiveText() const
+{
+	return HasActiveLine() ? ActiveText : FText::GetEmpty();
+}
+
+void UMistspireDialogueSubsystem::PresentLine(FName LineId, const FText& Speaker, const FText& Text, float DisplaySeconds, bool bAmbient)
+{
+	// Ambient chatter must not clobber an active story/demo line.
+	if (bAmbient && HasActiveLine() && !bActiveLineAmbient)
+	{
+		return;
+	}
+
+	LastLineId = LineId;
+	ActiveSpeaker = Speaker;
+	ActiveText = Text;
+	bActiveLineAmbient = bAmbient;
+	if (const UWorld* World = GetWorld())
+	{
+		LineExpireTimeSeconds = World->GetTimeSeconds() + FMath::Max(0.5f, DisplaySeconds);
+	}
+	else
+	{
+		LineExpireTimeSeconds = -1.f;
+	}
+	OnDialogueLine.Broadcast(LineId, Speaker, Text);
 }
 
 void UMistspireDialogueSubsystem::LoadBuiltinLines()
@@ -66,8 +106,7 @@ void UMistspireDialogueSubsystem::Speak(FName LineId)
 {
 	if (const FDialogueLine* Line = FindLine(LineId))
 	{
-		LastLineId = LineId;
-		OnDialogueLine.Broadcast(LineId, Line->Speaker, Line->Text);
+		PresentLine(LineId, Line->Speaker, Line->Text, Line->DisplaySeconds, Line->bAmbient);
 	}
 	else
 	{
@@ -77,6 +116,5 @@ void UMistspireDialogueSubsystem::Speak(FName LineId)
 
 void UMistspireDialogueSubsystem::SpeakText(const FText& Speaker, const FText& Text, float DisplaySeconds)
 {
-	LastLineId = NAME_None;
-	OnDialogueLine.Broadcast(NAME_None, Speaker, Text);
+	PresentLine(NAME_None, Speaker, Text, DisplaySeconds, false);
 }
