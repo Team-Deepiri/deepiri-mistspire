@@ -31,7 +31,7 @@ void SMistspireTitlePanel::Construct(const FArguments& InArgs)
 		.VAlign(VAlign_Center)
 		[
 			SNew(SBox)
-			.WidthOverride(420.f)
+			.WidthOverride(640.f)
 			[
 				SNew(SVerticalBox)
 				+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0.f, 0.f, 0.f, 8.f)

@@ -23,7 +23,7 @@
 
 static TAutoConsoleVariable<int32> CVarMistspireDemoMode(
 	TEXT("mistspire.DemoMode"),
-	0,
+	1,
 	TEXT("1 = demo presentation: HUD on, welcome dialogue, wandering ghosts."),
 	ECVF_Default);
 
@@ -76,6 +76,11 @@ namespace
 
 bool MistspireDemoMode::IsEnabled()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("nodemo"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("standardworld")))
+	{
+		return false;
+	}
 	if (CVarMistspireDemoMode.GetValueOnGameThread() > 0)
 	{
 		return true;

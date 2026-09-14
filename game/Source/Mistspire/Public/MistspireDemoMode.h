@@ -7,7 +7,7 @@ class UWorld;
 /** Shared demo-presentation helpers for PIE / packaged owner recordings. */
 namespace MistspireDemoMode
 {
-	/** True when mistspire.DemoMode=1 or -demoworld / -mistspiredemo on the command line. */
+	/** True by default (mistspire.DemoMode=1) unless disabled via mistspire.DemoMode=0, -nodemo, or -standardworld. */
 	bool IsEnabled();
 
 	/**
