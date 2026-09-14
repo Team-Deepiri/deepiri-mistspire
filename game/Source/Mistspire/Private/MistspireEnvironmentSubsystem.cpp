@@ -1,12 +1,19 @@
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireInteriorSubsystem.h"
 #include "MistspireGameState.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Components/ExponentialHeightFogComponent.h"
+#include "Components/SkyAtmosphereComponent.h"
+#include "Engine/DirectionalLight.h"
+#include "Engine/ExponentialHeightFog.h"
+#include "EngineUtils.h"
 
 void UMistspireEnvironmentSubsystem::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	TimeAccumulator += DeltaTime;
 	UpdateWeather(DeltaTime);
+	UpdateWeatherPresentation(DeltaTime);
 
 	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
 	{
@@ -150,6 +157,134 @@ void UMistspireEnvironmentSubsystem::ForceWeather(EMistspireWeatherType Weather,
 	if (AMistspireGameState* GS = GetWorld()->GetGameState<AMistspireGameState>())
 	{
 		GS->CurrentWeatherIndex = static_cast<uint8>(Weather);
+	}
+	// Kick presentation immediately so the porch button / SetWeather reads on the next frame.
+	PresentedWeather = Weather;
+}
+
+UMistspireEnvironmentSubsystem::FWeatherSkyLook UMistspireEnvironmentSubsystem::MakeWeatherSkyLook(
+	EMistspireWeatherType Weather)
+{
+	FWeatherSkyLook Look;
+	switch (Weather)
+	{
+	case EMistspireWeatherType::MistStorm:
+		Look.SkyTint = FLinearColor(0.72f, 0.76f, 0.82f);
+		Look.Rayleigh = FLinearColor(0.45f, 0.50f, 0.58f);
+		Look.FogColor = FLinearColor(0.78f, 0.82f, 0.88f);
+		Look.FogDensity = 0.085f;
+		Look.SunColor = FLinearColor(0.75f, 0.78f, 0.85f);
+		Look.SunIntensityScale = 0.45f;
+		break;
+	case EMistspireWeatherType::ElectricTurmoil:
+		Look.SkyTint = FLinearColor(0.35f, 0.28f, 0.75f);
+		Look.Rayleigh = FLinearColor(0.22f, 0.18f, 0.95f);
+		Look.FogColor = FLinearColor(0.25f, 0.35f, 0.85f);
+		Look.FogDensity = 0.045f;
+		Look.SunColor = FLinearColor(0.55f, 0.70f, 1.0f);
+		Look.SunIntensityScale = 0.7f;
+		break;
+	case EMistspireWeatherType::ZenithGlow:
+		Look.SkyTint = FLinearColor(1.0f, 0.72f, 0.45f);
+		Look.Rayleigh = FLinearColor(0.95f, 0.55f, 0.35f);
+		Look.FogColor = FLinearColor(1.0f, 0.82f, 0.55f);
+		Look.FogDensity = 0.018f;
+		Look.SunColor = FLinearColor(1.0f, 0.85f, 0.55f);
+		Look.SunIntensityScale = 1.35f;
+		break;
+	case EMistspireWeatherType::Clear:
+	default:
+		Look.SkyTint = FLinearColor(1.f, 1.f, 1.f);
+		Look.Rayleigh = FLinearColor(0.175287f, 0.409607f, 1.f);
+		Look.FogColor = FLinearColor(0.55f, 0.68f, 0.92f);
+		Look.FogDensity = 0.02f;
+		Look.SunColor = FLinearColor(1.f, 0.96f, 0.88f);
+		Look.SunIntensityScale = 1.f;
+		break;
+	}
+	return Look;
+}
+
+void UMistspireEnvironmentSubsystem::UpdateWeatherPresentation(float DeltaTime)
+{
+	const FWeatherSkyLook Target = MakeWeatherSkyLook(CurrentWeather);
+	if (!bSkyLookInitialized)
+	{
+		AppliedSkyLook = Target;
+		bSkyLookInitialized = true;
+		PresentedWeather = CurrentWeather;
+	}
+	else
+	{
+		// Snappy enough for the porch button demo beat (~1.2 s to settle).
+		const float Alpha = 1.f - FMath::Exp(-DeltaTime * 2.8f);
+		AppliedSkyLook.SkyTint = FLinearColor::LerpUsingHSV(AppliedSkyLook.SkyTint, Target.SkyTint, Alpha);
+		AppliedSkyLook.Rayleigh = FLinearColor::LerpUsingHSV(AppliedSkyLook.Rayleigh, Target.Rayleigh, Alpha);
+		AppliedSkyLook.FogColor = FLinearColor::LerpUsingHSV(AppliedSkyLook.FogColor, Target.FogColor, Alpha);
+		AppliedSkyLook.FogDensity = FMath::Lerp(AppliedSkyLook.FogDensity, Target.FogDensity, Alpha);
+		AppliedSkyLook.SunColor = FLinearColor::LerpUsingHSV(AppliedSkyLook.SunColor, Target.SunColor, Alpha);
+		AppliedSkyLook.SunIntensityScale = FMath::Lerp(AppliedSkyLook.SunIntensityScale, Target.SunIntensityScale, Alpha);
+	}
+
+	ApplyWeatherToSkyActors(
+		AppliedSkyLook.SkyTint,
+		AppliedSkyLook.Rayleigh,
+		AppliedSkyLook.FogColor,
+		AppliedSkyLook.FogDensity,
+		AppliedSkyLook.SunColor,
+		AppliedSkyLook.SunIntensityScale);
+}
+
+void UMistspireEnvironmentSubsystem::ApplyWeatherToSkyActors(
+	const FLinearColor& SkyTint,
+	const FLinearColor& Rayleigh,
+	const FLinearColor& FogColor,
+	float FogDensity,
+	const FLinearColor& SunColor,
+	float SunIntensityScale)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<ASkyAtmosphere> It(World); It; ++It)
+	{
+		if (USkyAtmosphereComponent* Sky = It->GetComponent())
+		{
+			Sky->SetSkyLuminanceFactor(SkyTint);
+			Sky->SetRayleighScattering(Rayleigh);
+		}
+	}
+
+	for (TActorIterator<AExponentialHeightFog> It(World); It; ++It)
+	{
+		if (UExponentialHeightFogComponent* Fog = It->GetComponent())
+		{
+			Fog->SetFogDensity(FogDensity);
+			Fog->SetFogInscatteringColor(FogColor);
+			Fog->SetDirectionalInscatteringColor(FogColor * 1.15f);
+		}
+	}
+
+	for (TActorIterator<ADirectionalLight> It(World); It; ++It)
+	{
+		ADirectionalLight* Sun = *It;
+		if (!Sun || Sun->IsActorBeingDestroyed())
+		{
+			continue;
+		}
+		if (UDirectionalLightComponent* SunComp = Cast<UDirectionalLightComponent>(Sun->GetLightComponent()))
+		{
+			if (!bCachedSunIntensity)
+			{
+				CachedSunIntensity = SunComp->Intensity;
+				bCachedSunIntensity = true;
+			}
+			SunComp->SetLightColor(SunColor);
+			SunComp->SetIntensity(CachedSunIntensity * SunIntensityScale);
+		}
 	}
 }
 

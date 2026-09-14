@@ -9,6 +9,9 @@
 #include "MistspireBuildingEntrance.h"
 #include "MistspireInteriorExit.h"
 #include "MistspireWorldAtlasSubsystem.h"
+#include "MistspireNarrativeSubsystem.h"
+#include "MistspireVRPawn.h"
+#include "GameFramework/PlayerController.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
@@ -97,6 +100,7 @@ void AMistspireDemoClimbScaffold::Rebuild()
 	ClearBuiltActors();
 	CachedTintMIDs.Reset();
 	bEnvDressResolved = false;
+	bLegacyDressPurged = false;
 
 	if (!CubeMesh)
 	{
@@ -116,7 +120,8 @@ void AMistspireDemoClimbScaffold::Rebuild()
 		ResolveEnvDressMeshes();
 	}
 
-	HideTemplateBackdrop();
+	PurgeLegacyMapDress();
+	HideTemplateLandscape();
 	AimSunAtVillage();
 	BuildValley();
 	BuildMistInnPocket();
@@ -136,6 +141,8 @@ void AMistspireDemoClimbScaffold::Rebuild()
 	{
 		SpawnValleyImmersionProps();
 	}
+
+	StartFallCatch();
 
 	UE_LOG(LogTemp, Log,
 		TEXT("Mistspire DemoClimbScaffold: rebuilt %d stations + valley/Mist Inn/approach/shaft (EnvDress rocks=%d mtns=%d)."),
@@ -402,7 +409,93 @@ void AMistspireDemoClimbScaffold::AimSunAtVillage()
 	}
 }
 
-void AMistspireDemoClimbScaffold::HideTemplateBackdrop()
+namespace
+{
+	bool IsFabEnvStaticMesh(const UStaticMesh* Mesh)
+	{
+		if (!Mesh)
+		{
+			return false;
+		}
+		const FString Path = Mesh->GetPathName();
+		return Path.Contains(TEXT("/Iceland_Environment/"), ESearchCase::IgnoreCase)
+			|| Path.Contains(TEXT("/Rock_Collection_04/"), ESearchCase::IgnoreCase);
+	}
+
+	bool ActorUsesFabEnvMesh(const AActor* Actor)
+	{
+		if (!Actor)
+		{
+			return false;
+		}
+		TArray<UStaticMeshComponent*> MeshComps;
+		Actor->GetComponents<UStaticMeshComponent>(MeshComps);
+		for (const UStaticMeshComponent* Comp : MeshComps)
+		{
+			if (Comp && IsFabEnvStaticMesh(Comp->GetStaticMesh()))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+}
+
+void AMistspireDemoClimbScaffold::PurgeLegacyMapDress()
+{
+	UWorld* World = GetWorld();
+	if (!bPurgeLegacyMapDress || bLegacyDressPurged || !World)
+	{
+		return;
+	}
+
+	using namespace MistspireDemoSpire;
+	const float MaxAltitude = LegacyDressPurgeMaxAltitudeCm;
+
+	TArray<AActor*> ToDestroy;
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (!Actor || Actor->IsActorBeingDestroyed() || Actor == this)
+		{
+			continue;
+		}
+		if (Cast<AMistspireDemoClimbScaffold>(Actor))
+		{
+			continue;
+		}
+
+		const FVector Loc = Actor->GetActorLocation();
+		const bool bDemoEnvName = Actor->GetName().StartsWith(TEXT("DemoEnv_"));
+		const bool bLowAltitude = Loc.Z < MaxAltitude;
+		const bool bFabEnv = ActorUsesFabEnvMesh(Actor);
+
+		// All authored DemoEnv_* from DL_Landmarks_Authored — superseded by SummitMass + shelf rocks.
+		// Low-altitude Iceland/Rock world actors are legacy map dress; runtime Fab env lives on the
+		// scaffold as child components, not as separate StaticMeshActors.
+		if (bDemoEnvName || (bFabEnv && bLowAltitude))
+		{
+			ToDestroy.Add(Actor);
+		}
+	}
+
+	int32 PurgedCount = 0;
+	for (AActor* Actor : ToDestroy)
+	{
+		if (IsValid(Actor))
+		{
+			Actor->Destroy();
+			++PurgedCount;
+		}
+	}
+
+	bLegacyDressPurged = true;
+	UE_LOG(LogTemp, Log,
+		TEXT("Mistspire DemoClimbScaffold: purged %d legacy map dress actors (DemoEnv_* + distant Fab tiles)."),
+		PurgedCount);
+}
+
+void AMistspireDemoClimbScaffold::HideTemplateLandscape()
 {
 	UWorld* World = GetWorld();
 	if (!bHideTemplateLandscape || !World)
@@ -410,27 +503,9 @@ void AMistspireDemoClimbScaffold::HideTemplateBackdrop()
 		return;
 	}
 
-	// Authored DemoEnv_* rocks and mountains predate the runtime dressing and now only clutter
-	// the shelf — one of them sat on the Mist Inn door. Collision goes too, so hiding them does
-	// not leave invisible blockers behind.
-	for (TActorIterator<AActor> It(World); It; ++It)
-	{
-		AActor* Actor = *It;
-		if (!Actor || Actor->IsActorBeingDestroyed())
-		{
-			continue;
-		}
-		if (Actor->GetName().StartsWith(TEXT("DemoEnv_")))
-		{
-			Actor->SetActorHiddenInGame(true);
-			Actor->SetActorEnableCollision(false);
-		}
-	}
-
 	// Main_WP was created from /Engine/Maps/Templates/OpenWorld, which ships a flat untextured
-	// landscape. It is the grey card the demo keeps showing up against. Resolved by path so the
-	// game module needs no build dependency on the Landscape module. Collision is left intact so
-	// a fall off the spire still lands on something instead of dropping forever.
+	// landscape. Hide it and disable collision — leaving collision on caused interior-exit
+	// teleports to land on (or get ejected by) landscape instead of the demo ShelfPad.
 	UClass* LandscapeProxyClass = FindObject<UClass>(nullptr, TEXT("/Script/Landscape.LandscapeProxy"));
 	if (!LandscapeProxyClass)
 	{
@@ -446,6 +521,7 @@ void AMistspireDemoClimbScaffold::HideTemplateBackdrop()
 			continue;
 		}
 		Proxy->SetActorHiddenInGame(true);
+		Proxy->SetActorEnableCollision(false);
 		++HiddenCount;
 	}
 
@@ -460,8 +536,65 @@ void AMistspireDemoClimbScaffold::HideTemplateBackdrop()
 	if (!World->GetTimerManager().IsTimerActive(LandscapeHideTimer))
 	{
 		World->GetTimerManager().SetTimer(
-			LandscapeHideTimer, this, &AMistspireDemoClimbScaffold::HideTemplateBackdrop, 3.f, true);
+			LandscapeHideTimer, this, &AMistspireDemoClimbScaffold::HideTemplateLandscape, 3.f, true);
 	}
+}
+
+void AMistspireDemoClimbScaffold::StartFallCatch()
+{
+	UWorld* World = GetWorld();
+	if (!bCatchFallenPlayer || !World)
+	{
+		return;
+	}
+	if (!World->GetTimerManager().IsTimerActive(FallCatchTimer))
+	{
+		World->GetTimerManager().SetTimer(
+			FallCatchTimer, this, &AMistspireDemoClimbScaffold::CatchFallenPlayer, 0.4f, true);
+	}
+}
+
+void AMistspireDemoClimbScaffold::CatchFallenPlayer()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	APlayerController* PC = World->GetFirstPlayerController();
+	APawn* Pawn = PC ? PC->GetPawn() : nullptr;
+	if (!Pawn)
+	{
+		return;
+	}
+
+	// Every piece of demo geometry — shelf, helix, shaft, stations, Mist Inn pocket — lives at
+	// or above the valley floor, and the template landscape is collision-disabled. Anything
+	// below this is an unrecoverable fall into empty space, which ends a recording take.
+	const float VoidZ = MistspireDemoSpire::GetValleyFloorZCm() - FallCatchDepthCm;
+	if (Pawn->GetActorLocation().Z >= VoidZ)
+	{
+		return;
+	}
+
+	const FVector Spawn = MistspireDemoSpire::GetValleySpawnLocation();
+	if (AMistspireVRPawn* MistPawn = Cast<AMistspireVRPawn>(Pawn))
+	{
+		MistPawn->ResetMotionForDebugTeleport();
+		MistPawn->ApplyTeleport(Spawn);
+	}
+	else
+	{
+		Pawn->SetActorLocation(Spawn, false, nullptr, ETeleportType::TeleportPhysics);
+	}
+
+	if (UMistspireNarrativeSubsystem* Narr = World->GetSubsystem<UMistspireNarrativeSubsystem>())
+	{
+		Narr->PushLine(NSLOCTEXT("Mistspire", "FallCatch", "The mist carries you back to the Gate."), 4.f);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("Mistspire DemoClimbScaffold: caught fall below Z=%.0f, returned to Valley Gate."), VoidZ);
 }
 
 UStaticMeshComponent* AMistspireDemoClimbScaffold::AddTerrainMassif(
@@ -598,13 +731,8 @@ void AMistspireDemoClimbScaffold::DressValleyEnv()
 		AddEnvMesh(TEXT("ShelfGrass_B"), EnvGrass, Valley(520.f, -1050.f, 8.f), FVector(1.1f), FRotator(0.f, 70.f, 0.f), false);
 	}
 
-	if (EnvPine)
-	{
-		AddEnvMesh(TEXT("RimPine_A"), EnvPine, Valley(2400.f, -2100.f, 0.f), FVector(1.0f), FRotator(0.f, 15.f, 0.f), false);
-		AddEnvMesh(TEXT("RimPine_B"), EnvPine, Valley(2600.f, 1900.f, 0.f), FVector(0.9f), FRotator(0.f, -55.f, 0.f), false);
-	}
-
-	// Deliberately no ring of secondary landforms. Overlapping copies around SummitMass still
+	// Deliberately no ring of secondary landforms or rim pines — they read as floating slices
+	// outside SummitMass and cost draw calls on the recording path. Overlapping copies around SummitMass still
 	// read as separate slabs rather than one range, and they add nothing once the village sits
 	// on a single 3 km mountain — the summit and the sky are the whole backdrop.
 }
@@ -767,11 +895,6 @@ void AMistspireDemoClimbScaffold::DressStationEnv(
 		PlaceDressRock(TEXT("MesaRock"), RockIdx, RadialOut * (Ring + 40.f), 1.8f);
 		break;
 	case 2:
-		if (EnvPine)
-		{
-			AddEnvMesh(*(Prefix + TEXT("PineA")), EnvPine, Station + RadialOut * 2600.f + Tangent * 400.f, FVector(1.0f), Yaw, false);
-			AddEnvMesh(*(Prefix + TEXT("PineB")), EnvPine, Station + RadialOut * 2800.f - Tangent * 500.f, FVector(0.85f), Yaw, false);
-		}
 		PlaceDressRock(TEXT("Rock"), RockIdx, RadialOut * Ring + Tangent * 120.f, 1.0f);
 		break;
 	case 3:
@@ -924,9 +1047,12 @@ void AMistspireDemoClimbScaffold::SpawnValleyImmersionProps()
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	Params.Owner = this;
 
+	// Button stands on the plaza edge of the porch, clear of the enter volume below. At
+	// Door + 200Y it sat *inside* the trigger box, so walking up to press it teleported the
+	// player into the inn instead of cycling the weather.
 	const FVector InnDoor = MistspireDemoSpire::GetMistInnDoorLocation();
 	if (AMistspirePhysicalButton* WeatherBtn = World->SpawnActor<AMistspirePhysicalButton>(
-		InnDoor + FVector(-140.f, 200.f, 40.f), FRotator(0.f, 90.f, 0.f), Params))
+		InnDoor + FVector(-140.f, 340.f, 40.f), FRotator(0.f, 90.f, 0.f), Params))
 	{
 		WeatherBtn->BuiltInAction = EMistspireButtonAction::CycleWeather;
 #if WITH_EDITOR
@@ -1178,7 +1304,9 @@ void AMistspireDemoClimbScaffold::BuildStation(int32 StationIndex)
 		AddCube(*(Prefix + TEXT("ShardB")), Station - Tangent * 120.f + FVector(0.f, 0.f, 200.f), FVector(0.6f, 0.6f, 4.f), Yaw, Tint);
 		break;
 	case 5:
-		AddCube(*(Prefix + TEXT("Pier")), Station + RadialOut * 300.f + FVector(0.f, 0.f, 40.f), FVector(8.f, 1.2f, 0.35f), Yaw, Tint);
+		// 7 m pier jutting outward from the deck edge. At RadialOut*300 with an 8 m span it
+		// reached back across the pad centre and the DemoTour landing started inside the slab.
+		AddCube(*(Prefix + TEXT("Pier")), Station + RadialOut * 420.f + FVector(0.f, 0.f, 40.f), FVector(7.f, 1.2f, 0.35f), Yaw, Tint);
 		break;
 	case 6:
 		AddCube(*(Prefix + TEXT("Obelisk")), Station + RadialOut * 180.f + FVector(0.f, 0.f, 400.f), FVector(1.2f, 1.2f, 8.f), Yaw, Tint);

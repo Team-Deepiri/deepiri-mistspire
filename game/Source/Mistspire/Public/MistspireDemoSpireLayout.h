@@ -60,10 +60,24 @@ namespace MistspireDemoSpire
 	inline constexpr float ApproachSweepDeg = 450.f;
 	/** Capsule half-height (~88) + margin for DemoTour landings. */
 	inline constexpr float TourLandingClearanceCm = 120.f;
+	/**
+	 * DemoTour lands this far toward the mast instead of on the pad centre. Needle, plinth and
+	 * pier silhouettes occupy the centre / outer half of their decks, and a bSweep=false teleport
+	 * into one leaves the capsule depenetrating inside solid geometry.
+	 */
+	inline constexpr float TourLandingInsetCm = 140.f;
 
 	/** Pad half-extent used for dress occupancy (cm). Dress stays outside this + margin. */
 	inline constexpr float StationPadHalfCm = 300.f;
 	inline constexpr float StationDressRingCm = 520.f;
+
+	/**
+	 * Authored Main_WP `DemoEnv_*` / Iceland tile clutter outside this XY radius from the valley
+	 * is destroyed at runtime (SummitMass keep zone ≈ 1.5 km half-extent).
+	 */
+	inline constexpr float LegacyDressKeepRadiusCm = 160000.f;
+	/** Only purge low-altitude map dress — helix stations and the spire stay untouched. */
+	inline constexpr float LegacyDressPurgeMaxAltitudeCm = 150000.f;
 
 	inline constexpr float StationAltitudeCm[StationCount] = {
 		50000.f,   // Mist
@@ -114,11 +128,18 @@ namespace MistspireDemoSpire
 			StationAltitudeCm[Index]);
 	}
 
-	/** Safe DemoTour / teleport landing above pad top. */
+	/** Safe DemoTour / teleport landing: above pad top, inset toward the mast, clear of dress. */
 	inline FVector GetTourLandingLocation(int32 Index)
 	{
 		const FVector Station = GetStationLocation(Index);
-		return Station + FVector(0.f, 0.f, TourLandingClearanceCm);
+		if (Index < 0 || Index >= StationCount)
+		{
+			return Station + FVector(0.f, 0.f, TourLandingClearanceCm);
+		}
+
+		const float AngleRad = FMath::DegreesToRadians(GetStationYawDeg(Index));
+		const FVector RadialOut(FMath::Cos(AngleRad), FMath::Sin(AngleRad), 0.f);
+		return Station - RadialOut * TourLandingInsetCm + FVector(0.f, 0.f, TourLandingClearanceCm);
 	}
 
 	/**
@@ -151,17 +172,27 @@ namespace MistspireDemoSpire
 	{
 		const FVector Door = GetMistInnDoorLocation();
 		// Past the enter volume (trigger at Door+120Y, extent ~180 local → world X after yaw 90).
-		// Z is a probe seed only — InteriorSubsystem snaps to the real platform via line trace.
+		// Z here is only a fallback — InteriorSubsystem overwrites it with the porch stance Z.
 		return FVector(Door.X, Door.Y + 450.f, GetValleyFloorZCm() + PlayerStartZCm);
 	}
 
 	/**
 	 * Mist Inn pocket interior origin (matches atlas building_valley_inn first pocket).
-	 * Geometry is runtime-built by AMistspireDemoClimbScaffold under -demoworld.
+	 * This is the pocket FLOOR level; geometry is runtime-built by AMistspireDemoClimbScaffold.
 	 */
 	inline FVector GetMistInnInteriorSpawn()
 	{
 		return FVector(5000000.f, 0.f, 20000.f);
+	}
+
+	/**
+	 * Where the pawn lands inside the pocket. Using the floor level directly put the capsule
+	 * centre on the floor plane, so half the capsule started inside the slab — depenetration
+	 * either popped the player or dropped them through into a 200 m fall.
+	 */
+	inline FVector GetMistInnInteriorPawnSpawn()
+	{
+		return GetMistInnInteriorSpawn() + FVector(0.f, 0.f, PlayerStartZCm);
 	}
 
 	/** InteriorExit volume — centered in the pocket's +X door wall opening. */

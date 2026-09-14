@@ -48,7 +48,7 @@ Editor **Play** or packaged `-nonvr`. Full table: [docs/setup/NONVR_MODE.md](../
 | `UMistspireCompanionSubsystem` | Spawns **guide spirit** orb toward next summit |
 | `UMistspireGhostClimberSubsystem` | **Ghost pillars** for other players on leaderboard |
 | `UMistspireAmbienceSubsystem` | Tension/mystery levels for wind audio |
-| `UMistspireEnvironmentSubsystem` | Weather, wind, mist, day/night, aurora |
+| `UMistspireEnvironmentSubsystem` | Weather, wind, mist, day/night, aurora; **sky/fog/sun tint** per weather |
 | `UMistspireProgressSubsystem` | Save/load PB altitude + summits |
 | `AMistspireSummitMarker` | Pulsing beacon light + label |
 | `AMistspirePhysicalButton` | VR push button; optional CycleWeather / Refill / TeleportUp |
@@ -68,7 +68,7 @@ mistspire.ShowAltitudeHUD 1
 mistspire.ShowWristAltimeter 1
 mistspire.AltitudeStats
 mistspire.TeleportUp 5000
-mistspire.SetWeather 2          # 0–3
+mistspire.SetWeather 2          # 0=Clear 1=MistStorm 2=Electric 3=ZenithGlow (sky+fog+sun shift)
 mistspire.RefillSurvival
 mistspire.ToggleSettings        # non-VR settings (PIE-safe; Esc stops PIE)
 mistspire.SaveProgress

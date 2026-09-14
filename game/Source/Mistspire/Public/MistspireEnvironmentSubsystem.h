@@ -61,11 +61,32 @@ public:
 
 private:
 	void UpdateWeather(float DeltaTime);
+	void UpdateWeatherPresentation(float DeltaTime);
+	void ApplyWeatherToSkyActors(const FLinearColor& SkyTint, const FLinearColor& Rayleigh, const FLinearColor& FogColor,
+		float FogDensity, const FLinearColor& SunColor, float SunIntensityScale);
+
+	struct FWeatherSkyLook
+	{
+		FLinearColor SkyTint = FLinearColor(1.f, 1.f, 1.f);
+		FLinearColor Rayleigh = FLinearColor(0.175287f, 0.409607f, 1.f);
+		FLinearColor FogColor = FLinearColor(0.65f, 0.72f, 0.85f);
+		float FogDensity = 0.02f;
+		FLinearColor SunColor = FLinearColor(1.f, 0.96f, 0.88f);
+		float SunIntensityScale = 1.f;
+	};
+
+	static FWeatherSkyLook MakeWeatherSkyLook(EMistspireWeatherType Weather);
 
 	float TimeAccumulator = 0.f;
 	float WeatherTransitionTimer = 0.f;
 	float ForcedWeatherHold = 0.f;
-	
+
+	FWeatherSkyLook AppliedSkyLook;
+	bool bSkyLookInitialized = false;
+	bool bCachedSunIntensity = false;
+	float CachedSunIntensity = 10.f;
+	EMistspireWeatherType PresentedWeather = EMistspireWeatherType::Clear;
+
 	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Environment", meta = (AllowPrivateAccess = "true"))
 	EMistspireWeatherType CurrentWeather = EMistspireWeatherType::Clear;
 

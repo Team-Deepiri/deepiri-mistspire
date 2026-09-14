@@ -2114,7 +2114,13 @@ void AMistspireVRPawn::SnapFeetToGround(const FHitResult& GroundHit)
 	if (bNonVRHasSupportCache)
 	{
 		const float Diff = SupportZ - NonVRCachedSupportZ;
-		if (bStationary)
+		// Teleports (Mist Inn pocket ↔ porch is a ~20 km Z jump) must not lerp the old support
+		// into DesiredZ — that yanked the capsule into the sky after a correct exit return.
+		if (FMath::Abs(Diff) > NonVRMaxStepHeightCm * 4.f)
+		{
+			NonVRCachedSupportZ = SupportZ;
+		}
+		else if (bStationary)
 		{
 			// Standing on pebble fields: keep the last solid height unless we clearly stepped.
 			if (FMath::Abs(Diff) < NonVRStationarySupportStickCm)

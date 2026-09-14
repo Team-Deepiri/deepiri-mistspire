@@ -46,20 +46,37 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Mistspire|Demo|EnvDress")
 	bool bSpawnEnvDress = true;
 
-	/** Hide Main_WP's OpenWorld-template landscape and leftover authored DemoEnv_* dressing. */
+	/** Hide Main_WP's OpenWorld-template landscape (collision off). */
 	UPROPERTY(EditAnywhere, Category = "Mistspire|Demo|EnvDress")
 	bool bHideTemplateLandscape = true;
+
+	/** Destroy authored `DemoEnv_*` and distant Fab env tiles left on Main_WP (perf + de-clutter). */
+	UPROPERTY(EditAnywhere, Category = "Mistspire|Demo|EnvDress")
+	bool bPurgeLegacyMapDress = true;
 
 	/** Re-aim the map's directional light so the shelf is lit instead of in the summit's shadow. */
 	UPROPERTY(EditAnywhere, Category = "Mistspire|Demo|EnvDress")
 	bool bAimSunAtVillage = true;
 
+	/** Return the player to the Valley Gate if they fall past the demo geometry into empty space. */
+	UPROPERTY(EditAnywhere, Category = "Mistspire|Demo")
+	bool bCatchFallenPlayer = true;
+
+	/** Depth below the valley floor that counts as an unrecoverable fall. */
+	UPROPERTY(EditAnywhere, Category = "Mistspire|Demo")
+	float FallCatchDepthCm = 5000.f;
+
 private:
 	FTimerHandle LandscapeHideTimer;
+	FTimerHandle FallCatchTimer;
 	int32 LastHiddenLandscapeCount = -1;
+	bool bLegacyDressPurged = false;
 
 	void ClearBuiltActors();
-	void HideTemplateBackdrop();
+	void PurgeLegacyMapDress();
+	void HideTemplateLandscape();
+	void StartFallCatch();
+	void CatchFallenPlayer();
 	void AimSunAtVillage();
 	void BuildValley();
 	void BuildMistInnPocket();

@@ -4,6 +4,7 @@
 #include "MistspireDialogueSubsystem.h"
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireGameState.h"
+#include "MistspireInteriorSubsystem.h"
 #include "MistspireVRPawn.h"
 #include "MistspireVisualEnhancementSubsystem.h"
 #include "MistspireDemoSpireLayout.h"
@@ -244,6 +245,15 @@ bool MistspireDemoMode::TeleportToBiomeIndex(UWorld* World, int32 BiomeIndex, bo
 
 	if (AMistspireVRPawn* MistPawn = Cast<AMistspireVRPawn>(Pawn))
 	{
+		// Touring out of the Mist Inn would leave the interior flag set forever — the door then
+		// refuses every later enter, and there is no exit volume up the spire to clear it.
+		if (UMistspireInteriorSubsystem* Interior = World->GetSubsystem<UMistspireInteriorSubsystem>())
+		{
+			if (Interior->IsInsideInterior())
+			{
+				Interior->ExitBuilding(MistPawn);
+			}
+		}
 		MistPawn->ResetMotionForDebugTeleport();
 		MistPawn->ApplyTeleport(Loc);
 	}

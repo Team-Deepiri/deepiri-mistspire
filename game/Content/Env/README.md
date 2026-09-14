@@ -70,5 +70,5 @@ Still raw glTF/JPG/HDR under `Content/Env/Import/` (gitignored). Import via Inte
 ## Next (authoring)
 
 1. Live demo: `-demoworld` / `mistspire.RebuildDemoScaffold` — scaffold soft-loads Fab dress.
-2. Main_WP valley strip actors live under outliner folder `DL_Landmarks_Authored` (`DemoEnv_*`). Iceland hero mountains stay distant so their collision does not trap origin; PlayerStart / demo spawn is on `DemoEnv_RockApproach` (~-500, 280, 380).
-3. Save Main_WP (LFS) after strip edits; scaffold itself stays runtime-only.
+2. Main_WP `DL_Landmarks_Authored` may still contain legacy `DemoEnv_*` actors — **delete them in-editor** for a permanent perf win. At runtime, `-demoworld` / `RebuildDemoScaffold` calls `PurgeLegacyMapDress()` and destroys `DemoEnv_*` plus low-altitude Iceland/Rock world actors (runtime dress is scaffold child components only).
+3. Demo spawn is `GetValleySpawnLocation()` (Valley Gate front), not `DemoEnv_RockApproach`. Save Main_WP (LFS) after strip edits.

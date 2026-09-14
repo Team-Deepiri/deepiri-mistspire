@@ -76,9 +76,54 @@ void UMistspireVisualEnhancementSubsystem::TransitionVisuals(float DeltaTime)
 void UMistspireVisualEnhancementSubsystem::ApplyCurrentVisuals()
 {
 	float Intensity = OverrideIntensity;
-	ApplyBloom(CurrentVisuals.BloomIntensity * Intensity, CurrentVisuals.BloomThreshold);
-	ApplyVolumetricFog(CurrentVisuals.VolumetricFogDensity * Intensity, CurrentVisuals.VolumetricFogAlbedo, CurrentVisuals.VolumetricFogColor);
-	ApplyColorGrading(CurrentVisuals.ColorTemperature, CurrentVisuals.ColorTintShadows, CurrentVisuals.Saturation, CurrentVisuals.Contrast, CurrentVisuals.Gamma);
+	float FogDensity = CurrentVisuals.VolumetricFogDensity;
+	float FogAlbedo = CurrentVisuals.VolumetricFogAlbedo;
+	FLinearColor FogColor = CurrentVisuals.VolumetricFogColor;
+	float Bloom = CurrentVisuals.BloomIntensity;
+	float Temperature = CurrentVisuals.ColorTemperature;
+	float Saturation = CurrentVisuals.Saturation;
+	float Contrast = CurrentVisuals.Contrast;
+
+	// Weather rides on top of biome looks so mistspire.SetWeather / porch button is readable
+	// without watching the HUD (biome CVars alone barely change on the valley shelf).
+	if (UWorld* World = GetWorld())
+	{
+		if (UMistspireEnvironmentSubsystem* Env = World->GetSubsystem<UMistspireEnvironmentSubsystem>())
+		{
+			switch (Env->GetCurrentWeather())
+			{
+			case EMistspireWeatherType::MistStorm:
+				FogDensity = FMath::Max(FogDensity * 2.4f, 0.35f);
+				FogAlbedo = FMath::Min(1.f, FogAlbedo * 1.15f);
+				FogColor = FLinearColor::LerpUsingHSV(FogColor, FLinearColor(0.78f, 0.82f, 0.88f), 0.75f);
+				Temperature = FMath::Lerp(Temperature, 7200.f, 0.55f);
+				Saturation *= 0.72f;
+				Bloom *= 0.85f;
+				break;
+			case EMistspireWeatherType::ElectricTurmoil:
+				FogDensity = FMath::Max(FogDensity * 1.5f, 0.18f);
+				FogColor = FLinearColor::LerpUsingHSV(FogColor, FLinearColor(0.28f, 0.35f, 0.95f), 0.7f);
+				Temperature = FMath::Lerp(Temperature, 9500.f, 0.65f);
+				Saturation *= 1.15f;
+				Contrast *= 1.12f;
+				Bloom *= 1.25f;
+				break;
+			case EMistspireWeatherType::ZenithGlow:
+				FogDensity *= 0.55f;
+				FogColor = FLinearColor::LerpUsingHSV(FogColor, FLinearColor(1.0f, 0.78f, 0.45f), 0.7f);
+				Temperature = FMath::Lerp(Temperature, 4200.f, 0.7f);
+				Saturation *= 1.2f;
+				Bloom *= 1.55f;
+				break;
+			default:
+				break;
+			}
+		}
+	}
+
+	ApplyBloom(Bloom * Intensity, CurrentVisuals.BloomThreshold);
+	ApplyVolumetricFog(FogDensity * Intensity, FogAlbedo, FogColor);
+	ApplyColorGrading(Temperature, CurrentVisuals.ColorTintShadows, Saturation, Contrast, CurrentVisuals.Gamma);
 	ApplyAO(CurrentVisuals.AmbientOcclusionIntensity * Intensity);
 }
 

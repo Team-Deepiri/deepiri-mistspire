@@ -37,7 +37,7 @@ Or in console after PIE: `mistspire.DemoMode 1` (seeds Mist Inn doors + scaffold
 | Welcome + ghosts | Auto with `-demoworld`; else `mistspire.ApplyDemoPresentation` |
 | Mist Inn | Walk -Y to porch (~Origin + (400,-1700)); overlap trigger → pocket. Exit through the +X door wall → returns to porch feet (`GetMistInnExitReturnLocation`). |
 | Valley dress | Summit shelf at ValleyOrigin `(0,0,3200)` + persistent `DemoEnv_*` + runtime Fab soft-refs |
-| Weather | Porch button or `mistspire.SetWeather 0` … `3` |
+| Weather | Porch button (plaza edge of the porch, clear of the door trigger) or `mistspire.SetWeather 0` … `3`. Sky / fog / sun tint should visibly shift (grey mist, purple storm, warm zenith) — not HUD-only. |
 | Approach / grapple | Walk stairs to 60 m, grapple a few shaft pads |
 | Biome tour | `mistspire.DemoTour 0` … `9` (Mist → Pinnacle + forced visuals) |
 | Survival | Climb / grapple / glider; `mistspire.RefillSurvival` if needed |
@@ -63,6 +63,14 @@ Record or soak both paths before opening a PR:
 - [ ] **VR Preview**: same beats; approach stairs + a few grapple pads feel readable
 - [ ] **Stress**: DemoTour 0→9 quickly; FPS acceptable for capture (no hitch loop)
 - [ ] **Packaged Win64**: `scripts/launch_packaged_win64.ps1` boots with `-demoworld`, HUD + tour work
+
+### Known jank guards (verify these still hold)
+
+- Stepping off the `ShelfPad` or a station pad returns you to the Valley Gate — the template
+  landscape is collision-disabled, so without the catch a miss is an endless fall.
+- The porch weather button is outside the Mist Inn door volume; pressing it must not teleport you.
+- `mistspire.DemoTour N` lands on the inner half of each pad, clear of the needle / plinth / pier.
+- Running `DemoTour` while inside the Mist Inn exits the interior first, so the door still works after.
 
 ## Unreal MCP (optional polish)
 

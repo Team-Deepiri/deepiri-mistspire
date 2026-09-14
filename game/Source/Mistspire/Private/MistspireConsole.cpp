@@ -50,6 +50,12 @@ static void MistspireTeleportUp(const TArray<FString>& Args)
 
 	if (APawn* Pawn = GWorld->GetFirstPlayerController() ? GWorld->GetFirstPlayerController()->GetPawn() : nullptr)
 	{
+		// Clear grapple / glider / climb state first: carrying that velocity into a debug hop
+		// yanked the player straight back down or left the rope anchored below them.
+		if (AMistspireVRPawn* MistPawn = Cast<AMistspireVRPawn>(Pawn))
+		{
+			MistPawn->ResetMotionForDebugTeleport();
+		}
 		Pawn->AddActorWorldOffset(FVector(0.f, 0.f, DeltaCm), false, nullptr, ETeleportType::TeleportPhysics);
 	}
 }

@@ -180,7 +180,7 @@ void UMistspireWorldAtlasSubsystem::SeedProductionWorld()
 		TEXT("building_valley_inn"),
 		TEXT("valley_haven"),
 		MistspireDemoSpire::GetMistInnDoorTriggerLocation(),
-		MistspireDemoSpire::GetMistInnInteriorSpawn(),
+		MistspireDemoSpire::GetMistInnInteriorPawnSpawn(),
 		TEXT("Mist Inn"),
 		TEXT("Warm air spills from the door."),
 		FRotator(0.f, 90.f, 0.f));
