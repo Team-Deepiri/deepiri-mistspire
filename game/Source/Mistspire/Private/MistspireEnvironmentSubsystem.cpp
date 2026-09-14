@@ -1,12 +1,18 @@
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireInteriorSubsystem.h"
+#include "MistspireDemoSpireLayout.h"
 #include "MistspireGameState.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Components/SkyAtmosphereComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/DirectionalLight.h"
 #include "Engine/ExponentialHeightFog.h"
+#include "Engine/StaticMesh.h"
 #include "EngineUtils.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
+#include "Materials/MaterialInterface.h"
 
 void UMistspireEnvironmentSubsystem::Tick(float DeltaTime)
 {
@@ -14,6 +20,7 @@ void UMistspireEnvironmentSubsystem::Tick(float DeltaTime)
 	TimeAccumulator += DeltaTime;
 	UpdateWeather(DeltaTime);
 	UpdateWeatherPresentation(DeltaTime);
+	UpdateSkydomeCoverage();
 
 	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
 	{
@@ -25,6 +32,142 @@ void UMistspireEnvironmentSubsystem::Tick(float DeltaTime)
 }
 
 TStatId UMistspireEnvironmentSubsystem::GetStatId() const { RETURN_QUICK_DECLARE_CYCLE_STAT(UMistspireEnvironmentSubsystem, STATGROUP_Tickables); }
+
+namespace
+{
+	bool IsSkydomeActor(const AActor* Actor)
+	{
+		if (!Actor)
+		{
+			return false;
+		}
+
+		const FString ClassName = Actor->GetClass()->GetName();
+		if (ClassName.Contains(TEXT("Sky_Sphere")) || ClassName.Contains(TEXT("SkySphere")))
+		{
+			return true;
+		}
+
+		TArray<UStaticMeshComponent*> MeshComps;
+		Actor->GetComponents<UStaticMeshComponent>(MeshComps);
+		for (const UStaticMeshComponent* Comp : MeshComps)
+		{
+			if (!Comp)
+			{
+				continue;
+			}
+			for (int32 MatIdx = 0; MatIdx < Comp->GetNumMaterials(); ++MatIdx)
+			{
+				if (const UMaterialInterface* Mat = Comp->GetMaterial(MatIdx))
+				{
+					const FString MatPath = Mat->GetPathName();
+					if (MatPath.Contains(TEXT("/Engine/EngineSky/"), ESearchCase::IgnoreCase)
+						|| MatPath.Contains(TEXT("Sky_Material"), ESearchCase::IgnoreCase))
+					{
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+}
+
+void UMistspireEnvironmentSubsystem::ResolveSkydomeActors()
+{
+	bSkydomeActorsResolved = true;
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	using namespace MistspireDemoSpire;
+	const float MaxCameraZ = GetValleyOrigin().Z + StationAltitudeCm[9] + TourLandingClearanceCm + 500000.f;
+
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (!Actor || Actor->IsActorBeingDestroyed() || !IsSkydomeActor(Actor))
+		{
+			continue;
+		}
+
+		SkyDomeActors.Add(Actor);
+
+		if (const UStaticMeshComponent* MeshComp = Actor->FindComponentByClass<UStaticMeshComponent>())
+		{
+			if (const UStaticMesh* Mesh = MeshComp->GetStaticMesh())
+			{
+				const float MeshRadius = static_cast<float>(Mesh->GetBounds().SphereRadius);
+				if (MeshRadius > 1.f)
+				{
+					// Template OpenWorld domes sit at origin; DemoTour Pinnacle is ~19 km up.
+					const float NeededScale = (MaxCameraZ * 1.35f) / MeshRadius;
+					SkydomeMinUniformScale = FMath::Max(SkydomeMinUniformScale, NeededScale);
+				}
+			}
+		}
+	}
+
+	if (SkyDomeActors.Num() > 0)
+	{
+		UE_LOG(LogTemp, Log,
+			TEXT("Mistspire Environment: tracking %d skydome actor(s), minUniformScale=%.0f."),
+			SkyDomeActors.Num(), SkydomeMinUniformScale);
+	}
+}
+
+void UMistspireEnvironmentSubsystem::UpdateSkydomeCoverage()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	if (!bSkydomeActorsResolved)
+	{
+		ResolveSkydomeActors();
+	}
+
+	if (SkyDomeActors.Num() == 0)
+	{
+		return;
+	}
+
+	APlayerController* PC = World->GetFirstPlayerController();
+	if (!PC)
+	{
+		return;
+	}
+
+	FVector ViewLoc = FVector::ZeroVector;
+	FRotator ViewRot = FRotator::ZeroRotator;
+	PC->GetPlayerViewPoint(ViewLoc, ViewRot);
+
+	for (TWeakObjectPtr<AActor>& WeakSky : SkyDomeActors)
+	{
+		AActor* Sky = WeakSky.Get();
+		if (!Sky || Sky->IsActorBeingDestroyed())
+		{
+			continue;
+		}
+
+		// Keep the camera inside the inverted sky mesh so the EngineSky material covers the frustum.
+		Sky->SetActorLocation(ViewLoc, false, nullptr, ETeleportType::None);
+
+		if (SkydomeMinUniformScale > 0.f)
+		{
+			const FVector Scale = Sky->GetActorScale3D();
+			const float CurrentUniform = FMath::Max3(Scale.X, Scale.Y, Scale.Z);
+			if (CurrentUniform < SkydomeMinUniformScale)
+			{
+				Sky->SetActorScale3D(FVector(SkydomeMinUniformScale));
+			}
+		}
+	}
+}
 
 void UMistspireEnvironmentSubsystem::UpdateWeather(float DeltaTime)
 {

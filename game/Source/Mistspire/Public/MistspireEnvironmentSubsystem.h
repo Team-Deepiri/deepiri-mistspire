@@ -62,6 +62,8 @@ public:
 private:
 	void UpdateWeather(float DeltaTime);
 	void UpdateWeatherPresentation(float DeltaTime);
+	void ResolveSkydomeActors();
+	void UpdateSkydomeCoverage();
 	void ApplyWeatherToSkyActors(const FLinearColor& SkyTint, const FLinearColor& Rayleigh, const FLinearColor& FogColor,
 		float FogDensity, const FLinearColor& SunColor, float SunIntensityScale);
 
@@ -86,6 +88,10 @@ private:
 	bool bCachedSunIntensity = false;
 	float CachedSunIntensity = 10.f;
 	EMistspireWeatherType PresentedWeather = EMistspireWeatherType::Clear;
+
+	TArray<TWeakObjectPtr<AActor>> SkyDomeActors;
+	bool bSkydomeActorsResolved = false;
+	float SkydomeMinUniformScale = 0.f;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Mistspire|Environment", meta = (AllowPrivateAccess = "true"))
 	EMistspireWeatherType CurrentWeather = EMistspireWeatherType::Clear;

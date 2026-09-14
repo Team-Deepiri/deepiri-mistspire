@@ -51,6 +51,8 @@ pocket into a 200 m fall.
 - Backdrop is **one** landform: `SummitMass`, 3 km across, NoCollision, **placed by tracing its own
   surface** so the deck sits on the mountain rather than above or inside it. Rings of secondary
   massifs were tried and removed — at any spacing they read as separate slabs around the big one.
+- `UMistspireEnvironmentSubsystem::UpdateSkydomeCoverage()` recenters the template `BP_Sky_Sphere` on the
+  camera and scales it for Pinnacle (~19 km) so the EngineSky mesh covers the frustum during `DemoTour`.
 - `AimSunAtVillage()` re-aims the map's directional light to `(-38, 162, 0)` so light rakes the face
   the village sits on (the shelf was otherwise in the summit's own shadow) and stays behind the
   player, who spawns looking -X. It forces Movable first, since Stationary lights ignore runtime rotation.
