@@ -629,7 +629,15 @@ static void MistspireApplyDemoPresentation(const TArray<FString>&)
 	{
 		return;
 	}
-	MistspireDemoMode::ApplyPresentation(GWorld);
+	// Mid-session: ensure Mist Inn doors / scaffold if DemoMode is on (idempotent).
+	if (MistspireDemoMode::IsEnabled())
+	{
+		MistspireDemoMode::EnsureDemoRuntime(GWorld);
+	}
+	else
+	{
+		MistspireDemoMode::ApplyPresentation(GWorld);
+	}
 }
 
 static FAutoConsoleCommand CmdMistspireApplyDemo(

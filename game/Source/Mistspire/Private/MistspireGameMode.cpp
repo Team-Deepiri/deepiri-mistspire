@@ -186,7 +186,8 @@ void AMistspireGameMode::SeedWorldAtlas()
 	{
 		Atlas->SeedProductionWorld();
 		const bool bNonVR = FMistspireInputMode::IsNonVRMode(World);
-		if (!bNonVR || bSpawnAtlasMarkersInNonVR)
+		// Demo recording is primarily non-VR — still need Mist Inn door / POI markers.
+		if (!bNonVR || bSpawnAtlasMarkersInNonVR || MistspireDemoMode::IsEnabled())
 		{
 			Atlas->SpawnAuthoredWorldMarkers();
 		}

@@ -15,7 +15,8 @@ public:
 	virtual void StartPlay() override;
 	virtual void HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer) override;
 
-	/** When false, atlas door/POI markers are not spawned in non-VR (reduces clutter). */
+	/** When false, atlas door/POI markers are not spawned in non-VR (reduces clutter).
+	 *  Ignored when MistspireDemoMode is enabled — demo needs Mist Inn door + POIs. */
 	UPROPERTY(EditDefaultsOnly, Category = "Mistspire|NonVR")
 	bool bSpawnAtlasMarkersInNonVR = false;
 

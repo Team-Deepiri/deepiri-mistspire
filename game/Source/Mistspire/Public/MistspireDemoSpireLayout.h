@@ -6,15 +6,50 @@
 /**
  * Shared Demo Spire helix layout — stations, summit IDs, and tints.
  * Used by summit seeds, DemoTour teleports, and AMistspireDemoClimbScaffold.
+ *
+ * ValleyOrigin is the mountain-top shelf where the gate, Mist Inn, spawn, and helix root live.
+ * Station altitudes are measured upward from that shelf.
  */
 namespace MistspireDemoSpire
 {
 	inline constexpr int32 StationCount = 10;
 	inline constexpr float HelixRadiusCm = 2500.f;
 	inline constexpr float AngleStepDeg = 36.f;
-	/** Valley floor top sits near Z=0; PlayerStart ~200 cm above. */
-	inline constexpr float ValleyFloorZCm = 0.f;
-	inline constexpr float PlayerStartZCm = 200.f;
+
+	/** Summit shelf world origin — helix + gate village root (near map floor so mountain can hide the template). */
+	inline FVector GetValleyOrigin()
+	{
+		return FVector(0.f, 0.f, 50.f);
+	}
+
+	inline FVector Valley(float X, float Y, float Z)
+	{
+		return GetValleyOrigin() + FVector(X, Y, Z);
+	}
+
+	inline float GetValleyFloorZCm()
+	{
+		return GetValleyOrigin().Z;
+	}
+
+	/** Capsule clearance above shelf walk surface. */
+	inline constexpr float PlayerStartZCm = 120.f;
+
+	/**
+	 * Spawn in front of Valley Gate, looking toward the arch (-X / yaw 180).
+	 * Gate sits between spawn and the mast so the mountain is the backdrop, not the gate's backstop.
+	 */
+	inline FVector GetValleySpawnLocation()
+	{
+		return Valley(850.f, 0.f, PlayerStartZCm);
+	}
+
+	/** Gate arch center on the shelf (between spawn and mast). */
+	inline FVector GetValleyGateLocation()
+	{
+		return Valley(400.f, 0.f, 0.f);
+	}
+
 	/** Local station stair run height (12 × 40 cm). */
 	inline constexpr float VignetteHeightCm = 480.f;
 	/** Approach stair rise — must stay ≤ NonVRMaxStepHeightCm (45). */
@@ -25,6 +60,10 @@ namespace MistspireDemoSpire
 	inline constexpr float ApproachSweepDeg = 450.f;
 	/** Capsule half-height (~88) + margin for DemoTour landings. */
 	inline constexpr float TourLandingClearanceCm = 120.f;
+
+	/** Pad half-extent used for dress occupancy (cm). Dress stays outside this + margin. */
+	inline constexpr float StationPadHalfCm = 300.f;
+	inline constexpr float StationDressRingCm = 520.f;
 
 	inline constexpr float StationAltitudeCm[StationCount] = {
 		50000.f,   // Mist
@@ -66,10 +105,10 @@ namespace MistspireDemoSpire
 	{
 		if (Index < 0 || Index >= StationCount)
 		{
-			return FVector::ZeroVector;
+			return GetValleyOrigin();
 		}
 		const float AngleRad = FMath::DegreesToRadians(GetStationYawDeg(Index));
-		return FVector(
+		return Valley(
 			HelixRadiusCm * FMath::Cos(AngleRad),
 			HelixRadiusCm * FMath::Sin(AngleRad),
 			StationAltitudeCm[Index]);
@@ -82,16 +121,38 @@ namespace MistspireDemoSpire
 		return Station + FVector(0.f, 0.f, TourLandingClearanceCm);
 	}
 
-	inline FVector GetValleySpawnLocation()
-	{
-		// Offset from central mast so the opening frame reads the Valley Gate.
-		return FVector(350.f, 0.f, PlayerStartZCm);
-	}
-
-	/** Mist Inn exterior door — camera-reachable from valley spawn. */
+	/**
+	 * Mist Inn door — off the -Y side of the plaza, facing spawn (+X).
+	 * Kept clear of the gate: solid dress is refused inside InnDoorClearanceCm.
+	 */
 	inline FVector GetMistInnDoorLocation()
 	{
-		return FVector(700.f, -400.f, 150.f);
+		return Valley(400.f, -1700.f, 80.f);
+	}
+
+	/** Collision dress must stay outside this radius around the inn door. */
+	inline constexpr float InnDoorClearanceCm = 700.f;
+
+	/**
+	 * Enter-volume sits on the plaza side of the wall so the capsule overlaps it before
+	 * reaching the visual opening (cabin shell is NoCollision; teleport is the interaction).
+	 */
+	inline FVector GetMistInnDoorTriggerLocation()
+	{
+		// FacePlaza forward is +Y toward the plaza/gate from the -Y wing.
+		return GetMistInnDoorLocation() + FVector(0.f, 120.f, 0.f);
+	}
+
+	/**
+	 * Where ExitBuilding should drop the pawn — shelf floor + capsule clearance on the plaza
+	 * side of the door. Must NOT use the door-volume center Z (that left you floating above the porch).
+	 */
+	inline FVector GetMistInnExitReturnLocation()
+	{
+		const FVector Door = GetMistInnDoorLocation();
+		// Past the enter volume (trigger at Door+120Y, extent ~180 local → world X after yaw 90).
+		// Z is a probe seed only — InteriorSubsystem snaps to the real platform via line trace.
+		return FVector(Door.X, Door.Y + 450.f, GetValleyFloorZCm() + PlayerStartZCm);
 	}
 
 	/**
@@ -101,6 +162,12 @@ namespace MistspireDemoSpire
 	inline FVector GetMistInnInteriorSpawn()
 	{
 		return FVector(5000000.f, 0.f, 20000.f);
+	}
+
+	/** InteriorExit volume — centered in the pocket's +X door wall opening. */
+	inline FVector GetMistInnInteriorExitLocation()
+	{
+		return GetMistInnInteriorSpawn() + FVector(400.f, 0.f, 100.f);
 	}
 
 	inline FName GetSummitId(int32 Index)

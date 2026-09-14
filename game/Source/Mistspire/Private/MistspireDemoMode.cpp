@@ -1,12 +1,16 @@
 #include "MistspireDemoMode.h"
 #include "MistspireAltitudeDebugSubsystem.h"
+#include "MistspireDemoClimbScaffold.h"
 #include "MistspireDialogueSubsystem.h"
 #include "MistspireEnvironmentSubsystem.h"
 #include "MistspireGameState.h"
 #include "MistspireVRPawn.h"
 #include "MistspireVisualEnhancementSubsystem.h"
 #include "MistspireDemoSpireLayout.h"
+#include "MistspireWorldAtlasSubsystem.h"
 #include "AI/MistspireWanderingGhost.h"
+#include "Async/Async.h"
+#include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
@@ -31,6 +35,42 @@ namespace
 				|| World->WorldType == EWorldType::PIE
 				|| World->WorldType == EWorldType::GamePreview);
 	}
+
+	UWorld* ResolvePlayWorld()
+	{
+		if (GWorld && IsPlayWorld(GWorld))
+		{
+			return GWorld;
+		}
+		if (!GEngine)
+		{
+			return nullptr;
+		}
+		for (const FWorldContext& Ctx : GEngine->GetWorldContexts())
+		{
+			if (UWorld* World = Ctx.World())
+			{
+				if (IsPlayWorld(World))
+				{
+					return World;
+				}
+			}
+		}
+		return nullptr;
+	}
+
+	void EnsureDemoRuntimeOnGameThread()
+	{
+		if (UWorld* World = ResolvePlayWorld())
+		{
+			MistspireDemoMode::EnsureDemoRuntime(World);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("Mistspire DemoMode: no play world yet — markers/scaffold apply on next PIE StartPlay or ApplyDemoPresentation."));
+		}
+	}
 }
 
 bool MistspireDemoMode::IsEnabled()
@@ -41,6 +81,58 @@ bool MistspireDemoMode::IsEnabled()
 	}
 	return FParse::Param(FCommandLine::Get(), TEXT("demoworld"))
 		|| FParse::Param(FCommandLine::Get(), TEXT("mistspiredemo"));
+}
+
+void MistspireDemoMode::EnsureDemoRuntime(UWorld* World)
+{
+	if (!IsPlayWorld(World))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Mistspire DemoMode: EnsureDemoRuntime refused — not a game/PIE world."));
+		return;
+	}
+
+	if (UMistspireWorldAtlasSubsystem* Atlas = World->GetSubsystem<UMistspireWorldAtlasSubsystem>())
+	{
+		Atlas->SeedProductionWorld();
+		Atlas->SpawnAuthoredWorldMarkers();
+	}
+
+	AMistspireDemoClimbScaffold::EnsureInWorld(World);
+	ApplyPresentation(World);
+	UE_LOG(LogTemp, Log, TEXT("Mistspire DemoMode: EnsureDemoRuntime complete (atlas markers + scaffold + presentation)."));
+}
+
+namespace
+{
+	void OnDemoModeCVarChanged(IConsoleVariable* Variable)
+	{
+		if (!Variable || Variable->GetInt() <= 0)
+		{
+			return;
+		}
+		// Mid-session enable: StartPlay already skipped markers when IsEnabled was false.
+		if (IsInGameThread())
+		{
+			EnsureDemoRuntimeOnGameThread();
+		}
+		else
+		{
+			AsyncTask(ENamedThreads::GameThread, []()
+			{
+				EnsureDemoRuntimeOnGameThread();
+			});
+		}
+	}
+
+	struct FMistspireDemoModeCVarHook
+	{
+		FMistspireDemoModeCVarHook()
+		{
+			CVarMistspireDemoMode->SetOnChangedCallback(
+				FConsoleVariableDelegate::CreateStatic(&OnDemoModeCVarChanged));
+		}
+	};
+	static FMistspireDemoModeCVarHook GMistspireDemoModeCVarHook;
 }
 
 void MistspireDemoMode::ApplyPresentation(UWorld* World)

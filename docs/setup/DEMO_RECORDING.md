@@ -1,6 +1,6 @@
 # Demo recording cheat sheet
 
-Owner-facing sequence for a dumbed-down Mistspire presentation **before** the custom map pass. Systems are driven by altitude, console teleports, and Joe’s AI hooks — not authored PCG yet.
+Owner-facing sequence for Mistspire demo presentation (Demo Spire + Fab env dress on Main_WP). Systems are driven by altitude, console teleports, Joe’s AI hooks, and hybrid env dress.
 
 ## Branch / build
 
@@ -26,7 +26,7 @@ Demo presentation on launch:
 -demoworld
 ```
 
-Or in console after PIE: `mistspire.DemoMode 1` then `mistspire.ApplyDemoPresentation`.
+Or in console after PIE: `mistspire.DemoMode 1` (seeds Mist Inn doors + scaffold if StartPlay ran without `-demoworld`) then `mistspire.ApplyDemoPresentation` if you only need the HUD/ghost beat again.
 
 ## Recording sequence
 
@@ -35,7 +35,8 @@ Or in console after PIE: `mistspire.DemoMode 1` then `mistspire.ApplyDemoPresent
 | Title / start | Press any key (non-VR) |
 | HUD | Already on in demo; else `mistspire.ShowAltitudeHUD 1` |
 | Welcome + ghosts | Auto with `-demoworld`; else `mistspire.ApplyDemoPresentation` |
-| Mist Inn | Walk to porch (~700, -400); overlap door → pocket hearth room |
+| Mist Inn | Walk -Y to porch (~Origin + (400,-1700)); overlap trigger → pocket. Exit through the +X door wall → returns to porch feet (`GetMistInnExitReturnLocation`). |
+| Valley dress | Summit shelf at ValleyOrigin `(0,0,3200)` + persistent `DemoEnv_*` + runtime Fab soft-refs |
 | Weather | Porch button or `mistspire.SetWeather 0` … `3` |
 | Approach / grapple | Walk stairs to 60 m, grapple a few shaft pads |
 | Biome tour | `mistspire.DemoTour 0` … `9` (Mist → Pinnacle + forced visuals) |

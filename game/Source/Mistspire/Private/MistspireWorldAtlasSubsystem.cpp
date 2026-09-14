@@ -4,6 +4,7 @@
 #include "MistspirePOIMarker.h"
 #include "MistspireDemoSpireLayout.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 
 FText UMistspireWorldAtlasSubsystem::GetDistrictDisplayName(EMistspireWorldDistrict District)
 {
@@ -152,13 +153,13 @@ void UMistspireWorldAtlasSubsystem::SeedProductionWorld()
 	AddDistrict(EMistspireWorldDistrict::FrostArchive, TEXT("frost_archive"), FVector(-600000, -200000, 0), FVector(200000, 200000, 400000), 400000, 1000000, 7, TEXT("Ice vaults preserve dead maps."));
 	AddDistrict(EMistspireWorldDistrict::StormBreak, TEXT("storm_break"), FVector(200000, 500000, 0), FVector(230000, 230000, 380000), 250000, 800000, 9, TEXT("Lightning scars the cliff face."));
 
-	auto AddBuilding = [&](const TCHAR* Id, const TCHAR* District, FVector Door, FVector Interior, const TCHAR* Name, const TCHAR* EnterLine)
+	auto AddBuilding = [&](const TCHAR* Id, const TCHAR* District, FVector Door, FVector Interior, const TCHAR* Name, const TCHAR* EnterLine, FRotator DoorRot = FRotator::ZeroRotator)
 	{
 		FMistspireBuildingEntry B;
 		B.BuildingId = FName(Id);
 		B.DistrictName = FName(District);
 		B.ExteriorDoorLocation = Door;
-		B.ExteriorDoorRotation = FRotator(0, 0, 0);
+		B.ExteriorDoorRotation = DoorRot;
 		B.InteriorSpawnLocation = Interior;
 		B.InteriorSpawnRotation = FRotator::ZeroRotator;
 		B.DisplayName = FText::FromString(Name);
@@ -174,14 +175,15 @@ void UMistspireWorldAtlasSubsystem::SeedProductionWorld()
 		return FVector(5000000.f + PocketIndex++ * 800000.f, 0.f, 20000.f);
 	};
 
-	// Door sits next to Demo Spire valley spawn; interior is the first atlas pocket (shared constant).
+	// Door trigger sits on the plaza side of the Mist Inn wall; faces plaza (+Y toward gate).
 	AddBuilding(
 		TEXT("building_valley_inn"),
 		TEXT("valley_haven"),
-		MistspireDemoSpire::GetMistInnDoorLocation(),
+		MistspireDemoSpire::GetMistInnDoorTriggerLocation(),
 		MistspireDemoSpire::GetMistInnInteriorSpawn(),
 		TEXT("Mist Inn"),
-		TEXT("Warm air spills from the door."));
+		TEXT("Warm air spills from the door."),
+		FRotator(0.f, 90.f, 0.f));
 	++PocketIndex; // keep subsequent pocket spacing aligned with prior layout
 	AddBuilding(TEXT("building_valley_gear"), TEXT("valley_haven"), FVector(-15000, 22000, 17500), PocketOffset(), TEXT("Rope & Rivet"), TEXT("Climbing gear clinks inside."));
 	AddBuilding(TEXT("building_mist_tea"), TEXT("mistmarket"), FVector(710000, 12000, 22000), PocketOffset(), TEXT("White Tea House"), TEXT("Steam masks the entrance."));
@@ -210,7 +212,7 @@ void UMistspireWorldAtlasSubsystem::SeedProductionWorld()
 		RegisterPOI(P);
 	};
 
-	AddPOI(TEXT("poi_valley_gate"), EMistspirePOIType::Landmark, FVector(0, 0, 20000), TEXT("Valley Gate"), TEXT("The climb begins here."));
+	AddPOI(TEXT("poi_valley_gate"), EMistspirePOIType::Landmark, MistspireDemoSpire::GetValleySpawnLocation(), TEXT("Valley Gate"), TEXT("The climb begins here."));
 	AddPOI(TEXT("poi_mist_falls"), EMistspirePOIType::Viewpoint, FVector(150000, 50000, 80000), TEXT("Mist Falls"), TEXT("Water vanishes into cloud."));
 	AddPOI(TEXT("poi_mesa_wind"), EMistspirePOIType::Viewpoint, FVector(50000, 750000, 200000), TEXT("Mesa Wind Shrine"), TEXT("Flags snap in perpetual gale."));
 	AddPOI(TEXT("poi_cloud_bridge"), EMistspirePOIType::Transit, FVector(720000, 680000, 350000), TEXT("Promenade Bridge"), TEXT("Cross between islands."));
@@ -227,6 +229,24 @@ void UMistspireWorldAtlasSubsystem::SpawnAuthoredWorldMarkers()
 		return;
 	}
 
+	TSet<FName> ExistingBuildingDoors;
+	for (TActorIterator<AMistspireBuildingEntrance> It(World); It; ++It)
+	{
+		if (!It->BuildingId.IsNone())
+		{
+			ExistingBuildingDoors.Add(It->BuildingId);
+		}
+	}
+
+	TSet<FName> ExistingPOIs;
+	for (TActorIterator<AMistspirePOIMarker> It(World); It; ++It)
+	{
+		if (!It->POIId.IsNone())
+		{
+			ExistingPOIs.Add(It->POIId);
+		}
+	}
+
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
@@ -237,25 +257,55 @@ void UMistspireWorldAtlasSubsystem::SpawnAuthoredWorldMarkers()
 			continue;
 		}
 
-		AMistspireBuildingEntrance* Door = World->SpawnActor<AMistspireBuildingEntrance>(
-			B.ExteriorDoorLocation, B.ExteriorDoorRotation, Params);
-		if (Door)
+		// Keep existing doors on the current atlas transform — layout moves (Mist Inn wing,
+		// trigger in front of the wall) must not leave a stale volume at the old spot.
+		if (ExistingBuildingDoors.Contains(B.BuildingId))
 		{
-			Door->BuildingId = B.BuildingId;
+			for (TActorIterator<AMistspireBuildingEntrance> It(World); It; ++It)
+			{
+				if (It->BuildingId == B.BuildingId)
+				{
+					It->SetActorLocationAndRotation(B.ExteriorDoorLocation, B.ExteriorDoorRotation);
+					break;
+				}
+			}
+			continue;
 		}
 
-		const FVector ExitLoc = B.InteriorSpawnLocation + FVector(200.f, 0.f, 0.f);
+		const FTransform DoorXf(B.ExteriorDoorRotation, B.ExteriorDoorLocation);
+		AMistspireBuildingEntrance* Door = World->SpawnActorDeferred<AMistspireBuildingEntrance>(
+			AMistspireBuildingEntrance::StaticClass(), DoorXf, nullptr, nullptr,
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (!Door)
+		{
+			continue;
+		}
+		Door->BuildingId = B.BuildingId;
+		Door->FinishSpawning(DoorXf);
+
+		const FVector ExitLoc = (B.BuildingId == FName(TEXT("building_valley_inn")))
+			? MistspireDemoSpire::GetMistInnInteriorExitLocation()
+			: B.InteriorSpawnLocation + FVector(200.f, 0.f, 0.f);
 		World->SpawnActor<AMistspireInteriorExit>(ExitLoc, FRotator::ZeroRotator, Params);
 	}
 
 	for (const FMistspirePOIEntry& P : POIs)
 	{
-		AMistspirePOIMarker* Marker = World->SpawnActor<AMistspirePOIMarker>(
-			P.WorldLocation, FRotator::ZeroRotator, Params);
-		if (Marker)
+		if (ExistingPOIs.Contains(P.POIId))
 		{
-			Marker->POIId = P.POIId;
-			Marker->POIType = P.Type;
+			continue;
 		}
+
+		const FTransform POIXf(FRotator::ZeroRotator, P.WorldLocation);
+		AMistspirePOIMarker* Marker = World->SpawnActorDeferred<AMistspirePOIMarker>(
+			AMistspirePOIMarker::StaticClass(), POIXf, nullptr, nullptr,
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (!Marker)
+		{
+			continue;
+		}
+		Marker->POIId = P.POIId;
+		Marker->POIType = P.Type;
+		Marker->FinishSpawning(POIXf);
 	}
 }

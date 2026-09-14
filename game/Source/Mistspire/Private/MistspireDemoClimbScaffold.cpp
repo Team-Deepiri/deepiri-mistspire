@@ -6,12 +6,22 @@
 #include "MistspireWindCrystal.h"
 #include "MistspireLoreShard.h"
 #include "MistspirePhysicalButton.h"
+#include "MistspireBuildingEntrance.h"
+#include "MistspireInteriorExit.h"
+#include "MistspireWorldAtlasSubsystem.h"
+#include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Engine/DirectionalLight.h"
 #include "Components/SceneComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshSocket.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "TimerManager.h"
+#include "CollisionQueryParams.h"
+#include "Engine/HitResult.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -66,6 +76,7 @@ AMistspireDemoClimbScaffold* AMistspireDemoClimbScaffold::EnsureInWorld(UWorld* 
 		AMistspireDemoClimbScaffold* Existing = *It;
 		if (Existing && !Existing->IsActorBeingDestroyed())
 		{
+			Existing->SetActorLocation(MistspireDemoSpire::GetValleyOrigin());
 			Existing->Rebuild();
 			return Existing;
 		}
@@ -75,13 +86,17 @@ AMistspireDemoClimbScaffold* AMistspireDemoClimbScaffold::EnsureInWorld(UWorld* 
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	Params.NameMode = FActorSpawnParameters::ESpawnActorNameMode::Requested;
 	return World->SpawnActor<AMistspireDemoClimbScaffold>(
-		AMistspireDemoClimbScaffold::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, Params);
+		AMistspireDemoClimbScaffold::StaticClass(),
+		MistspireDemoSpire::GetValleyOrigin(),
+		FRotator::ZeroRotator,
+		Params);
 }
 
 void AMistspireDemoClimbScaffold::Rebuild()
 {
 	ClearBuiltActors();
 	CachedTintMIDs.Reset();
+	bEnvDressResolved = false;
 
 	if (!CubeMesh)
 	{
@@ -96,6 +111,13 @@ void AMistspireDemoClimbScaffold::Rebuild()
 		BaseMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
 	}
 
+	if (bSpawnEnvDress)
+	{
+		ResolveEnvDressMeshes();
+	}
+
+	HideTemplateBackdrop();
+	AimSunAtVillage();
 	BuildValley();
 	BuildMistInnPocket();
 	BuildCentralMast();
@@ -110,18 +132,16 @@ void AMistspireDemoClimbScaffold::Rebuild()
 		BuildStation(i);
 	}
 
-	if (bSpawnDistantSilhouettes)
-	{
-		BuildDistantSilhouettes();
-	}
-
 	if (bSpawnImmersionProps)
 	{
 		SpawnValleyImmersionProps();
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Mistspire DemoClimbScaffold: rebuilt %d stations + valley/Mist Inn/approach/shaft."),
-		MistspireDemoSpire::StationCount);
+	UE_LOG(LogTemp, Log,
+		TEXT("Mistspire DemoClimbScaffold: rebuilt %d stations + valley/Mist Inn/approach/shaft (EnvDress rocks=%d mtns=%d)."),
+		MistspireDemoSpire::StationCount,
+		EnvRocks.Num(),
+		EnvMountains.Num());
 }
 
 void AMistspireDemoClimbScaffold::ClearBuiltActors()
@@ -257,31 +277,565 @@ UStaticMeshComponent* AMistspireDemoClimbScaffold::AddCylinder(
 	return Comp;
 }
 
-void AMistspireDemoClimbScaffold::BuildValley()
+void AMistspireDemoClimbScaffold::ResolveEnvDressMeshes()
 {
-	const FLinearColor MistTint = MistspireDemoSpire::GetBiomeTint(0);
+	if (bEnvDressResolved)
+	{
+		return;
+	}
+	bEnvDressResolved = true;
+
+	EnvRocks.Reset();
+	EnvMountains.Reset();
+
+	auto SoftLoad = [](const TCHAR* Path) -> UStaticMesh*
+	{
+		return LoadObject<UStaticMesh>(nullptr, Path);
+	};
+
+	static const TCHAR* RockPaths[] = {
+		TEXT("/Game/Rock_Collection_04/Meshes/Rock_01/StaticMeshes/SM_Rock_01.SM_Rock_01"),
+		TEXT("/Game/Rock_Collection_04/Meshes/Rock_02/StaticMeshes/SM_Rock_02.SM_Rock_02"),
+		TEXT("/Game/Rock_Collection_04/Meshes/Rock_03/StaticMeshes/SM_Rock_03.SM_Rock_03"),
+		TEXT("/Game/Rock_Collection_04/Meshes/Rock_04/StaticMeshes/SM_Rock_04.SM_Rock_04"),
+		TEXT("/Game/Rock_Collection_04/Meshes/Rock_05/StaticMeshes/SM_Rock_05.SM_Rock_05"),
+		TEXT("/Game/Rock_Collection_04/Meshes/Rock_06/StaticMeshes/SM_Rock_06.SM_Rock_06"),
+		TEXT("/Game/Rock_Collection_04/Meshes/Rock_07/StaticMeshes/SM_Rock_07.SM_Rock_07"),
+	};
+	for (const TCHAR* Path : RockPaths)
+	{
+		if (UStaticMesh* Mesh = SoftLoad(Path))
+		{
+			EnvRocks.Add(Mesh);
+		}
+	}
+
+	static const TCHAR* MountainPaths[] = {
+		TEXT("/Game/Iceland_Environment/Static_Meshes/SM_Mountain_01.SM_Mountain_01"),
+		TEXT("/Game/Iceland_Environment/Static_Meshes/SM_Mountain_03.SM_Mountain_03"),
+		TEXT("/Game/Iceland_Environment/Static_Meshes/SM_Mountain_05.SM_Mountain_05"),
+		TEXT("/Game/Iceland_Environment/Static_Meshes/SM_Iceland_Crest.SM_Iceland_Crest"),
+		TEXT("/Game/Iceland_Environment/Static_Meshes/SM_Iceland_Eroded_Mountain.SM_Iceland_Eroded_Mountain"),
+		TEXT("/Game/Iceland_Environment/Static_Meshes/SM_Mountain_Plateu_01.SM_Mountain_Plateu_01"),
+	};
+	for (const TCHAR* Path : MountainPaths)
+	{
+		if (UStaticMesh* Mesh = SoftLoad(Path))
+		{
+			EnvMountains.Add(Mesh);
+		}
+	}
+
+	EnvPine = SoftLoad(TEXT("/Game/Modular_Rural_Cabin/Meshes/Foliage/SM_Pine_Tree_01.SM_Pine_Tree_01"));
+	EnvGrass = SoftLoad(TEXT("/Game/Modular_Rural_Cabin/Meshes/Foliage/Grass_Patch_1.Grass_Patch_1"));
+	EnvPorch = SoftLoad(TEXT("/Game/Modular_Rural_Cabin/Meshes/Modular/Porch_4x4m.Porch_4x4m"));
+	EnvDoor = SoftLoad(TEXT("/Game/Modular_Rural_Cabin/Meshes/Modular/Door_01.Door_01"));
+	EnvWall = SoftLoad(TEXT("/Game/Modular_Rural_Cabin/Meshes/Modular/Wall_4m.Wall_4m"));
+	// Prefer the wall that already has a door opening — solid Wall_4m + floating Door_01 was the blank facade.
+	EnvWallDoor = SoftLoad(TEXT("/Game/Modular_Rural_Cabin/Meshes/Modular/Wall_Door_4m.Wall_Door_4m"));
+	EnvRoof = SoftLoad(TEXT("/Game/Modular_Rural_Cabin/Meshes/Modular/Roof_Both_Ends_4m.Roof_Both_Ends_4m"));
+	if (!EnvRoof)
+	{
+		EnvRoof = SoftLoad(TEXT("/Game/Modular_Rural_Cabin/Meshes/Modular/Roof_4m.Roof_4m"));
+	}
+}
+
+UStaticMeshComponent* AMistspireDemoClimbScaffold::AddEnvMesh(
+	const FName& NameBase,
+	UStaticMesh* Mesh,
+	const FVector& WorldLocation,
+	const FVector& Scale,
+	const FRotator& Rotation,
+	bool bCollision)
+{
+	if (!Mesh || !Root)
+	{
+		return nullptr;
+	}
+
+	const FName UniqueName = MakeUniqueObjectName(this, UStaticMeshComponent::StaticClass(), NameBase);
+	UStaticMeshComponent* Comp = NewObject<UStaticMeshComponent>(this, UniqueName);
+	Comp->SetupAttachment(Root);
+	Comp->SetMobility(EComponentMobility::Movable);
+	Comp->SetStaticMesh(Mesh);
+	Comp->SetWorldLocation(WorldLocation);
+	Comp->SetWorldRotation(Rotation);
+	Comp->SetWorldScale3D(Scale);
+	if (bCollision)
+	{
+		Comp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		Comp->SetCollisionProfileName(TEXT("BlockAll"));
+	}
+	else
+	{
+		Comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+	Comp->RegisterComponent();
+	return Comp;
+}
+
+void AMistspireDemoClimbScaffold::AimSunAtVillage()
+{
+	UWorld* World = GetWorld();
+	if (!bAimSunAtVillage || !World)
+	{
+		return;
+	}
+
+	// The template sun left the shelf in the mountain's own shadow. Light now travels roughly
+	// -X and down, so it comes from over the spawn side (+X) and rakes the face the village
+	// sits on — and stays behind the player, who spawns looking -X toward the gate.
+	const FRotator SunRotation(-38.f, 162.f, 0.f);
+	for (TActorIterator<ADirectionalLight> It(World); It; ++It)
+	{
+		ADirectionalLight* Sun = *It;
+		if (!Sun || Sun->IsActorBeingDestroyed())
+		{
+			continue;
+		}
+		if (UDirectionalLightComponent* SunComp = Cast<UDirectionalLightComponent>(Sun->GetLightComponent()))
+		{
+			// Template suns are often Stationary, which silently ignores runtime rotation.
+			SunComp->SetMobility(EComponentMobility::Movable);
+			SunComp->SetWorldRotation(SunRotation);
+		}
+	}
+}
+
+void AMistspireDemoClimbScaffold::HideTemplateBackdrop()
+{
+	UWorld* World = GetWorld();
+	if (!bHideTemplateLandscape || !World)
+	{
+		return;
+	}
+
+	// Authored DemoEnv_* rocks and mountains predate the runtime dressing and now only clutter
+	// the shelf — one of them sat on the Mist Inn door. Collision goes too, so hiding them does
+	// not leave invisible blockers behind.
+	for (TActorIterator<AActor> It(World); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (!Actor || Actor->IsActorBeingDestroyed())
+		{
+			continue;
+		}
+		if (Actor->GetName().StartsWith(TEXT("DemoEnv_")))
+		{
+			Actor->SetActorHiddenInGame(true);
+			Actor->SetActorEnableCollision(false);
+		}
+	}
+
+	// Main_WP was created from /Engine/Maps/Templates/OpenWorld, which ships a flat untextured
+	// landscape. It is the grey card the demo keeps showing up against. Resolved by path so the
+	// game module needs no build dependency on the Landscape module. Collision is left intact so
+	// a fall off the spire still lands on something instead of dropping forever.
+	UClass* LandscapeProxyClass = FindObject<UClass>(nullptr, TEXT("/Script/Landscape.LandscapeProxy"));
+	if (!LandscapeProxyClass)
+	{
+		return;
+	}
+
+	int32 HiddenCount = 0;
+	for (TActorIterator<AActor> It(World, LandscapeProxyClass); It; ++It)
+	{
+		AActor* Proxy = *It;
+		if (!Proxy || Proxy->IsActorBeingDestroyed())
+		{
+			continue;
+		}
+		Proxy->SetActorHiddenInGame(true);
+		++HiddenCount;
+	}
+
+	if (HiddenCount != LastHiddenLandscapeCount)
+	{
+		LastHiddenLandscapeCount = HiddenCount;
+		UE_LOG(LogTemp, Log, TEXT("Mistspire DemoClimbScaffold: hiding %d template landscape proxies."), HiddenCount);
+	}
+
+	// World Partition streams landscape cells in as the player climbs, so re-apply on a slow
+	// tick rather than once at build time.
+	if (!World->GetTimerManager().IsTimerActive(LandscapeHideTimer))
+	{
+		World->GetTimerManager().SetTimer(
+			LandscapeHideTimer, this, &AMistspireDemoClimbScaffold::HideTemplateBackdrop, 3.f, true);
+	}
+}
+
+UStaticMeshComponent* AMistspireDemoClimbScaffold::AddTerrainMassif(
+	const FName& NameBase,
+	UStaticMesh* Mesh,
+	const FVector2D& OffsetFromValleyCm,
+	float FootprintRadiusCm,
+	float DesiredTopZCm,
+	float YawDeg)
+{
+	using namespace MistspireDemoSpire;
+	if (!Mesh)
+	{
+		return nullptr;
+	}
+
+	const FBoxSphereBounds Bounds = Mesh->GetBounds();
+	const double MeshRadius = FMath::Max3(Bounds.BoxExtent.X, Bounds.BoxExtent.Y, 1.0);
+	const float Scale = static_cast<float>(FootprintRadiusCm / MeshRadius);
+	const float TopOffsetZ = static_cast<float>((Bounds.Origin.Z + Bounds.BoxExtent.Z) * Scale);
+
+	const FVector Origin = GetValleyOrigin();
+	const FVector Loc(
+		Origin.X + OffsetFromValleyCm.X,
+		Origin.Y + OffsetFromValleyCm.Y,
+		DesiredTopZCm - TopOffsetZ);
+
+	return AddEnvMesh(NameBase, Mesh, Loc, FVector(Scale), FRotator(0.f, YawDeg, 0.f), false);
+}
+
+void AMistspireDemoClimbScaffold::DressValleyEnv()
+{
+	using namespace MistspireDemoSpire;
 	const FRotator Identity = FRotator::ZeroRotator;
 
-	AddCube(TEXT("ValleyFloor"), FVector(0.f, 0.f, -20.f), FVector(80.f, 80.f, 0.4f), Identity, MistTint);
-	AddCube(TEXT("ArchPillarL"), FVector(-250.f, -400.f, 300.f), FVector(1.2f, 1.2f, 6.f), Identity, MistTint);
-	AddCube(TEXT("ArchPillarR"), FVector(-250.f, 400.f, 300.f), FVector(1.2f, 1.2f, 6.f), Identity, MistTint);
-	AddCube(TEXT("ArchLintel"), FVector(-250.f, 0.f, 620.f), FVector(1.4f, 9.f, 1.f), Identity, MistTint);
-	AddCube(TEXT("BrazierPlinth"), FVector(-100.f, 0.f, 40.f), FVector(1.f, 1.f, 0.8f), Identity, FLinearColor(0.2f, 0.35f, 0.7f));
+	// ONE mountain under the village, 3 km across. Pinning it by bounds left the whole mass
+	// below the deck, where the deck itself occluded it and the village read as floating over
+	// void — so it is placed by tracing its own surface (below) instead.
+	// NoCollision — ShelfPad + gate rocks own walk collision (avoids capsule traps).
+	if (EnvMountains.Num() > 0)
+	{
+		// Prefer eroded mountain if present (index 4 in ResolveEnvDressMeshes list).
+		UStaticMesh* MassMesh = EnvMountains[0];
+		if (EnvMountains.Num() > 4 && EnvMountains[4])
+		{
+			MassMesh = EnvMountains[4]; // SM_Iceland_Eroded_Mountain
+		}
 
-	// Mist Inn porch marker near the atlas door (readable from valley spawn).
-	const FVector InnDoor = MistspireDemoSpire::GetMistInnDoorLocation();
-	AddCube(TEXT("InnPorch"), InnDoor + FVector(0.f, 0.f, -10.f), FVector(4.f, 4.f, 0.2f), Identity, FLinearColor(0.35f, 0.28f, 0.22f));
-	AddCube(TEXT("InnFrameL"), InnDoor + FVector(0.f, -90.f, 160.f), FVector(0.4f, 0.4f, 3.2f), Identity, FLinearColor(0.4f, 0.3f, 0.22f));
-	AddCube(TEXT("InnFrameR"), InnDoor + FVector(0.f, 90.f, 160.f), FVector(0.4f, 0.4f, 3.2f), Identity, FLinearColor(0.4f, 0.3f, 0.22f));
-	AddCube(TEXT("InnLintel"), InnDoor + FVector(0.f, 0.f, 330.f), FVector(0.5f, 2.2f, 0.4f), Identity, FLinearColor(0.45f, 0.32f, 0.2f));
+		UStaticMeshComponent* Mass = AddTerrainMassif(
+			TEXT("SummitMass"),
+			MassMesh,
+			FVector2D::ZeroVector,
+			150000.f,                          // 1.5 km half-extent: reaches the valley wall ring
+			GetValleyFloorZCm() + 30000.f,     // provisional; corrected by the surface trace
+			25.f);
+
+		if (Mass)
+		{
+			// Slide the mass vertically until its surface under the WHOLE village sits below the
+			// deck. Aligning only at the origin left the gate flush against a rising slope behind
+			// the mast — sample the pad, gate, spawn, and inn, then sink to the highest hit.
+			Mass->SetCollisionProfileName(TEXT("BlockAll"));
+			Mass->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+
+			const FVector Origin = GetValleyOrigin();
+			const float FloorZ = GetValleyFloorZCm();
+			const FVector Gate = GetValleyGateLocation();
+			const FVector Inn = GetMistInnDoorLocation();
+			const FVector Samples[] = {
+				Origin,
+				Gate,
+				Gate + FVector(0.f, -400.f, 0.f),
+				Gate + FVector(0.f, 400.f, 0.f),
+				GetValleySpawnLocation(),
+				FVector(Inn.X, Inn.Y, FloorZ),
+				Valley(-800.f, 0.f, 0.f),
+				Valley(0.f, -800.f, 0.f),
+				Valley(0.f, 800.f, 0.f),
+			};
+
+			FCollisionQueryParams TraceParams(FName(TEXT("MistspireSummitMass")), /*bTraceComplex*/ true);
+			float HighestSurfaceZ = -TNumericLimits<float>::Max();
+			bool bAnyHit = false;
+			for (const FVector& Sample : Samples)
+			{
+				FHitResult Hit;
+				const FVector TraceStart(Sample.X, Sample.Y, FloorZ + 300000.f);
+				const FVector TraceEnd(Sample.X, Sample.Y, FloorZ - 600000.f);
+				if (Mass->LineTraceComponent(Hit, TraceStart, TraceEnd, TraceParams))
+				{
+					HighestSurfaceZ = FMath::Max(HighestSurfaceZ, static_cast<float>(Hit.ImpactPoint.Z));
+					bAnyHit = true;
+				}
+			}
+
+			if (bAnyHit)
+			{
+				// Keep the mountain under the walk surface across the whole shelf footprint.
+				const float TargetSurfaceZ = FloorZ - 80.f;
+				Mass->AddWorldOffset(FVector(0.f, 0.f, TargetSurfaceZ - HighestSurfaceZ));
+			}
+
+			Mass->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		}
+	}
+
+	// Shelf rocks. Anything solid is refused inside the inn doorway's clearance so dressing can
+	// never wall the door off again, and the walk line from spawn to the inn is left open.
+	const FVector Gate = GetValleyGateLocation();
+	const FVector InnDoorXY = GetMistInnDoorLocation();
+	auto PlaceShelfRock = [&](const TCHAR* Name, int32 MeshIdx, const FVector& Loc, float Scale, float YawDeg)
+	{
+		if (MeshIdx < 0 || MeshIdx >= EnvRocks.Num())
+		{
+			return;
+		}
+		if (FVector::Dist2D(Loc, InnDoorXY) < InnDoorClearanceCm)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Mistspire DemoClimbScaffold: skipped %s — inside Mist Inn door clearance."), Name);
+			return;
+		}
+		AddEnvMesh(Name, EnvRocks[MeshIdx], Loc, FVector(Scale), FRotator(0.f, YawDeg, 0.f), true);
+	};
+
+	PlaceShelfRock(TEXT("GateRock_L"), 0, Gate + FVector(-80.f, -520.f, 0.f), 1.8f, 35.f);
+	PlaceShelfRock(TEXT("GateRock_R"), 1, Gate + FVector(-80.f, 540.f, 0.f), 1.6f, -40.f);
+	PlaceShelfRock(TEXT("ApproachRock"), 2, Valley(1100.f, 280.f, 0.f), 1.4f, 110.f);
+	PlaceShelfRock(TEXT("ShelfRock_A"), 3, Valley(250.f, 950.f, 0.f), 1.2f, 60.f);
+	PlaceShelfRock(TEXT("ShelfRock_B"), EnvRocks.Num() > 4 ? 4 : 3, Valley(-450.f, 1150.f, 0.f), 1.1f, -20.f);
+
+	if (EnvGrass)
+	{
+		AddEnvMesh(TEXT("ShelfGrass_A"), EnvGrass, Valley(300.f, 880.f, 8.f), FVector(1.3f), Identity, false);
+		AddEnvMesh(TEXT("ShelfGrass_B"), EnvGrass, Valley(520.f, -1050.f, 8.f), FVector(1.1f), FRotator(0.f, 70.f, 0.f), false);
+	}
+
+	if (EnvPine)
+	{
+		AddEnvMesh(TEXT("RimPine_A"), EnvPine, Valley(2400.f, -2100.f, 0.f), FVector(1.0f), FRotator(0.f, 15.f, 0.f), false);
+		AddEnvMesh(TEXT("RimPine_B"), EnvPine, Valley(2600.f, 1900.f, 0.f), FVector(0.9f), FRotator(0.f, -55.f, 0.f), false);
+	}
+
+	// Deliberately no ring of secondary landforms. Overlapping copies around SummitMass still
+	// read as separate slabs rather than one range, and they add nothing once the village sits
+	// on a single 3 km mountain — the summit and the sky are the whole backdrop.
+}
+
+void AMistspireDemoClimbScaffold::DressMistInnPorchEnv()
+{
+	using namespace MistspireDemoSpire;
+
+	// Assemble the cabin from each mesh's own bounds. Front is Wall_Door_4m (has the opening).
+	// Do NOT place Door_01 on top — that leaf's pivot does not match the cutout and was the
+	// "door not in the frame" look. Cabin shell is visual-only (NoCollision); enter is the
+	// atlas BuildingEntrance trigger on the plaza side of the wall.
+	UStaticMesh* FrontWallMesh = EnvWallDoor ? EnvWallDoor.Get() : EnvWall.Get();
+	UStaticMesh* SideWallMesh = EnvWall.Get();
+	if (!FrontWallMesh || !SideWallMesh)
+	{
+		return;
+	}
+
+	const FBoxSphereBounds FrontB = FrontWallMesh->GetBounds();
+	const FBoxSphereBounds SideB = SideWallMesh->GetBounds();
+
+	const float ModuleWidth = 2.f * FMath::Max(static_cast<float>(SideB.BoxExtent.X), static_cast<float>(SideB.BoxExtent.Y));
+	const float HalfModule = 0.5f * ModuleWidth;
+	const float FrontBottomLocal = static_cast<float>(FrontB.Origin.Z - FrontB.BoxExtent.Z);
+	const float FrontTopLocal = static_cast<float>(FrontB.Origin.Z + FrontB.BoxExtent.Z);
+
+	const FVector InnDoor = GetMistInnDoorLocation();
+	const FRotator FacePlaza(0.f, 90.f, 0.f);
+	const FRotator FaceSide(0.f, 180.f, 0.f);
+	const FVector Forward(0.f, 1.f, 0.f);
+	const FVector Right(1.f, 0.f, 0.f);
+	const float WallPivotZ = GetValleyFloorZCm() - FrontBottomLocal;
+
+	// If the pack authored a door socket, shift the wall so that socket lands on InnDoor —
+	// Wall_Door openings are often off-center in the 4m module.
+	FVector FrontLoc(InnDoor.X, InnDoor.Y, WallPivotZ);
+	FVector SocketLocal = FVector::ZeroVector;
+	bool bHasDoorSocket = false;
+	for (UStaticMeshSocket* Socket : FrontWallMesh->Sockets)
+	{
+		if (!Socket)
+		{
+			continue;
+		}
+		const FString NameStr = Socket->SocketName.ToString();
+		if (NameStr.Contains(TEXT("Door"), ESearchCase::IgnoreCase)
+			|| NameStr.Contains(TEXT("Entry"), ESearchCase::IgnoreCase))
+		{
+			SocketLocal = Socket->RelativeLocation;
+			bHasDoorSocket = true;
+			break;
+		}
+	}
+	if (bHasDoorSocket)
+	{
+		// Socket is in mesh local space; FacePlaza maps local +X → world +Y, local +Y → world -X.
+		const FVector SocketWorldOffset = FacePlaza.RotateVector(SocketLocal);
+		FrontLoc = FVector(
+			InnDoor.X - SocketWorldOffset.X,
+			InnDoor.Y - SocketWorldOffset.Y,
+			WallPivotZ);
+	}
+
+	// Visual shell only — convex collision on Wall_Door fills the opening and blocked enter.
+	AddEnvMesh(TEXT("InnEnvWall_Front"), FrontWallMesh, FrontLoc, FVector(1.f), FacePlaza, false);
+
+	// Door leaf in the cutout. Prefer the wall's door socket; otherwise seat the leaf on the
+	// atlas door XY using the door mesh's own bottom offset (no guessed cm).
+	if (EnvDoor)
+	{
+		FVector DoorLoc(InnDoor.X, InnDoor.Y, WallPivotZ);
+		if (bHasDoorSocket)
+		{
+			DoorLoc = FrontLoc + FacePlaza.RotateVector(SocketLocal);
+			DoorLoc.Z = WallPivotZ;
+		}
+		const FBoxSphereBounds DoorB = EnvDoor->GetBounds();
+		const float DoorBottomLocal = static_cast<float>(DoorB.Origin.Z - DoorB.BoxExtent.Z);
+		DoorLoc.Z = GetValleyFloorZCm() - DoorBottomLocal;
+		AddEnvMesh(TEXT("InnEnvDoor"), EnvDoor, DoorLoc, FVector(1.f), FacePlaza, false);
+	}
+
+	const FVector BackLoc = FrontLoc - Forward * ModuleWidth;
+	AddEnvMesh(TEXT("InnEnvWall_Back"), SideWallMesh, BackLoc, FVector(1.f), FacePlaza, false);
+
+	const FVector CabinCenter = FrontLoc - Forward * HalfModule;
+	AddEnvMesh(TEXT("InnEnvWall_L"), SideWallMesh, CabinCenter - Right * HalfModule, FVector(1.f), FaceSide, false);
+	AddEnvMesh(TEXT("InnEnvWall_R"), SideWallMesh, CabinCenter + Right * HalfModule, FVector(1.f), FaceSide, false);
+
+	if (EnvRoof)
+	{
+		const FBoxSphereBounds RoofB = EnvRoof->GetBounds();
+		const float RoofBottomLocal = static_cast<float>(RoofB.Origin.Z - RoofB.BoxExtent.Z);
+		const float RoofPivotZ = WallPivotZ + FrontTopLocal - RoofBottomLocal;
+		AddEnvMesh(TEXT("InnEnvRoof"), EnvRoof, FVector(CabinCenter.X, CabinCenter.Y, RoofPivotZ), FVector(1.f), FacePlaza, false);
+	}
+
+	if (EnvPorch)
+	{
+		const FBoxSphereBounds PorchB = EnvPorch->GetBounds();
+		const float PorchHalfDepth = FMath::Min(static_cast<float>(PorchB.BoxExtent.X), static_cast<float>(PorchB.BoxExtent.Y));
+		const float PorchBottomLocal = static_cast<float>(PorchB.Origin.Z - PorchB.BoxExtent.Z);
+		const float PorchPivotZ = GetValleyFloorZCm() - PorchBottomLocal;
+		const FVector PorchLoc = FrontLoc + Forward * PorchHalfDepth;
+		AddEnvMesh(TEXT("InnEnvPorch"), EnvPorch, FVector(PorchLoc.X, PorchLoc.Y, PorchPivotZ), FVector(1.f), FacePlaza, true);
+	}
+	else
+	{
+		AddCube(
+			TEXT("InnEnvPorchFallback"),
+			FrontLoc + Forward * HalfModule,
+			FVector(ModuleWidth / 100.f, ModuleWidth / 100.f, 0.25f),
+			FacePlaza,
+			FLinearColor(0.32f, 0.24f, 0.18f),
+			true);
+	}
+
+	UE_LOG(
+		LogTemp,
+		Log,
+		TEXT("Mistspire MistInn: module=%.0fcm wallH=%.0fcm front=%s doorSocket=%s"),
+		ModuleWidth,
+		FrontTopLocal - FrontBottomLocal,
+		*FrontWallMesh->GetName(),
+		bHasDoorSocket ? TEXT("yes") : TEXT("none"));
+}
+
+void AMistspireDemoClimbScaffold::DressStationEnv(
+	int32 StationIndex,
+	const FVector& Station,
+	const FVector& RadialOut,
+	const FVector& Tangent,
+	const FRotator& Yaw)
+{
+	using namespace MistspireDemoSpire;
+	const FString Prefix = FString::Printf(TEXT("S%d_Env"), StationIndex);
+	const int32 RockIdx = EnvRocks.Num() > 0 ? StationIndex % EnvRocks.Num() : -1;
+	const float Ring = StationDressRingCm;
+
+	auto PlaceDressRock = [&](const TCHAR* Suffix, int32 MeshIdx, const FVector& Offset, float Scale)
+	{
+		if (MeshIdx < 0 || MeshIdx >= EnvRocks.Num())
+		{
+			return;
+		}
+		AddEnvMesh(*(Prefix + Suffix), EnvRocks[MeshIdx], Station + Offset, FVector(Scale), Yaw, false);
+	};
+
+	switch (StationIndex)
+	{
+	case 0:
+		PlaceDressRock(TEXT("RockL"), RockIdx, RadialOut * Ring + Tangent * 280.f, 1.3f);
+		if (EnvRocks.Num() > 1)
+		{
+			PlaceDressRock(TEXT("RockR"), (RockIdx + 1) % EnvRocks.Num(), RadialOut * Ring - Tangent * 280.f, 1.15f);
+		}
+		break;
+	case 1:
+		PlaceDressRock(TEXT("MesaRock"), RockIdx, RadialOut * (Ring + 40.f), 1.8f);
+		break;
+	case 2:
+		if (EnvPine)
+		{
+			AddEnvMesh(*(Prefix + TEXT("PineA")), EnvPine, Station + RadialOut * 2600.f + Tangent * 400.f, FVector(1.0f), Yaw, false);
+			AddEnvMesh(*(Prefix + TEXT("PineB")), EnvPine, Station + RadialOut * 2800.f - Tangent * 500.f, FVector(0.85f), Yaw, false);
+		}
+		PlaceDressRock(TEXT("Rock"), RockIdx, RadialOut * Ring + Tangent * 120.f, 1.0f);
+		break;
+	case 3:
+		PlaceDressRock(TEXT("EmberRock"), RockIdx, RadialOut * Ring - Tangent * 200.f, 1.35f);
+		break;
+	case 4:
+		PlaceDressRock(TEXT("CrystalRock"), RockIdx, RadialOut * Ring + Tangent * 160.f, 1.25f);
+		break;
+	case 5:
+		PlaceDressRock(TEXT("VoidRock"), RockIdx, RadialOut * Ring, 1.4f);
+		break;
+	case 6:
+		// Rocks only above the valley: Iceland terrain patches floated here read as slices.
+		PlaceDressRock(TEXT("IceRock"), RockIdx, RadialOut * Ring, 1.5f);
+		if (EnvRocks.Num() > 1)
+		{
+			PlaceDressRock(TEXT("IceRockB"), (RockIdx + 2) % EnvRocks.Num(), RadialOut * (Ring - 60.f) + Tangent * 240.f, 1.1f);
+		}
+		break;
+	case 7:
+		PlaceDressRock(TEXT("AetherRock"), RockIdx, RadialOut * Ring + Tangent * 100.f, 1.2f);
+		break;
+	case 8:
+		PlaceDressRock(TEXT("SanctumRock"), RockIdx, RadialOut * Ring, 1.3f);
+		break;
+	case 9:
+		PlaceDressRock(TEXT("PeakRock"), RockIdx, RadialOut * Ring, 1.5f);
+		if (EnvRocks.Num() > 2)
+		{
+			PlaceDressRock(TEXT("PeakRockB"), (RockIdx + 3) % EnvRocks.Num(), RadialOut * (Ring - 50.f) - Tangent * 220.f, 1.2f);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+void AMistspireDemoClimbScaffold::BuildValley()
+{
+	using namespace MistspireDemoSpire;
+	const FLinearColor MistTint = GetBiomeTint(0);
+	const FRotator Identity = FRotator::ZeroRotator;
+
+	// Wider walkable deck — SummitMass is the visual mountain under/around this pad.
+	AddCube(TEXT("ShelfPad"), Valley(0.f, 0.f, -20.f), FVector(55.f, 55.f, 0.45f), Identity, FLinearColor(0.22f, 0.24f, 0.26f));
+	const FVector Gate = GetValleyGateLocation();
+	AddCube(TEXT("ArchPillarL"), Gate + FVector(0.f, -400.f, 300.f), FVector(1.2f, 1.2f, 6.f), Identity, MistTint);
+	AddCube(TEXT("ArchPillarR"), Gate + FVector(0.f, 400.f, 300.f), FVector(1.2f, 1.2f, 6.f), Identity, MistTint);
+	AddCube(TEXT("ArchLintel"), Gate + FVector(0.f, 0.f, 620.f), FVector(1.4f, 9.f, 1.f), Identity, MistTint);
+	AddCube(TEXT("BrazierPlinth"), Gate + FVector(150.f, 0.f, 40.f), FVector(1.f, 1.f, 0.8f), Identity, FLinearColor(0.2f, 0.35f, 0.7f));
+
+	// Grapple handoff landmark at end of walkable approach.
+	AddCube(TEXT("HandoffBeacon"), Valley(2200.f, 0.f, ApproachEndZCm + 80.f), FVector(1.2f, 1.2f, 4.f), Identity, FLinearColor(0.95f, 0.75f, 0.2f), false);
+
+	const FVector InnDoor = GetMistInnDoorLocation();
+	AddCube(TEXT("InnPorchMarker"), FVector(InnDoor.X, InnDoor.Y + 200.f, GetValleyFloorZCm()), FVector(3.5f, 3.5f, 0.2f), FRotator(0.f, 90.f, 0.f), FLinearColor(0.35f, 0.28f, 0.22f));
 
 	UPointLightComponent* Brazier = NewObject<UPointLightComponent>(
 		this, MakeUniqueObjectName(this, UPointLightComponent::StaticClass(), TEXT("ValleyBrazierLight")));
 	Brazier->SetupAttachment(Root);
-	Brazier->SetWorldLocation(FVector(-100.f, 0.f, 120.f));
-	Brazier->SetLightColor(MistspireDemoSpire::GetBiomeLightColor(0));
-	Brazier->SetIntensity(10000.f);
-	Brazier->SetAttenuationRadius(1400.f);
+	Brazier->SetWorldLocation(Gate + FVector(150.f, 0.f, 120.f));
+	Brazier->SetLightColor(GetBiomeLightColor(0));
+	Brazier->SetIntensity(12000.f);
+	Brazier->SetAttenuationRadius(1600.f);
 	Brazier->RegisterComponent();
 
 	UPointLightComponent* InnGlow = NewObject<UPointLightComponent>(
@@ -289,27 +843,64 @@ void AMistspireDemoClimbScaffold::BuildValley()
 	InnGlow->SetupAttachment(Root);
 	InnGlow->SetWorldLocation(InnDoor + FVector(0.f, 0.f, 280.f));
 	InnGlow->SetLightColor(FLinearColor(1.f, 0.72f, 0.4f));
-	InnGlow->SetIntensity(6000.f);
-	InnGlow->SetAttenuationRadius(900.f);
+	InnGlow->SetIntensity(7000.f);
+	InnGlow->SetAttenuationRadius(1000.f);
 	InnGlow->RegisterComponent();
+
+	if (bSpawnEnvDress)
+	{
+		DressValleyEnv();
+		DressMistInnPorchEnv();
+	}
 }
 
 void AMistspireDemoClimbScaffold::BuildMistInnPocket()
 {
-	const FVector Origin = MistspireDemoSpire::GetMistInnInteriorSpawn();
+	using namespace MistspireDemoSpire;
+	const FVector Origin = GetMistInnInteriorSpawn();
 	const FRotator Identity = FRotator::ZeroRotator;
 	const FLinearColor WarmWood(0.42f, 0.30f, 0.18f);
 	const FLinearColor WarmFloor(0.28f, 0.22f, 0.16f);
 	const FLinearColor Hearth(0.55f, 0.25f, 0.12f);
 
-	// Simple pocket room (~8×6×4 m) around atlas interior spawn.
+	// Pocket room (~8×6×4 m). Exit is a door wall on +X (not an open void); InteriorExit sits
+	// in that doorway so walking through returns to the valley porch.
 	AddCube(TEXT("InnFloor"), Origin + FVector(0.f, 0.f, -20.f), FVector(8.f, 6.f, 0.4f), Identity, WarmFloor);
 	AddCube(TEXT("InnCeiling"), Origin + FVector(0.f, 0.f, 400.f), FVector(8.f, 6.f, 0.3f), Identity, WarmWood);
 	AddCube(TEXT("InnWallBack"), Origin + FVector(-400.f, 0.f, 180.f), FVector(0.3f, 6.f, 4.f), Identity, WarmWood);
-	AddCube(TEXT("InnWallL"), Origin + FVector(0.f, -300.f, 180.f), FVector(8.f, 0.3f, 4.f), Identity, WarmWood);
-	AddCube(TEXT("InnWallR"), Origin + FVector(0.f, 300.f, 180.f), FVector(8.f, 0.3f, 4.f), Identity, WarmWood);
+	AddCube(TEXT("InnWallL"), Origin + FVector(-50.f, -300.f, 180.f), FVector(7.f, 0.3f, 4.f), Identity, WarmWood);
+	AddCube(TEXT("InnWallR"), Origin + FVector(-50.f, 300.f, 180.f), FVector(7.f, 0.3f, 4.f), Identity, WarmWood);
+
+	UStaticMesh* ExitWallMesh = EnvWallDoor ? EnvWallDoor.Get() : EnvWall.Get();
+	if (ExitWallMesh)
+	{
+		const FBoxSphereBounds WB = ExitWallMesh->GetBounds();
+		const float BottomLocal = static_cast<float>(WB.Origin.Z - WB.BoxExtent.Z);
+		const float WallPivotZ = Origin.Z - BottomLocal;
+		// Face back into the room (-X) so the opening reads as an interior exit door.
+		const FRotator FaceInside(0.f, 180.f, 0.f);
+		const FVector ExitWallLoc(Origin.X + 400.f, Origin.Y, WallPivotZ);
+		AddEnvMesh(TEXT("InnExitWall"), ExitWallMesh, ExitWallLoc, FVector(1.f), FaceInside, false);
+
+		if (EnvDoor)
+		{
+			const FBoxSphereBounds DoorB = EnvDoor->GetBounds();
+			const float DoorBottomLocal = static_cast<float>(DoorB.Origin.Z - DoorB.BoxExtent.Z);
+			const FVector DoorLoc(Origin.X + 400.f, Origin.Y, Origin.Z - DoorBottomLocal);
+			AddEnvMesh(TEXT("InnExitDoor"), EnvDoor, DoorLoc, FVector(1.f), FaceInside, false);
+		}
+	}
+	else
+	{
+		// Greybox door wall: solid flanks + lintel, open center for the exit volume.
+		AddCube(TEXT("InnExitFlankL"), Origin + FVector(400.f, -180.f, 180.f), FVector(0.3f, 2.4f, 4.f), Identity, WarmWood);
+		AddCube(TEXT("InnExitFlankR"), Origin + FVector(400.f, 180.f, 180.f), FVector(0.3f, 2.4f, 4.f), Identity, WarmWood);
+		AddCube(TEXT("InnExitLintel"), Origin + FVector(400.f, 0.f, 360.f), FVector(0.3f, 1.2f, 0.8f), Identity, WarmWood);
+	}
+
+	// Keep hearth/table away from the +X exit corridor.
 	AddCube(TEXT("InnHearth"), Origin + FVector(-280.f, 0.f, 80.f), FVector(1.2f, 2.f, 1.6f), Identity, Hearth);
-	AddCube(TEXT("InnTable"), Origin + FVector(80.f, 120.f, 50.f), FVector(1.5f, 1.f, 0.8f), Identity, WarmWood);
+	AddCube(TEXT("InnTable"), Origin + FVector(-40.f, 140.f, 50.f), FVector(1.5f, 1.f, 0.8f), Identity, WarmWood);
 
 	UPointLightComponent* HearthLight = NewObject<UPointLightComponent>(
 		this, MakeUniqueObjectName(this, UPointLightComponent::StaticClass(), TEXT("InnHearthLight")));
@@ -335,7 +926,7 @@ void AMistspireDemoClimbScaffold::SpawnValleyImmersionProps()
 
 	const FVector InnDoor = MistspireDemoSpire::GetMistInnDoorLocation();
 	if (AMistspirePhysicalButton* WeatherBtn = World->SpawnActor<AMistspirePhysicalButton>(
-		InnDoor + FVector(-120.f, 160.f, 40.f), FRotator::ZeroRotator, Params))
+		InnDoor + FVector(-140.f, 200.f, 40.f), FRotator(0.f, 90.f, 0.f), Params))
 	{
 		WeatherBtn->BuiltInAction = EMistspireButtonAction::CycleWeather;
 #if WITH_EDITOR
@@ -344,9 +935,68 @@ void AMistspireDemoClimbScaffold::SpawnValleyImmersionProps()
 		SpawnedPropActors.Add(WeatherBtn);
 	}
 
-	// Door + interior exit come from UMistspireWorldAtlasSubsystem::SpawnAuthoredWorldMarkers
-	// (building_valley_inn now points at GetMistInnDoorLocation / GetMistInnInteriorSpawn).
+	// Refresh / spawn Mist Inn enter volume. Walking into it teleports to the pocket room at
+	// GetMistInnInteriorSpawn(); the exterior cabin is only a shell.
+	if (UMistspireWorldAtlasSubsystem* Atlas = World->GetSubsystem<UMistspireWorldAtlasSubsystem>())
+	{
+		Atlas->SeedProductionWorld();
+		Atlas->SpawnAuthoredWorldMarkers();
+	}
+	const FName MistInnId(TEXT("building_valley_inn"));
+	const FVector Trigger = MistspireDemoSpire::GetMistInnDoorTriggerLocation();
+	bool bFoundInnDoor = false;
+	for (TActorIterator<AMistspireBuildingEntrance> It(World); It; ++It)
+	{
+		if (It->BuildingId != MistInnId)
+		{
+			continue;
+		}
+		bFoundInnDoor = true;
+		It->SetActorLocationAndRotation(Trigger, FRotator(0.f, 90.f, 0.f));
+		if (UBoxComponent* Box = It->FindComponentByClass<UBoxComponent>())
+		{
+			// Generous trigger on the plaza side of the opening.
+			Box->SetBoxExtent(FVector(100.f, 180.f, 220.f));
+		}
+		// Hide the greybox door frame — Wall_Door_4m is the visible entrance.
+		TArray<UStaticMeshComponent*> Meshes;
+		It->GetComponents<UStaticMeshComponent>(Meshes);
+		for (UStaticMeshComponent* MeshComp : Meshes)
+		{
+			if (MeshComp)
+			{
+				MeshComp->SetVisibility(false);
+			}
+		}
+		break;
+	}
+	if (!bFoundInnDoor)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("Mistspire MistInn: no building_valley_inn entrance — walk-in teleport unavailable. Enable -demoworld / mistspire.DemoMode 1."));
+	}
 
+	// Keep the pocket exit volume seated in the exit door opening (atlas may have spawned it at the old +200 offset).
+	const FVector ExitLoc = MistspireDemoSpire::GetMistInnInteriorExitLocation();
+	bool bFoundExit = false;
+	for (TActorIterator<AMistspireInteriorExit> It(World); It; ++It)
+	{
+		const FVector Loc = It->GetActorLocation();
+		if (FVector::DistSquared(Loc, MistspireDemoSpire::GetMistInnInteriorSpawn()) < FMath::Square(2000.f)
+			|| FVector::DistSquared(Loc, ExitLoc) < FMath::Square(2000.f))
+		{
+			It->SetActorLocation(ExitLoc);
+			bFoundExit = true;
+			break;
+		}
+	}
+	if (!bFoundExit)
+	{
+		if (AMistspireInteriorExit* Exit = World->SpawnActor<AMistspireInteriorExit>(ExitLoc, FRotator::ZeroRotator, Params))
+		{
+			SpawnedPropActors.Add(Exit);
+		}
+	}
 	const FVector Interior = MistspireDemoSpire::GetMistInnInteriorSpawn();
 	if (AMistspireRestShelter* Shelter = World->SpawnActor<AMistspireRestShelter>(
 		Interior + FVector(120.f, -80.f, 40.f), FRotator::ZeroRotator, Params))
@@ -371,23 +1021,24 @@ void AMistspireDemoClimbScaffold::SpawnValleyImmersionProps()
 
 void AMistspireDemoClimbScaffold::BuildCentralMast()
 {
-	// Lit central column so the vertical journey reads in a single camera beat.
+	using namespace MistspireDemoSpire;
 	const FLinearColor MastTint(0.35f, 0.38f, 0.45f);
+	const float FloorZ = GetValleyFloorZCm();
 	AddCylinder(
 		TEXT("CentralMast"),
-		FVector(0.f, 0.f, MistspireDemoSpire::StationAltitudeCm[9] * 0.5f),
-		FVector(2.5f, 2.5f, MistspireDemoSpire::StationAltitudeCm[9] / 100.f),
+		FVector(GetValleyOrigin().X, GetValleyOrigin().Y, FloorZ + StationAltitudeCm[9] * 0.5f),
+		FVector(2.5f, 2.5f, StationAltitudeCm[9] / 100.f),
 		FRotator::ZeroRotator,
 		MastTint,
 		false);
 
-	for (int32 i = 0; i < MistspireDemoSpire::StationCount; ++i)
+	for (int32 i = 0; i < StationCount; ++i)
 	{
 		UPointLightComponent* Beacon = NewObject<UPointLightComponent>(
 			this, MakeUniqueObjectName(this, UPointLightComponent::StaticClass(), *FString::Printf(TEXT("MastBeacon_%d"), i)));
 		Beacon->SetupAttachment(Root);
-		Beacon->SetWorldLocation(FVector(0.f, 0.f, MistspireDemoSpire::StationAltitudeCm[i]));
-		Beacon->SetLightColor(MistspireDemoSpire::GetBiomeLightColor(i));
+		Beacon->SetWorldLocation(FVector(GetValleyOrigin().X, GetValleyOrigin().Y, FloorZ + StationAltitudeCm[i]));
+		Beacon->SetLightColor(GetBiomeLightColor(i));
 		Beacon->SetIntensity(25000.f);
 		Beacon->SetAttenuationRadius(6000.f);
 		Beacon->RegisterComponent();
@@ -396,25 +1047,30 @@ void AMistspireDemoClimbScaffold::BuildCentralMast()
 
 void AMistspireDemoClimbScaffold::BuildApproachHelix()
 {
-	// Walkable stairs: rise ≤45 cm; StartRadius 2200 + 450° sweep → ~115–131 cm tread advance.
-	const FLinearColor Tint = MistspireDemoSpire::GetBiomeTint(0);
-	const float StartAngleDeg = -MistspireDemoSpire::ApproachSweepDeg;
+	using namespace MistspireDemoSpire;
+	const FLinearColor Tint = GetBiomeTint(0);
+	const float StartAngleDeg = -ApproachSweepDeg;
 	const float EndAngleDeg = 0.f;
 	const float StartRadius = 2200.f;
-	const float EndRadius = MistspireDemoSpire::HelixRadiusCm;
-	const float StepZ = MistspireDemoSpire::ApproachStepZCm;
+	const float EndRadius = HelixRadiusCm;
+	const float StepZ = ApproachStepZCm;
+	const float FloorZ = GetValleyFloorZCm();
+	const FVector Origin = GetValleyOrigin();
 
 	int32 Step = 0;
-	for (float Z = 0.f; Z <= MistspireDemoSpire::ApproachEndZCm + 1.f; Z += StepZ)
+	for (float Z = 0.f; Z <= ApproachEndZCm + 1.f; Z += StepZ)
 	{
 		const float T = FMath::Clamp(
-			(MistspireDemoSpire::ApproachEndZCm > 0.f) ? (Z / MistspireDemoSpire::ApproachEndZCm) : 1.f,
+			(ApproachEndZCm > 0.f) ? (Z / ApproachEndZCm) : 1.f,
 			0.f, 1.f);
 		const float AngleDeg = FMath::Lerp(StartAngleDeg, EndAngleDeg, T);
 		const float AngleRad = FMath::DegreesToRadians(AngleDeg);
 		const float Radius = FMath::Lerp(StartRadius, EndRadius, T);
 		const FRotator Yaw(0.f, AngleDeg, 0.f);
-		const FVector Loc(Radius * FMath::Cos(AngleRad), Radius * FMath::Sin(AngleRad), Z);
+		const FVector Loc(
+			Origin.X + Radius * FMath::Cos(AngleRad),
+			Origin.Y + Radius * FMath::Sin(AngleRad),
+			FloorZ + Z);
 
 		AddCube(*FString::Printf(TEXT("ApproachPad_%d"), Step), Loc, FVector(1.5f, 1.5f, 0.4f), Yaw, Tint);
 
@@ -434,18 +1090,19 @@ void AMistspireDemoClimbScaffold::BuildApproachHelix()
 
 void AMistspireDemoClimbScaffold::BuildGrappleShaftToMist()
 {
-	// Floating grapple pads staggered off-axis so tops/sides are landable (not undersides).
-	const FLinearColor Tint = MistspireDemoSpire::GetBiomeTint(0);
-	const FVector Station0 = MistspireDemoSpire::GetStationLocation(0);
+	using namespace MistspireDemoSpire;
+	const FLinearColor Tint = GetBiomeTint(0);
+	const FVector Station0 = GetStationLocation(0);
 	const FRotator Yaw(0.f, 0.f, 0.f);
-	const float MistVignetteStart = MistspireDemoSpire::StationAltitudeCm[0] - MistspireDemoSpire::VignetteHeightCm;
+	const float FloorZ = GetValleyFloorZCm();
+	const float MistVignetteStart = StationAltitudeCm[0] - VignetteHeightCm;
 	constexpr float GapZ = 4500.f;
 
 	int32 Peg = 0;
-	for (float Z = MistspireDemoSpire::ApproachEndZCm + GapZ; Z < MistVignetteStart - 100.f; Z += GapZ)
+	for (float Z = ApproachEndZCm + GapZ; Z < MistVignetteStart - 100.f; Z += GapZ)
 	{
 		const float Side = (Peg % 2 == 0) ? 400.f : -400.f;
-		const FVector PadLoc(Station0.X, Station0.Y + Side, Z);
+		const FVector PadLoc(Station0.X, Station0.Y + Side, FloorZ + Z);
 		AddCube(*FString::Printf(TEXT("ShaftPad_%d"), Peg), PadLoc, FVector(3.5f, 3.5f, 0.35f), Yaw, Tint);
 		AddCube(
 			*FString::Printf(TEXT("ShaftPeg_%d"), Peg),
@@ -539,6 +1196,11 @@ void AMistspireDemoClimbScaffold::BuildStation(int32 StationIndex)
 		break;
 	}
 
+	if (bSpawnEnvDress)
+	{
+		DressStationEnv(StationIndex, Station, RadialOut, Tangent, Yaw);
+	}
+
 	UPointLightComponent* Light = NewObject<UPointLightComponent>(
 		this, MakeUniqueObjectName(this, UPointLightComponent::StaticClass(), *(Prefix + TEXT("Light"))));
 	Light->SetupAttachment(Root);
@@ -619,7 +1281,7 @@ void AMistspireDemoClimbScaffold::SpawnImmersionForStation(int32 StationIndex, c
 	if (StationIndex == 0)
 	{
 		if (AMistspireLoreShard* Shard = World->SpawnActor<AMistspireLoreShard>(
-			FVector(400.f, 200.f, 80.f), FRotator::ZeroRotator, Params))
+			MistspireDemoSpire::Valley(400.f, 200.f, 80.f), FRotator::ZeroRotator, Params))
 		{
 			Shard->LoreTitle = NSLOCTEXT("Mistspire", "DemoLoreTitle", "Valley Gate");
 			Shard->LoreBody = NSLOCTEXT("Mistspire", "DemoLoreBody", "Every step after the Gate is an ascent.");
@@ -628,42 +1290,5 @@ void AMistspireDemoClimbScaffold::SpawnImmersionForStation(int32 StationIndex, c
 #endif
 			SpawnedPropActors.Add(Shard);
 		}
-	}
-}
-
-void AMistspireDemoClimbScaffold::BuildDistantSilhouettes()
-{
-	for (int32 i = 0; i < MistspireDemoSpire::StationCount; ++i)
-	{
-		const float AngleRad = FMath::DegreesToRadians(static_cast<float>(i) * MistspireDemoSpire::AngleStepDeg + 18.f);
-		const float Radius = 45000.f; // 450 m — reads as distant parallax
-		const FVector Loc(
-			Radius * FMath::Cos(AngleRad),
-			Radius * FMath::Sin(AngleRad),
-			MistspireDemoSpire::StationAltitudeCm[i] * 0.35f);
-		const FLinearColor Tint = MistspireDemoSpire::GetBiomeTint(i) * 0.75f;
-		AddCube(
-			*FString::Printf(TEXT("Silhouette_%d"), i),
-			Loc,
-			FVector(40.f, 40.f, 100.f + static_cast<float>(i) * 16.f),
-			FRotator(0.f, MistspireDemoSpire::GetStationYawDeg(i) + 18.f, 0.f),
-			Tint,
-			false);
-		AddCube(
-			*FString::Printf(TEXT("SilhouetteCap_%d"), i),
-			Loc + FVector(0.f, 0.f, 500.f + static_cast<float>(i) * 80.f),
-			FVector(18.f, 18.f, 25.f),
-			FRotator(0.f, MistspireDemoSpire::GetStationYawDeg(i) + 18.f, 0.f),
-			Tint * 1.15f,
-			false);
-
-		UPointLightComponent* Glow = NewObject<UPointLightComponent>(
-			this, MakeUniqueObjectName(this, UPointLightComponent::StaticClass(), *FString::Printf(TEXT("SilhouetteGlow_%d"), i)));
-		Glow->SetupAttachment(Root);
-		Glow->SetWorldLocation(Loc + FVector(0.f, 0.f, 200.f));
-		Glow->SetLightColor(MistspireDemoSpire::GetBiomeLightColor(i));
-		Glow->SetIntensity(40000.f);
-		Glow->SetAttenuationRadius(8000.f);
-		Glow->RegisterComponent();
 	}
 }
