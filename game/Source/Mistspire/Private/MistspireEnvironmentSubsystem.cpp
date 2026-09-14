@@ -95,6 +95,17 @@ void UMistspireEnvironmentSubsystem::ResolveSkydomeActors()
 
 		SkyDomeActors.Add(Actor);
 
+		// Template BP_Sky_Sphere ships as Static; we recenter it on the camera each tick.
+		TArray<USceneComponent*> SceneComps;
+		Actor->GetComponents<USceneComponent>(SceneComps);
+		for (USceneComponent* Comp : SceneComps)
+		{
+			if (Comp && Comp->Mobility != EComponentMobility::Movable)
+			{
+				Comp->SetMobility(EComponentMobility::Movable);
+			}
+		}
+
 		if (const UStaticMeshComponent* MeshComp = Actor->FindComponentByClass<UStaticMeshComponent>())
 		{
 			if (const UStaticMesh* Mesh = MeshComp->GetStaticMesh())
@@ -155,6 +166,15 @@ void UMistspireEnvironmentSubsystem::UpdateSkydomeCoverage()
 		}
 
 		// Keep the camera inside the inverted sky mesh so the EngineSky material covers the frustum.
+		TArray<USceneComponent*> SceneComps;
+		Sky->GetComponents<USceneComponent>(SceneComps);
+		for (USceneComponent* Comp : SceneComps)
+		{
+			if (Comp && Comp->Mobility != EComponentMobility::Movable)
+			{
+				Comp->SetMobility(EComponentMobility::Movable);
+			}
+		}
 		Sky->SetActorLocation(ViewLoc, false, nullptr, ETeleportType::None);
 
 		if (SkydomeMinUniformScale > 0.f)

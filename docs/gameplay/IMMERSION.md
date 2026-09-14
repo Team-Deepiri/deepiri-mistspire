@@ -7,7 +7,7 @@
 | Grip | Grab / climb |
 | Left stick | Move + strafe |
 | Right stick X | Turn |
-| Right trigger | **Grapple** (line trace); hold to reel faster; press again to cancel |
+| Right trigger | **Grapple** (line trace → swing/reel); hold to reel faster; release carries momentum (auto-glide at speed) |
 | B button | **Glider** toggle |
 | Menu | Teleport blink forward |
 | Hands high + forward | **Mantle** ledge assist |
@@ -23,11 +23,11 @@ Editor **Play** or packaged `-nonvr`. Full table: [docs/setup/NONVR_MODE.md](../
 | Space | Jump |
 | Left Control (hold) | Climb |
 | Left Shift (hold) | Sprint |
-| F / Right mouse | Grapple (center + aim); press again to cancel |
+| F / Right mouse | Grapple (center + aim); hold to reel; WASD steers on cable; press again to release with momentum |
 | G | Glider toggle |
 | T | Teleport blink |
 | E | Interact |
-| Esc | Settings menu |
+| Esc | Settings (display, controls, audio, gameplay) |
 | Alt+Enter / F11 | Toggle fullscreen |
 
 ## Survival

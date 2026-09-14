@@ -194,9 +194,9 @@ void AMistspireHUD::DrawHUD()
 
 	if (bNonVR && Pawn && !Pawn->HasGameplayStarted())
 	{
-		DrawSlateText(Canvas, TEXT("Mistspire"), CX, CY, 72.f, FLinearColor::White, true, true);
-		DrawSlateText(Canvas, TEXT("Press any key to start"), CX, Canvas->ClipY - 72.f, 28.f,
-			FLinearColor(1.f, 1.f, 1.f, 0.92f), true, true);
+		// Title screen visuals (title, Start/Settings/Credits/Quit) are owned by
+		// SMistspireTitlePanel (AMistspireVRPawn::ShowTitleMenu); avoid drawing a
+		// duplicate canvas title on top of it.
 		return;
 	}
 
